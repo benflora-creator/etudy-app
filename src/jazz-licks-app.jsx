@@ -516,8 +516,28 @@ function makeVibes(bag){
 function makeMelSynth(id,bag){if((id==="piano"||id==="rhodes")&&_samplerReady&&_sampler)return id==="piano"?makeSamplerPiano(bag):makeSamplerRhodes(bag);switch(id){case"piano":case"rhodes":return makeSynthPiano(bag);case"sax":return makeSax(bag);case"trumpet":return makeTrumpet(bag);case"guitar":return makeGuitar(bag);case"flute":return makeFlute(bag);case"vibes":return makeVibes(bag);default:return makeSynthPiano(bag);}}
 function makeChordSynth(bag){const rev=new Tone.Reverb({decay:3,wet:0.22}).toDestination();const ch=new Tone.Chorus({frequency:0.4,delayTime:6,depth:0.22,wet:0.22}).connect(rev);ch.start();const tr=new Tone.Tremolo({frequency:2.2,depth:0.12,wet:0.18}).connect(ch);tr.start();const flt=new Tone.Filter({frequency:1800,type:"lowpass",rolloff:-24}).connect(tr);const s=new Tone.PolySynth(Tone.FMSynth,{harmonicity:3,modulationIndex:0.6,oscillator:{type:"fatsine2",spread:15,count:3},modulation:{type:"sine"},envelope:{attack:0.015,decay:1.0,sustain:0.3,release:1.5},modulationEnvelope:{attack:0.008,decay:0.6,sustain:0,release:0.6},volume:-18}).connect(flt);bag.push(s,flt,tr,ch,rev);return s;}
 function makeClick(bag){const rev=new Tone.Reverb({decay:0.2,wet:0.06}).toDestination();const flt=new Tone.Filter({frequency:7000,type:"bandpass",Q:2}).connect(rev);const hi=new Tone.NoiseSynth({noise:{type:"white"},envelope:{attack:0.001,decay:0.035,sustain:0,release:0.015},volume:-10}).connect(flt);const lo=new Tone.NoiseSynth({noise:{type:"pink"},envelope:{attack:0.001,decay:0.02,sustain:0,release:0.01},volume:-16}).connect(flt);bag.push(hi,lo,flt,rev);return{hi,lo};}
-let _pS=null,_pR=null;
-async function prevNote(n,o,a){try{await Tone.start();let nm=n;if(a===1)nm+="#";else if(a===-1)nm+="b";nm+=o;if(_samplerReady&&_sampler){_sampler.triggerAttackRelease(nm,"8n");return;}if(_pS)try{_pS.dispose();}catch(e){}if(_pR)try{_pR.dispose();}catch(e){}_pR=new Tone.Reverb({decay:1.2,wet:0.16}).toDestination();_pS=new Tone.AMSynth({harmonicity:2,oscillator:{type:"fatsine3",spread:10,count:3},modulation:{type:"sine"},envelope:{attack:0.004,decay:0.5,sustain:0.04,release:0.8},modulationEnvelope:{attack:0.003,decay:0.3,sustain:0,release:0.3},volume:-8}).connect(_pR);_pS.triggerAttackRelease(nm,"8n");}catch(e){}}
+let _pS=null,_pR=null,_pReady=false;
+function _ensurePreviewSynth(){
+  if(_pReady&&_pS)return;
+  try{
+    if(_pR)try{_pR.dispose();}catch(e){}
+    if(_pS)try{_pS.dispose();}catch(e){}
+    _pR=new Tone.Reverb({decay:1.4,wet:0.18}).toDestination();
+    _pS=new Tone.AMSynth({harmonicity:2,oscillator:{type:"fatsine3",spread:10,count:3},modulation:{type:"sine"},envelope:{attack:0.003,decay:0.6,sustain:0.05,release:0.9},modulationEnvelope:{attack:0.003,decay:0.3,sustain:0,release:0.3},volume:-6}).connect(_pR);
+    _pReady=true;
+  }catch(e){_pReady=false;}
+}
+function prevNote(n,o,a){
+  try{
+    Tone.start();
+    var nm=n;if(a===1)nm+="#";else if(a===-1)nm+="b";nm+=o;
+    // Use sampler if available (best sound)
+    if(_samplerReady&&_sampler){_sampler.triggerAttackRelease(nm,"4n");return;}
+    // Fallback: persistent synth
+    _ensurePreviewSynth();
+    if(_pS)_pS.triggerAttackRelease(nm,"4n");
+  }catch(e){}
+}
 
 // ============================================================
 // CARD PREVIEW PLAYER — lightweight, global singleton
@@ -3087,6 +3107,8 @@ function PolyrhythmTrainer({th,sharedInput,sharedMicSilent}){
 // ============================================================
 function Editor({onClose,onSubmit,onSubmitPrivate,th}){const t=th||TH.classic;const isStudio=t===TH.studio;
   const[title,sT]=useState("");const[artist,sA]=useState("");const[inst,sI]=useState("Alto Sax");const[cat,sC]=useState("ii-V-I");const[keySig,sK]=useState("C");const[timeSig,sTS]=useState("4/4");const[tempo,sTm]=useState("120");const[abc,sAbc]=useState("X:1\nT:My Lick\nM:4/4\nL:1/8\nQ:1/4=120\nK:C\n");const[mode,setMode]=useState("visual");const[yu,sYu]=useState("");const[tm,sTmn]=useState("");const[ts,sTs]=useState("");const[sp,sSp]=useState("");const[desc,sD]=useState("");const[tags,sTg]=useState("");const[extrasOpen,setExtrasOpen]=useState(false);
+  // Pre-init audio on editor open for instant feedback
+  useEffect(function(){try{Tone.start();}catch(e){}preloadPiano();_ensurePreviewSynth();},[]);
   const KEYS=["C","Db","D","Eb","E","F","F#","G","Ab","A","Bb","B"];const TS=["4/4","3/4","6/8","5/4","7/8"];const yt=parseYT(yu);const tSec=(parseInt(tm)||0)*60+(parseInt(ts)||0);
   const lb={fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5,display:"block",marginBottom:4};
   const ip={width:"100%",background:t.inputBg,border:"1px solid "+t.inputBorder,borderRadius:10,padding:"10px 14px",color:t.text,fontSize:14,fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"};
