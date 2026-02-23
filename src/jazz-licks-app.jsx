@@ -552,24 +552,29 @@ function prevNote(n,o,a){
 // ============================================================
 // CARD PREVIEW PLAYER — lightweight, global singleton
 // ============================================================
-var _preview={id:null,stop:null,subs:new Set()};
+var _preview={id:null,stop:null,subs:new Set(),gen:0};
 function previewSubscribe(fn){_preview.subs.add(fn);return function(){_preview.subs.delete(fn);};}
 function previewNotify(){_preview.subs.forEach(function(fn){fn(_preview.id);});}
-function previewStop(){if(_preview.stop){try{_preview.stop();}catch(e){}_preview.stop=null;}_preview.id=null;previewNotify();}
+function previewStop(){if(_preview.stop){try{_preview.stop();}catch(e){}_preview.stop=null;}_preview.id=null;_preview.gen++;previewNotify();}
 async function previewPlay(lickId,abc,tempo){
   previewStop();
+  var myGen=_preview.gen;
   try{await Tone.start();}catch(e){}
-  if(!_samplerReady){await preloadPiano();}
+  // If another play/stop happened during await, bail out
+  if(myGen!==_preview.gen)return;
   var parsed=parseAbc(abc,tempo);
-  var sw=0;// straight
-  var result=applyTiming(parsed,sw);
+  var result=applyTiming(parsed,0);
   var notes=result.scheduled;var totalDur=result.totalDur;
-  var bag=[];var mel=makeMelSynth("piano",bag);
+  // Dedicated synth per preview — fully disposable, no shared state
+  var rev=new Tone.Reverb({decay:1.8,wet:0.16}).toDestination();
+  var syn=new Tone.PolySynth(Tone.FMSynth,{harmonicity:2,modulationIndex:0.8,oscillator:{type:"fatsine2",spread:12,count:3},modulation:{type:"sine"},envelope:{attack:0.005,decay:0.5,sustain:0.15,release:0.8},modulationEnvelope:{attack:0.005,decay:0.4,sustain:0,release:0.4},volume:-10}).connect(rev);
+  // Check again after synth creation
+  if(myGen!==_preview.gen){try{syn.dispose();}catch(e){}try{rev.dispose();}catch(e){}return;}
   var now=Tone.now();
-  for(var i=0;i<notes.length;i++){var n=notes[i];if(!n.tones)continue;for(var j=0;j<n.tones.length;j++){mel.play(n.tones[j],Math.min(n.dur*0.85,1.5),now+n.startTime);}}
+  for(var i=0;i<notes.length;i++){var n=notes[i];if(!n.tones)continue;for(var j=0;j<n.tones.length;j++){try{syn.triggerAttackRelease(n.tones[j],Math.min(n.dur*0.85,1.5),now+n.startTime);}catch(e){}}}
   _preview.id=lickId;
-  var tid=setTimeout(function(){if(_preview.id===lickId)previewStop();},totalDur*1000+200);
-  _preview.stop=function(){clearTimeout(tid);if(_sampler&&_samplerReady)try{_sampler.releaseAll();}catch(e){}for(var k=0;k<bag.length;k++){try{bag[k].releaseAll&&bag[k].releaseAll();}catch(e){}try{bag[k].dispose();}catch(e){}}bag.length=0;};
+  var tid=setTimeout(function(){if(_preview.id===lickId)previewStop();},totalDur*1000+300);
+  _preview.stop=function(){clearTimeout(tid);try{syn.releaseAll();}catch(e){}try{syn.dispose();}catch(e){}try{rev.dispose();}catch(e){}};
   previewNotify();
 }
 function usePreviewState(lickId){
@@ -1010,12 +1015,12 @@ function SheetFocus({abc,onClose,abRange,curNoteRef,th,playerCtrlRef}){
   useEffect(()=>{if(!playerCtrlRef)return;var iv=setInterval(function(){var p=playerCtrlRef.current&&playerCtrlRef.current.playing;if(p!==playing)setPlaying(!!p);},100);return function(){clearInterval(iv);};},[playing]);
   var onToggle=function(){if(playerCtrlRef&&playerCtrlRef.current&&playerCtrlRef.current.toggle)playerCtrlRef.current.toggle();};
   return React.createElement("div",{"data-sheet-focus":"true",style:{position:"fixed",top:0,left:0,width:"100vw",height:"100vh",maxWidth:"none",zIndex:9999,background:t.card,display:"flex",flexDirection:"column",animation:"fadeIn 0.15s ease"}},
-    React.createElement("div",{style:{flex:1,overflow:"auto",WebkitOverflowScrolling:"touch",padding:"52px 16px 72px",minHeight:0}},
+    React.createElement("div",{style:{flex:1,overflow:"auto",WebkitOverflowScrolling:"touch",padding:"52px 16px 72px",paddingTop:"calc(env(safe-area-inset-top, 0px) + 52px)",minHeight:0}},
       React.createElement(Notation,{abc,compact:false,focus:true,abRange,curNoteRef,th:t})),
     // Bottom bar with play/stop
     React.createElement("div",{style:{position:"absolute",bottom:0,left:0,right:0,padding:"12px 16px",paddingBottom:"max(12px, env(safe-area-inset-bottom))",background:t.headerBg,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",borderTop:"1px solid "+t.border,display:"flex",alignItems:"center",justifyContent:"center",gap:16}},
       React.createElement("button",{onClick:onToggle,style:{width:48,height:48,borderRadius:24,border:"none",background:playing?(isStudio?"#EF4444":t.muted):(isStudio?t.playBg:t.accent),color:"#fff",fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:playing?"none":"0 4px 16px "+t.accentGlow,transition:"all 0.15s"}},playing?"\u25A0":"\u25B6")),
-    React.createElement("button",{onClick:onClose,style:{position:"absolute",top:10,right:14,width:34,height:34,borderRadius:10,border:"1px solid "+t.border,background:t.card,color:t.muted,fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 1px 6px rgba(0,0,0,0.1)",zIndex:10}},"\u2715"));}
+    React.createElement("button",{onClick:onClose,style:{position:"absolute",top:"calc(env(safe-area-inset-top, 0px) + 10px)",right:20,width:40,height:40,borderRadius:12,border:"1px solid "+t.border,background:t.card,color:t.muted,fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 10px rgba(0,0,0,0.15)",zIndex:10}},"\u2715"));}
 
 
 // ============================================================
