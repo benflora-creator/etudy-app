@@ -162,7 +162,7 @@ function FireBurst({originX,originY,onDone}){
 // COACH MARKS — anchored onboarding tooltips
 // ============================================================
 const FEED_TIPS=[
-  {target:"[data-coach='daily']",text:"Daily lick — fresh every morning",pos:"below"},
+  {target:"[data-coach='daily']",text:"Daily pick — a fresh lick every morning",pos:"below"},
   {target:"[data-coach='flame']",text:"Flame your favourites",pos:"below"},
   {target:"[data-coach='fab']",text:"Add your own licks",pos:"above"},
 ];
@@ -518,6 +518,43 @@ function makeChordSynth(bag){const rev=new Tone.Reverb({decay:3,wet:0.22}).toDes
 function makeClick(bag){const rev=new Tone.Reverb({decay:0.2,wet:0.06}).toDestination();const flt=new Tone.Filter({frequency:7000,type:"bandpass",Q:2}).connect(rev);const hi=new Tone.NoiseSynth({noise:{type:"white"},envelope:{attack:0.001,decay:0.035,sustain:0,release:0.015},volume:-10}).connect(flt);const lo=new Tone.NoiseSynth({noise:{type:"pink"},envelope:{attack:0.001,decay:0.02,sustain:0,release:0.01},volume:-16}).connect(flt);bag.push(hi,lo,flt,rev);return{hi,lo};}
 let _pS=null,_pR=null;
 async function prevNote(n,o,a){try{await Tone.start();let nm=n;if(a===1)nm+="#";else if(a===-1)nm+="b";nm+=o;if(_samplerReady&&_sampler){_sampler.triggerAttackRelease(nm,"8n");return;}if(_pS)try{_pS.dispose();}catch(e){}if(_pR)try{_pR.dispose();}catch(e){}_pR=new Tone.Reverb({decay:1.2,wet:0.16}).toDestination();_pS=new Tone.AMSynth({harmonicity:2,oscillator:{type:"fatsine3",spread:10,count:3},modulation:{type:"sine"},envelope:{attack:0.004,decay:0.5,sustain:0.04,release:0.8},modulationEnvelope:{attack:0.003,decay:0.3,sustain:0,release:0.3},volume:-8}).connect(_pR);_pS.triggerAttackRelease(nm,"8n");}catch(e){}}
+
+// ============================================================
+// CARD PREVIEW PLAYER — lightweight, global singleton
+// ============================================================
+var _preview={id:null,stop:null,subs:new Set()};
+function previewSubscribe(fn){_preview.subs.add(fn);return function(){_preview.subs.delete(fn);};}
+function previewNotify(){_preview.subs.forEach(function(fn){fn(_preview.id);});}
+function previewStop(){if(_preview.stop){try{_preview.stop();}catch(e){}_preview.stop=null;}_preview.id=null;previewNotify();}
+async function previewPlay(lickId,abc,tempo){
+  previewStop();
+  try{await Tone.start();}catch(e){}
+  if(!_samplerReady){await preloadPiano();}
+  var parsed=parseAbc(abc,tempo);
+  var sw=0;// straight
+  var result=applyTiming(parsed,sw);
+  var notes=result.scheduled;var totalDur=result.totalDur;
+  var bag=[];var mel=makeMelSynth("piano",bag);
+  var now=Tone.now();
+  for(var i=0;i<notes.length;i++){var n=notes[i];if(!n.tones)continue;for(var j=0;j<n.tones.length;j++){mel.play(n.tones[j],Math.min(n.dur*0.85,1.5),now+n.startTime);}}
+  _preview.id=lickId;
+  var tid=setTimeout(function(){if(_preview.id===lickId)previewStop();},totalDur*1000+200);
+  _preview.stop=function(){clearTimeout(tid);if(_sampler&&_samplerReady)try{_sampler.releaseAll();}catch(e){}for(var k=0;k<bag.length;k++){try{bag[k].releaseAll&&bag[k].releaseAll();}catch(e){}try{bag[k].dispose();}catch(e){}}bag.length=0;};
+  previewNotify();
+}
+function usePreviewState(lickId){
+  var ref=useRef(false);var _=useState(0);var force=_[1];
+  useEffect(function(){return previewSubscribe(function(activeId){var now=activeId===lickId;if(now!==ref.current){ref.current=now;force(function(c){return c+1;});}});},[lickId]);
+  return ref.current;
+}
+function PreviewBtn({lickId,abc,tempo,th,size}){
+  var t=th||TH.classic;var isStudio=t===TH.studio;
+  var playing=usePreviewState(lickId);var sz=size||28;
+  var handleClick=function(e){e.stopPropagation();if(playing){previewStop();}else{previewPlay(lickId,abc,tempo);}};
+  return React.createElement("button",{onClick:handleClick,style:{width:sz,height:sz,borderRadius:sz/2,border:"none",background:playing?(isStudio?"#22D89E":"#6366F1"):(isStudio?"rgba(34,216,158,0.12)":"rgba(99,102,241,0.08)"),cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.15s",boxShadow:playing?"0 2px 10px "+(isStudio?"rgba(34,216,158,0.3)":"rgba(99,102,241,0.25)"):"none"}},
+    playing?React.createElement("div",{style:{width:sz*0.28,height:sz*0.28,borderRadius:2,background:isStudio?"#fff":"#fff"}}):
+    React.createElement("div",{style:{width:0,height:0,borderTop:(sz*0.2)+"px solid transparent",borderBottom:(sz*0.2)+"px solid transparent",borderLeft:(sz*0.3)+"px solid "+(isStudio?"#22D89E":"#6366F1"),marginLeft:sz*0.06}}));
+}
 
 // ============================================================
 // ABCjs
@@ -1086,7 +1123,7 @@ function DailyLickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:user
       React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:isStudio?12:10}},
         React.createElement("div",{style:{background:isStudio?"linear-gradient(135deg,"+catC+","+instC+")":t.accent,borderRadius:isStudio?10:8,padding:isStudio?"5px 14px":"4px 12px",display:"flex",alignItems:"center",gap:4,boxShadow:isStudio?"0 2px 12px "+catC+"40":"none"}},
           IC.bolt(10,"#fff"),
-          React.createElement("span",{style:{fontSize:9,fontWeight:700,color:"#fff",fontFamily:"'Inter',sans-serif",letterSpacing:1}},"TODAY")),
+          React.createElement("span",{style:{fontSize:9,fontWeight:700,color:"#fff",fontFamily:"'Inter',sans-serif",letterSpacing:1}},"DAILY PICK")),
         React.createElement("span",{style:{fontSize:10,color:t.subtle,fontFamily:"'JetBrains Mono',monospace"}},new Date().toLocaleDateString("en",{month:"short",day:"numeric"}))),
       // TITLE + META
       React.createElement("h3",{style:{fontSize:isStudio?22:18,fontWeight:700,color:t.text,margin:"0 0 6px",fontFamily:t.titleFont,letterSpacing:isStudio?-0.3:0}},lick.title),
@@ -1101,7 +1138,8 @@ function DailyLickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:user
         React.createElement(Notation,{abc:cardAbc,compact:true,th:t})),
       // ACTION ROW — Instagram style
       React.createElement("div",{"data-coach":"flame",style:{display:"flex",alignItems:"center",gap:2,marginTop:isStudio?14:10,paddingTop:isStudio?12:8,borderTop:"1px solid "+t.border}},
-        React.createElement("button",{onClick:e=>{e.stopPropagation();onLike(lick.id);},style:{background:"none",border:"none",cursor:"pointer",padding:"4px 2px",display:"flex",alignItems:"center",gap:4,transition:"all 0.15s"}},
+        React.createElement(PreviewBtn,{lickId:lick.id,abc:cardAbc,tempo:lick.tempo,th:t,size:30}),
+        React.createElement("button",{onClick:e=>{e.stopPropagation();onLike(lick.id);},style:{background:"none",border:"none",cursor:"pointer",padding:"4px 2px",marginLeft:6,display:"flex",alignItems:"center",gap:4,transition:"all 0.15s"}},
           isStudio?(liked?IC.flame(20,"#F97316",true):IC.flameOff(20)):React.createElement("span",{style:{fontSize:20,color:liked?"#EF4444":t.muted}},liked?"\u2665":"\u2661")),
         React.createElement("button",{onClick:e=>{e.stopPropagation();onSave(lick.id);},style:{background:"none",border:"none",cursor:"pointer",padding:"4px 2px",display:"flex",alignItems:"center",marginLeft:4,transition:"all 0.15s"}},
           isStudio?IC.target(20,saved?"#22D89E":"#55556A"):React.createElement("span",{style:{fontSize:20,color:saved?"#F59E0B":t.muted}},saved?"\u2605":"\u2606")),
@@ -1136,7 +1174,8 @@ function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst}
         React.createElement(Notation,{abc:cardAbc,compact:true,th:t})),
       // ACTION ROW — Instagram style
       React.createElement("div",{style:{display:"flex",alignItems:"center",gap:2,marginTop:isStudio?12:8,paddingTop:isStudio?10:6,borderTop:"1px solid "+(isStudio?t.border:t.border)}},
-        React.createElement("button",{onClick:e=>{e.stopPropagation();onLike(lick.id);},style:{background:"none",border:"none",cursor:"pointer",padding:"3px 2px",display:"flex",alignItems:"center",gap:3,transition:"all 0.15s"}},
+        React.createElement(PreviewBtn,{lickId:lick.id,abc:cardAbc,tempo:lick.tempo,th:t,size:26}),
+        React.createElement("button",{onClick:e=>{e.stopPropagation();onLike(lick.id);},style:{background:"none",border:"none",cursor:"pointer",padding:"3px 2px",marginLeft:6,display:"flex",alignItems:"center",gap:3,transition:"all 0.15s"}},
           isStudio?(liked?IC.flame(18,"#F97316",true):IC.flameOff(18)):React.createElement("span",{style:{fontSize:18,color:liked?"#EF4444":t.muted}},liked?"\u2665":"\u2661")),
         React.createElement("button",{onClick:e=>{e.stopPropagation();onSave(lick.id);},style:{background:"none",border:"none",cursor:"pointer",padding:"3px 2px",display:"flex",alignItems:"center",marginLeft:4,transition:"all 0.15s"}},
           isStudio?IC.target(18,saved?"#22D89E":"#55556A"):React.createElement("span",{style:{fontSize:18,color:saved?"#F59E0B":t.muted}},saved?"\u2605":"\u2606")),
@@ -4213,12 +4252,14 @@ export default function Etudy(){
   const[historyRefresh,setHistoryRefresh]=useState(0);
   const exploreScrollRef=useRef(0);const viewRef=useRef("explore");
   const switchView=useCallback((nv)=>{
+    previewStop();
     if(viewRef.current==="explore")exploreScrollRef.current=window.scrollY||0;
     viewRef.current=nv;sV(nv);
     if(nv==="explore")setTimeout(()=>window.scrollTo(0,exploreScrollRef.current),0);
     else window.scrollTo(0,0);
   },[]);
   const openLick=useCallback((lick)=>{
+    previewStop();
     if(!selectedLick)exploreScrollRef.current=window.scrollY||0;
     setSelected(lick);window.scrollTo(0,0);
     if(!visitedRef.current.detail){visitedRef.current.detail=true;setDetailShowTips(true);}
