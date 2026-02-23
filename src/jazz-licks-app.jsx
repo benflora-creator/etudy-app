@@ -214,7 +214,7 @@ function CoachMarks({tips,onDone,th}){
   if(gone&&!show)return null;
 
   return React.createElement("div",{onClick:next,style:{
-    position:"fixed",bottom:68,left:12,right:12,zIndex:500,
+    position:"fixed",bottom:"calc(68px + env(safe-area-inset-bottom, 0px))",left:12,right:12,zIndex:500,
     pointerEvents:"auto",cursor:"pointer",
     transform:show&&!gone?"translateY(0)":"translateY(120%)",
     opacity:show&&!gone?1:0,
@@ -1004,7 +1004,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
     React.createElement("div",{style:{maxWidth:520,margin:"0 auto",padding:"0 16px 100px"}},
 
       // HEADER
-      React.createElement("div",{style:{position:"sticky",top:0,zIndex:100,background:t.headerBg,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",padding:"12px 0 10px",borderBottom:"1px solid "+t.border,marginBottom:16}},
+      React.createElement("div",{style:{position:"sticky",top:0,zIndex:100,background:t.headerBg,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",padding:"12px 0 10px",paddingTop:"calc(env(safe-area-inset-top, 0px) + 12px)",borderBottom:"1px solid "+t.border,marginBottom:16}},
         React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10}},
           React.createElement("button",{onClick:onBack,style:{background:"none",border:"none",cursor:"pointer",color:isStudio?t.accent:t.muted,fontSize:22,padding:"4px 8px 4px 0",display:"flex",alignItems:"center"}},"\u2039"),
           React.createElement("div",{style:{flex:1,minWidth:0}},
@@ -3068,7 +3068,7 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th}){const t=th||TH.classic;co
     React.createElement("div",{style:{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch"}},
       React.createElement("div",{style:{maxWidth:520,margin:"0 auto",padding:"0 16px"}},
         // Header
-        React.createElement("div",{style:{position:"sticky",top:0,zIndex:10,background:t.headerBg,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",padding:"14px 0 12px",borderBottom:"1px solid "+t.border,marginBottom:18}},
+        React.createElement("div",{style:{position:"sticky",top:0,zIndex:10,background:t.headerBg,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",padding:"14px 0 12px",paddingTop:"calc(env(safe-area-inset-top, 0px) + 14px)",borderBottom:"1px solid "+t.border,marginBottom:18}},
           React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
             React.createElement("div",null,
               React.createElement("h2",{style:{color:t.text,fontSize:20,margin:0,fontFamily:t.titleFont,fontWeight:isStudio?700:600}},"Share a Lick"),
@@ -3960,7 +3960,7 @@ function PlanRunner({plan,onClose,th,licks,userInst,keyProgress,onUpdateKeyProgr
     };
 
     return React.createElement("div",{style:{position:"fixed",inset:0,zIndex:2000,background:t.bg,overflowY:"auto",WebkitOverflowScrolling:"touch"}},
-      React.createElement("div",{style:{maxWidth:440,margin:"0 auto",padding:"40px 20px 60px",animation:"fadeIn 0.4s ease"}},
+      React.createElement("div",{style:{maxWidth:440,margin:"0 auto",padding:"40px 20px 60px",paddingTop:"calc(env(safe-area-inset-top, 0px) + 40px)",animation:"fadeIn 0.4s ease"}},
         // Header
         React.createElement("div",{style:{textAlign:"center",marginBottom:28}},
           React.createElement("div",{style:{fontSize:48,fontWeight:700,color:t.accent,fontFamily:"'JetBrains Mono',monospace",marginBottom:4}},fmtSec(practiced)),
@@ -4093,7 +4093,7 @@ function PlanRunner({plan,onClose,th,licks,userInst,keyProgress,onUpdateKeyProgr
     // TOP: Header + timer bar
     React.createElement("div",{style:{flexShrink:0}},
       // Header
-      React.createElement("div",{style:{padding:"10px 16px",display:"flex",alignItems:"center",gap:8}},
+      React.createElement("div",{style:{padding:"10px 16px",paddingTop:"calc(env(safe-area-inset-top, 0px) + 10px)",display:"flex",alignItems:"center",gap:8}},
         React.createElement("button",{onClick:function(){stopMetro();onClose();},style:{background:"none",border:"none",cursor:"pointer",color:t.muted,fontSize:22,padding:"4px 8px 4px 0",flexShrink:0}},"\u2039"),
         React.createElement("div",{style:{flex:1,minWidth:0}},
           React.createElement("div",{style:{fontSize:12,fontWeight:600,color:t.text,fontFamily:"'Inter',sans-serif",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},item.title),
@@ -4398,12 +4398,12 @@ export default function Etudy(){
             React.createElement("div",{style:{fontSize:15,fontWeight:600,color:"#fff",fontFamily:"'Inter',sans-serif",marginBottom:3}},"Studio"),
             React.createElement("div",{style:{fontSize:10,color:"#7B7B8A",fontFamily:"'Inter',sans-serif"}},"Dark \u00B7 Colorful \u00B7 Musician"))))));}
   const t=TH[theme];const isStudio=theme==="studio";
-  const css=["@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;500;700&family=Inter:wght@300;400;500;600;700&display=swap');","*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}","::-webkit-scrollbar{display:none}","input:focus,textarea:focus,select:focus{border-color:"+t.accentBorder+"!important;outline:none}","select option{background:"+t.card+"}","input[type=range]{-webkit-appearance:none;background:"+t.progressBg+";border-radius:4px;height:3px}","input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:"+t.accent+";cursor:pointer;box-shadow:0 1px 4px "+t.accentGlow+"}","@keyframes spin{to{transform:rotate(360deg)}}","@keyframes fadeIn{from{opacity:0}to{opacity:1}}","@keyframes playPulse{0%,100%{box-shadow:0 4px 18px "+t.accentGlow+"}50%{box-shadow:0 4px 28px "+t.accentGlow+",0 0 40px "+t.accentGlow+"}}","@keyframes firePop{0%{transform:scale(1)}30%{transform:scale(1.4)}60%{transform:scale(0.9)}100%{transform:scale(1)}}","@keyframes flameFlicker{0%,100%{transform:scaleX(1) scaleY(1)}25%{transform:scaleX(0.94) scaleY(1.03)}50%{transform:scaleX(1.03) scaleY(0.97)}75%{transform:scaleX(0.97) scaleY(1.02)}}","@keyframes flameCore{0%,100%{opacity:0.8;transform:scaleY(1)}50%{opacity:0.5;transform:scaleY(0.85)}}","@keyframes loopPulse{0%,100%{opacity:1}50%{opacity:0.6}}","@keyframes coachIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}","@keyframes coachPulse{0%,100%{opacity:0.5}50%{opacity:1}}","@keyframes drillPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.7;transform:scale(0.95)}}","@keyframes drillKeyIn{0%{opacity:0;transform:scale(0.5) translateY(10px)}100%{opacity:1;transform:scale(1) translateY(0)}}","@keyframes drillDot{0%,100%{opacity:0.3;transform:scale(0.8)}50%{opacity:1;transform:scale(1.2)}}","@keyframes helpGlow{0%{box-shadow:0 0 0 0 "+t.accent+"60;transform:scale(1)}40%{box-shadow:0 0 12px 4px "+t.accent+"40;transform:scale(1.2)}70%{box-shadow:0 0 6px 2px "+t.accent+"20;transform:scale(1.05)}100%{box-shadow:0 0 0 0 transparent;transform:scale(1)}}","[data-sheet-focus]{position:fixed!important;top:0!important;left:0!important;width:100vw!important;height:100vh!important;max-width:none!important;z-index:9999!important}"].join("\n");
+  const css=["@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;500;700&family=Inter:wght@300;400;500;600;700&display=swap');","*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}","html,body{background:"+t.bg+"}","::-webkit-scrollbar{display:none}","input:focus,textarea:focus,select:focus{border-color:"+t.accentBorder+"!important;outline:none}","select option{background:"+t.card+"}","input[type=range]{-webkit-appearance:none;background:"+t.progressBg+";border-radius:4px;height:3px}","input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:"+t.accent+";cursor:pointer;box-shadow:0 1px 4px "+t.accentGlow+"}","@keyframes spin{to{transform:rotate(360deg)}}","@keyframes fadeIn{from{opacity:0}to{opacity:1}}","@keyframes playPulse{0%,100%{box-shadow:0 4px 18px "+t.accentGlow+"}50%{box-shadow:0 4px 28px "+t.accentGlow+",0 0 40px "+t.accentGlow+"}}","@keyframes firePop{0%{transform:scale(1)}30%{transform:scale(1.4)}60%{transform:scale(0.9)}100%{transform:scale(1)}}","@keyframes flameFlicker{0%,100%{transform:scaleX(1) scaleY(1)}25%{transform:scaleX(0.94) scaleY(1.03)}50%{transform:scaleX(1.03) scaleY(0.97)}75%{transform:scaleX(0.97) scaleY(1.02)}}","@keyframes flameCore{0%,100%{opacity:0.8;transform:scaleY(1)}50%{opacity:0.5;transform:scaleY(0.85)}}","@keyframes loopPulse{0%,100%{opacity:1}50%{opacity:0.6}}","@keyframes coachIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}","@keyframes coachPulse{0%,100%{opacity:0.5}50%{opacity:1}}","@keyframes drillPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.7;transform:scale(0.95)}}","@keyframes drillKeyIn{0%{opacity:0;transform:scale(0.5) translateY(10px)}100%{opacity:1;transform:scale(1) translateY(0)}}","@keyframes drillDot{0%,100%{opacity:0.3;transform:scale(0.8)}50%{opacity:1;transform:scale(1.2)}}","@keyframes helpGlow{0%{box-shadow:0 0 0 0 "+t.accent+"60;transform:scale(1)}40%{box-shadow:0 0 12px 4px "+t.accent+"40;transform:scale(1.2)}70%{box-shadow:0 0 6px 2px "+t.accent+"20;transform:scale(1.05)}100%{box-shadow:0 0 0 0 transparent;transform:scale(1)}}","[data-sheet-focus]{position:fixed!important;top:0!important;left:0!important;width:100vw!important;height:100vh!important;max-width:none!important;z-index:9999!important}"].join("\n");
 
-  return React.createElement("div",{style:{minHeight:"100vh",background:t.bg,color:t.text,maxWidth:520,margin:"0 auto",position:"relative",paddingBottom:72}},
+  return React.createElement("div",{style:{minHeight:"100vh",background:t.bg,color:t.text,maxWidth:520,margin:"0 auto",position:"relative",paddingBottom:"calc(72px + env(safe-area-inset-bottom, 0px))"}},
     React.createElement("style",null,css),
     // Header — clean, just logo + contextual actions
-    React.createElement("div",{style:{position:"sticky",top:0,zIndex:100,background:t.headerBg,backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",padding:"10px 16px 0",borderBottom:"1px solid "+(isStudio?t.borderSub||t.border:t.border)}},
+    React.createElement("div",{style:{position:"sticky",top:0,zIndex:100,background:t.headerBg,backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",padding:"10px 16px 0",paddingTop:"calc(env(safe-area-inset-top, 0px) + 10px)",borderBottom:"1px solid "+(isStudio?t.borderSub||t.border:t.border)}},
       React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:view==="explore"?6:12}},
         React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
           React.createElement("span",{style:{fontSize:14}},"\u266A"),
@@ -4514,14 +4514,14 @@ export default function Etudy(){
           React.createElement("span",{style:{fontSize:10,color:t.subtle,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1}},"\u00C9tudy \u00B7 Beta \u00B7 Jazz Lick Collection"))),
 
     // BOTTOM TAB BAR
-    React.createElement("div",{style:{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:520,zIndex:100,background:t.tabBarBg||t.headerBg,backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderTop:"1px solid "+(isStudio?t.borderSub||t.border:t.border),display:"flex",padding:"6px 16px",paddingBottom:"max(6px, env(safe-area-inset-bottom))"}},
+    React.createElement("div",{style:{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:520,zIndex:100,background:t.tabBarBg||t.headerBg,backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderTop:"1px solid "+(isStudio?t.borderSub||t.border:t.border),display:"flex",padding:"6px 16px",paddingBottom:"calc(8px + env(safe-area-inset-bottom, 0px))"}},
       [["explore","tabLicks","Licks"],["ear","tabEar","Ear"],["rhythm","tabRhythm","Rhythm"],["me","tabPractice","Practice"]].map(function(tab){
         var active=view===tab[0];var iconC=active?t.accent:t.subtle;
         return React.createElement("button",{key:tab[0],onClick:function(){switchView(tab[0]);},style:{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2,background:"none",border:"none",cursor:"pointer",padding:"6px 0",transition:"all 0.15s"}},
           IC[tab[1]](20,iconC,active),
           React.createElement("span",{style:{fontSize:9,fontFamily:"'Inter',sans-serif",fontWeight:active?600:400,color:active?t.accent:t.subtle,letterSpacing:0.3}},tab[2]));})),
     // FAB — only on explore
-    view==="explore"&&React.createElement("button",{"data-coach":"fab",onClick:()=>sSE(true),style:{position:"fixed",bottom:84,right:24,width:isStudio?56:52,height:isStudio?56:52,borderRadius:isStudio?18:16,background:t.playBg||t.accent,border:"none",cursor:"pointer",zIndex:500,boxShadow:isStudio?"0 6px 28px "+t.accentGlow+", 0 2px 8px rgba(0,0,0,0.3)":"0 4px 20px "+t.accentGlow,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,color:"#fff",fontWeight:300}},"+"),
+    view==="explore"&&React.createElement("button",{"data-coach":"fab",onClick:()=>sSE(true),style:{position:"fixed",bottom:"calc(84px + env(safe-area-inset-bottom, 0px))",right:24,width:isStudio?56:52,height:isStudio?56:52,borderRadius:isStudio?18:16,background:t.playBg||t.accent,border:"none",cursor:"pointer",zIndex:500,boxShadow:isStudio?"0 6px 28px "+t.accentGlow+", 0 2px 8px rgba(0,0,0,0.3)":"0 4px 20px "+t.accentGlow,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,color:"#fff",fontWeight:300}},"+"),
     // Overlays
     feedShowTips&&view==="explore"&&!selectedLick&&!showEd&&React.createElement(CoachMarks,{tips:FEED_TIPS,onDone:markFeedTipped,th:t}),
     earShowTips&&view==="ear"&&!selectedLick&&React.createElement(CoachMarks,{tips:EAR_TIPS,onDone:markEarTipped,th:t}),
