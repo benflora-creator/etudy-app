@@ -113,6 +113,16 @@ const IC={
   tabPractice:(sz=20,c="#888",a=false)=>S("svg",{width:sz,height:sz,viewBox:"0 0 24 24",fill:"none",style:{display:"inline-block",verticalAlign:"middle",flexShrink:0}},
     S("rect",{x:4,y:3,width:16,height:18,rx:2,stroke:c,strokeWidth:a?2:1.5,fill:a?c+"20":"none"}),
     S("path",{d:"M8 8h8M8 12h6M8 16h4",stroke:c,strokeWidth:a?2:1.5,strokeLinecap:"round"})),
+  tabTrain:(sz=20,c="#888",a=false)=>S("svg",{width:sz,height:sz,viewBox:"0 0 24 24",fill:"none",style:{display:"inline-block",verticalAlign:"middle",flexShrink:0}},
+    S("path",{d:"M13 2L3 14h9l-1 8 10-12h-9l1-8z",stroke:c,strokeWidth:a?2:1.5,strokeLinecap:"round",strokeLinejoin:"round",fill:a?c+"25":"none"})),
+  tabSessions:(sz=20,c="#888",a=false)=>S("svg",{width:sz,height:sz,viewBox:"0 0 24 24",fill:"none",style:{display:"inline-block",verticalAlign:"middle",flexShrink:0}},
+    S("rect",{x:3,y:4,width:18,height:17,rx:2,stroke:c,strokeWidth:a?2:1.5,fill:a?c+"15":"none"}),
+    S("path",{d:"M3 9h18",stroke:c,strokeWidth:a?2:1.5}),
+    S("path",{d:"M8 2v4M16 2v4",stroke:c,strokeWidth:a?2:1.5,strokeLinecap:"round"}),
+    a&&S("circle",{cx:12,cy:15,r:2,fill:c})),
+  tabMe:(sz=20,c="#888",a=false)=>S("svg",{width:sz,height:sz,viewBox:"0 0 24 24",fill:"none",style:{display:"inline-block",verticalAlign:"middle",flexShrink:0}},
+    S("circle",{cx:12,cy:8,r:4,stroke:c,strokeWidth:a?2:1.5,fill:a?c+"30":"none"}),
+    S("path",{d:"M4 21c0-4 3.6-7 8-7s8 3 8 7",stroke:c,strokeWidth:a?2:1.5,strokeLinecap:"round",fill:"none"})),
 };
 
 // Full-screen fire burst animation on like
@@ -4262,6 +4272,7 @@ export default function Etudy(){
   const[lickSource,setLickSource]=useState("community"); // community | mine
   const allLicks=useMemo(function(){return[...licks,...myLicks];},[licks,myLicks]);
   const[rhythmSub,setRhythmSub]=useState("metronome"); // metronome | reading | poly
+  const[trainSub,setTrainSub]=useState("ear"); // ear | rhythm (later: scales)
   const[showSettings,setShowSettings]=useState(false);
   const[rhythmInput,setRhythmInput]=useState("tap"); // tap | mic — shared across modes
   const[rhythmMicSilent,setRhythmMicSilent]=useState(true);
@@ -4299,9 +4310,9 @@ export default function Etudy(){
   // On first visit to a section, auto-show tips
   useEffect(()=>{
     if(view==="explore"&&!visitedRef.current.explore){visitedRef.current.explore=true;setFeedShowTips(true);}
-    if(view==="ear"&&!visitedRef.current.ear){visitedRef.current.ear=true;setEarShowTips(true);}
-    if(view==="rhythm"&&!visitedRef.current.rhythm){visitedRef.current.rhythm=true;setRhythmShowTips(true);}
-  },[view]);
+    if(view==="train"&&trainSub==="ear"&&!visitedRef.current.ear){visitedRef.current.ear=true;setEarShowTips(true);}
+    if(view==="train"&&trainSub==="rhythm"&&!visitedRef.current.rhythm){visitedRef.current.rhythm=true;setRhythmShowTips(true);}
+  },[view,trainSub]);
   const getStg=()=>{try{return window.storage||null;}catch(e){return null;}};
   // Load persisted state from storage
   useEffect(()=>{
@@ -4473,12 +4484,12 @@ export default function Etudy(){
           React.createElement("span",{style:{fontSize:18,fontFamily:t.titleFont,color:t.text,fontWeight:theme==="studio"?600:400,letterSpacing:0.3}},"\u00C9tudy")),
         // Context label + help button + settings gear
         React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
-          view!=="explore"&&React.createElement("span",{style:{fontSize:11,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5}},view==="ear"?"EAR TRAINING":view==="rhythm"?"RHYTHM":view==="me"?"PRACTICE":""),
+          view!=="explore"&&React.createElement("span",{style:{fontSize:11,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5}},view==="train"?"TRAIN":view==="sessions"?"SESSIONS":view==="me"?"ME":""),
           // ? help button — only after tips have been shown once
-          (view==="explore"&&feedTipped||view==="ear"&&earTipped||view==="rhythm"&&rhythmTipped)&&React.createElement("button",{onClick:function(){
+          (view==="explore"&&feedTipped||view==="train"&&trainSub==="ear"&&earTipped||view==="train"&&trainSub==="rhythm"&&rhythmTipped)&&React.createElement("button",{onClick:function(){
             if(view==="explore")setFeedShowTips(true);
-            else if(view==="ear")setEarShowTips(true);
-            else if(view==="rhythm")setRhythmShowTips(true);
+            else if(view==="train"&&trainSub==="ear")setEarShowTips(true);
+            else if(view==="train"&&trainSub==="rhythm")setRhythmShowTips(true);
           },style:{width:22,height:22,borderRadius:11,border:"1px solid "+t.border,background:t.filterBg,color:t.subtle,fontSize:11,fontFamily:"'Inter',sans-serif",fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,transition:"all 0.15s",animation:"helpGlow 0.8s ease"}},"?"),
           // Settings gear
           React.createElement("button",{onClick:function(){setShowSettings(true);},style:{width:28,height:28,borderRadius:14,background:"none",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,opacity:0.7,transition:"opacity 0.15s"}},IC.gear(18,t.muted)))),
@@ -4503,24 +4514,39 @@ export default function Etudy(){
         React.createElement("div",{style:{fontSize:11,color:t.subtle,fontFamily:"'Inter',sans-serif",marginBottom:10,fontWeight:500}},fl.length+" lick"+(fl.length!==1?"s":"")),
         fl.map(l=>React.createElement(LickCard,{key:l.id,lick:l,onSelect:openLick,th:t,liked:likedSet.has(l.id),saved:savedSet.has(l.id),onLike:toggleLike,onSave:toggleSave,userInst:userInst})),
         fl.length===0&&!(lickSource==="mine"&&!sq&&inst==="All"&&cat==="All")&&React.createElement("div",{style:{textAlign:"center",padding:"60px 20px"}},React.createElement("p",{style:{fontFamily:t.titleFont,fontSize:16,color:t.subtle,fontStyle:theme==="studio"?"normal":"italic"}},"No licks found"))),
-      view==="ear"&&React.createElement(EarTrainer,{licks:allLicks,onLike:toggleLike,onOpen:openLick,likedSet:likedSet,th:t,userInst:userInst}),
-      view==="rhythm"&&React.createElement("div",null,
-        // Sub-mode tabs
-        React.createElement("div",{"data-coach":"rhythm-modes",style:{display:"flex",gap:4,marginBottom:12,background:t.filterBg,borderRadius:10,padding:3}},
-          [["metronome","Metro"],["reading","Reading"],["poly","Polyrhythm"]].map(function(m){
-            return React.createElement("button",{key:m[0],onClick:function(){setRhythmSub(m[0]);},style:{flex:1,padding:"8px 12px",borderRadius:8,border:"none",background:rhythmSub===m[0]?t.card:"transparent",color:rhythmSub===m[0]?t.text:t.subtle,fontSize:11,fontWeight:rhythmSub===m[0]?600:400,fontFamily:"'Inter',sans-serif",cursor:"pointer",boxShadow:rhythmSub===m[0]?"0 1px 4px rgba(0,0,0,0.08)":"none",transition:"all 0.15s"}},m[1]);
+      view==="train"&&React.createElement("div",null,
+        // Train sub-tabs: Ear | Rhythm (later: Scales)
+        React.createElement("div",{style:{display:"flex",gap:4,marginBottom:14,background:t.filterBg,borderRadius:10,padding:3}},
+          [["ear","\uD83D\uDC42 Ear"],["rhythm","\uD83E\uDD41 Rhythm"]].map(function(m){
+            return React.createElement("button",{key:m[0],onClick:function(){setTrainSub(m[0]);},style:{flex:1,padding:"8px 12px",borderRadius:8,border:"none",background:trainSub===m[0]?t.card:"transparent",color:trainSub===m[0]?t.text:t.subtle,fontSize:12,fontWeight:trainSub===m[0]?600:400,fontFamily:"'Inter',sans-serif",cursor:"pointer",boxShadow:trainSub===m[0]?"0 1px 4px rgba(0,0,0,0.08)":"none",transition:"all 0.15s"}},m[1]);
           })),
-        // Shared input mode toggle (for reading + poly)
-        rhythmSub!=="metronome"&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:12}},
-          React.createElement("div",{style:{display:"flex",gap:3,flex:1,background:t.filterBg,borderRadius:8,padding:2}},
-            [["tap","Tap"],["mic","Mic"]].map(function(m){
-              return React.createElement("button",{key:m[0],onClick:function(){setRhythmInput(m[0]);},style:{flex:1,padding:"5px 10px",borderRadius:6,border:"none",background:rhythmInput===m[0]?t.card:"transparent",color:rhythmInput===m[0]?t.text:t.subtle,fontSize:10,fontWeight:rhythmInput===m[0]?600:400,fontFamily:"'Inter',sans-serif",cursor:"pointer",boxShadow:rhythmInput===m[0]?"0 1px 3px rgba(0,0,0,0.06)":"none"}},m[1]);
+        // Ear sub-view
+        trainSub==="ear"&&React.createElement(EarTrainer,{licks:allLicks,onLike:toggleLike,onOpen:openLick,likedSet:likedSet,th:t,userInst:userInst}),
+        // Rhythm sub-view
+        trainSub==="rhythm"&&React.createElement("div",null,
+          // Rhythm sub-mode tabs
+          React.createElement("div",{"data-coach":"rhythm-modes",style:{display:"flex",gap:4,marginBottom:12,background:t.filterBg,borderRadius:10,padding:3}},
+            [["metronome","Metro"],["reading","Reading"],["poly","Polyrhythm"]].map(function(m){
+              return React.createElement("button",{key:m[0],onClick:function(){setRhythmSub(m[0]);},style:{flex:1,padding:"8px 12px",borderRadius:8,border:"none",background:rhythmSub===m[0]?t.card:"transparent",color:rhythmSub===m[0]?t.text:t.subtle,fontSize:11,fontWeight:rhythmSub===m[0]?600:400,fontFamily:"'Inter',sans-serif",cursor:"pointer",boxShadow:rhythmSub===m[0]?"0 1px 4px rgba(0,0,0,0.08)":"none",transition:"all 0.15s"}},m[1]);
             })),
-          rhythmInput==="mic"&&React.createElement("button",{onClick:function(){setRhythmMicSilent(!rhythmMicSilent);},style:{padding:"5px 10px",borderRadius:6,border:"1px solid "+(isStudio?"#F59E0B30":"#FDE68A"),background:isStudio?"#F59E0B10":"#FEF9C3",color:isStudio?"#F59E0B":"#92400E",fontSize:9,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer",whiteSpace:"nowrap"}},rhythmMicSilent?"Silent":"Audio")),
-        // Components
-        rhythmSub==="metronome"&&React.createElement("div",{"data-coach":"rhythm-metro"},React.createElement(Metronome,{th:t})),
-        rhythmSub==="reading"&&React.createElement(RhythmGame,{th:t,sharedInput:rhythmInput,sharedMicSilent:rhythmMicSilent}),
-        rhythmSub==="poly"&&React.createElement(PolyrhythmTrainer,{th:t,sharedInput:rhythmInput,sharedMicSilent:rhythmMicSilent})),
+          // Shared input mode toggle (for reading + poly)
+          rhythmSub!=="metronome"&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:12}},
+            React.createElement("div",{style:{display:"flex",gap:3,flex:1,background:t.filterBg,borderRadius:8,padding:2}},
+              [["tap","Tap"],["mic","Mic"]].map(function(m){
+                return React.createElement("button",{key:m[0],onClick:function(){setRhythmInput(m[0]);},style:{flex:1,padding:"5px 10px",borderRadius:6,border:"none",background:rhythmInput===m[0]?t.card:"transparent",color:rhythmInput===m[0]?t.text:t.subtle,fontSize:10,fontWeight:rhythmInput===m[0]?600:400,fontFamily:"'Inter',sans-serif",cursor:"pointer",boxShadow:rhythmInput===m[0]?"0 1px 3px rgba(0,0,0,0.06)":"none"}},m[1]);
+              })),
+            rhythmInput==="mic"&&React.createElement("button",{onClick:function(){setRhythmMicSilent(!rhythmMicSilent);},style:{padding:"5px 10px",borderRadius:6,border:"1px solid "+(isStudio?"#F59E0B30":"#FDE68A"),background:isStudio?"#F59E0B10":"#FEF9C3",color:isStudio?"#F59E0B":"#92400E",fontSize:9,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer",whiteSpace:"nowrap"}},rhythmMicSilent?"Silent":"Audio")),
+          // Components
+          rhythmSub==="metronome"&&React.createElement("div",{"data-coach":"rhythm-metro"},React.createElement(Metronome,{th:t})),
+          rhythmSub==="reading"&&React.createElement(RhythmGame,{th:t,sharedInput:rhythmInput,sharedMicSilent:rhythmMicSilent}),
+          rhythmSub==="poly"&&React.createElement(PolyrhythmTrainer,{th:t,sharedInput:rhythmInput,sharedMicSilent:rhythmMicSilent}))),
+
+      // ─── SESSIONS TAB ───
+      view==="sessions"&&React.createElement("div",{style:{padding:"8px 0"}},
+        React.createElement(PracticePlan,{th:t,licks:allLicks,savedSet:savedSet,historyKey:historyRefresh,onStartSession:function(plan){try{Tone.start();}catch(e){}setRunningPlan(plan);}}),
+        React.createElement(PracticeHistory,{th:t,historyKey:historyRefresh})),
+
+      // ─── ME TAB ───
       view==="me"&&React.createElement("div",{style:{padding:"8px 0"}},
 
         // ─── QUICK STATS ───
@@ -4566,19 +4592,13 @@ export default function Etudy(){
                 React.createElement("div",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}},lick.artist),
                 React.createElement("div",{style:{fontSize:9,color:cc,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,marginTop:4}},lick.category));}))),
 
-        // ─── PRACTICE PLAN ───
-        React.createElement(PracticePlan,{th:t,licks:allLicks,savedSet:savedSet,historyKey:historyRefresh,onStartSession:function(plan){try{Tone.start();}catch(e){}setRunningPlan(plan);}}),
-
-        // ─── PRACTICE HISTORY ───
-        React.createElement(PracticeHistory,{th:t,historyKey:historyRefresh}),
-
         // Version info
         React.createElement("div",{style:{textAlign:"center",padding:"24px 0",marginTop:16}},
           React.createElement("span",{style:{fontSize:10,color:t.subtle,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1}},"\u00C9tudy \u00B7 Beta \u00B7 Jazz Lick Collection"))),
 
     // BOTTOM TAB BAR
     React.createElement("div",{style:{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:520,zIndex:100,background:t.tabBarBg||t.headerBg,backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderTop:"1px solid "+(isStudio?t.borderSub||t.border:t.border),display:"flex",padding:"6px 16px",paddingBottom:"calc(8px + env(safe-area-inset-bottom, 0px))"}},
-      [["explore","tabLicks","Licks"],["ear","tabEar","Ear"],["rhythm","tabRhythm","Rhythm"],["me","tabPractice","Practice"]].map(function(tab){
+      [["explore","tabLicks","Licks"],["train","tabTrain","Train"],["sessions","tabSessions","Sessions"],["me","tabMe","Me"]].map(function(tab){
         var active=view===tab[0];var iconC=active?t.accent:t.subtle;
         return React.createElement("button",{key:tab[0],onClick:function(){switchView(tab[0]);},style:{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2,background:"none",border:"none",cursor:"pointer",padding:"6px 0",transition:"all 0.15s"}},
           IC[tab[1]](20,iconC,active),
@@ -4587,8 +4607,8 @@ export default function Etudy(){
     view==="explore"&&React.createElement("button",{"data-coach":"fab",onClick:()=>sSE(true),style:{position:"fixed",bottom:"calc(84px + env(safe-area-inset-bottom, 0px))",right:24,width:isStudio?56:52,height:isStudio?56:52,borderRadius:isStudio?18:16,background:t.playBg||t.accent,border:"none",cursor:"pointer",zIndex:500,boxShadow:isStudio?"0 6px 28px "+t.accentGlow+", 0 2px 8px rgba(0,0,0,0.3)":"0 4px 20px "+t.accentGlow,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,color:"#fff",fontWeight:300}},"+"),
     // Overlays
     feedShowTips&&view==="explore"&&!selectedLick&&!showEd&&React.createElement(CoachMarks,{tips:FEED_TIPS,onDone:markFeedTipped,th:t}),
-    earShowTips&&view==="ear"&&!selectedLick&&React.createElement(CoachMarks,{tips:EAR_TIPS,onDone:markEarTipped,th:t}),
-    rhythmShowTips&&view==="rhythm"&&React.createElement(CoachMarks,{tips:RHYTHM_TIPS,onDone:markRhythmTipped,th:t}),
+    earShowTips&&view==="train"&&trainSub==="ear"&&!selectedLick&&React.createElement(CoachMarks,{tips:EAR_TIPS,onDone:markEarTipped,th:t}),
+    rhythmShowTips&&view==="train"&&trainSub==="rhythm"&&React.createElement(CoachMarks,{tips:RHYTHM_TIPS,onDone:markRhythmTipped,th:t}),
     selectedLick&&React.createElement(LickDetail,{key:selectedLick.id,lick:selectedLick,onBack:closeLick,th:t,liked:likedSet.has(selectedLick.id),saved:savedSet.has(selectedLick.id),onLike:toggleLike,onSave:toggleSave,showTips:detailShowTips,onTipsDone:markDetailTipped,onReShowTips:detailTipped?function(){setDetailShowTips(true);}:null,defaultInst:userInst,onDeletePrivate:deletePrivateLick}),
     showEd&&React.createElement(Editor,{onClose:()=>sSE(false),onSubmit:addLick,onSubmitPrivate:addPrivateLick,th:t}),
     runningPlan&&React.createElement(PlanRunner,{plan:runningPlan,onClose:function(){setRunningPlan(null);},th:t,licks:allLicks,userInst:userInst,keyProgress:keyProgress,onUpdateKeyProgress:onUpdateKeyProgress,onSessionSaved:function(){setHistoryRefresh(function(k){return k+1;});var s=getStg();if(s)s.get("practice-log").then(function(r){if(r&&r.value){try{var sess=JSON.parse(r.value);calcStreak(sess);calcHours(sess);}catch(e){}}}).catch(function(){});}}),
