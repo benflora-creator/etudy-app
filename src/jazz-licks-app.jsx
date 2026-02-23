@@ -4260,13 +4260,13 @@ export default function Etudy(){
   const markEarTipped=useCallback(()=>{setEarTipped(true);setEarShowTips(false);},[]);
   const markRhythmTipped=useCallback(()=>{setRhythmTipped(true);setRhythmShowTips(false);},[]);
   const toggleLike=id=>{
-    setLikedSet(s=>{const n=new Set(s);const adding=!n.has(id);if(adding)n.add(id);else n.delete(id);const g=getStg();if(g)g.set("etudy:likedSet",JSON.stringify([...n])).catch(()=>{});
-      // Update like count in Supabase
-      const lick=allLicks.find(l=>l.id===id);
-      if(lick){const newCount=Math.max(0,(lick.likes||0)+(adding?1:-1));
-        sL(prev=>prev.map(l=>l.id===id?{...l,likes:newCount}:l));
-        updateLikes(id,newCount);}
-      return n;});
+    const wasLiked=likedSet.has(id);
+    const adding=!wasLiked;
+    setLikedSet(s=>{const n=new Set(s);if(adding)n.add(id);else n.delete(id);const g=getStg();if(g)g.set("etudy:likedSet",JSON.stringify([...n])).catch(()=>{});return n;});
+    const lick=allLicks.find(l=>l.id===id);
+    if(lick){const newCount=Math.max(0,(lick.likes||0)+(adding?1:-1));
+      sL(prev=>prev.map(l=>l.id===id?{...l,likes:newCount}:l));
+      updateLikes(id,newCount);}
   };
   const toggleSave=id=>{
     const lick=allLicks.find(l=>l.id===id);
