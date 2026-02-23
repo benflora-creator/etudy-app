@@ -4275,6 +4275,7 @@ export default function Etudy(){
   };
   const[myLicks,setMyLicks]=useState([]);
   const[lickSource,setLickSource]=useState("community"); // community | mine
+  const[myLicksSub,setMyLicksSub]=useState("saved"); // saved | private
   const allLicks=useMemo(function(){return[...licks,...myLicks];},[licks,myLicks]);
   const[rhythmSub,setRhythmSub]=useState("metronome"); // metronome | reading | poly
   const[trainSub,setTrainSub]=useState("ear"); // ear | rhythm (later: scales)
@@ -4516,23 +4517,18 @@ export default function Etudy(){
           React.createElement("div",{style:{fontSize:15,fontWeight:600,color:t.text,fontFamily:"'Inter',sans-serif",marginBottom:6}},"Your collection"),
           React.createElement("div",{style:{fontSize:12,color:t.muted,fontFamily:"'Inter',sans-serif",lineHeight:1.5,marginBottom:16}},"Pin licks from the community with "+(isStudio?"the target \u2299":"the star \u2605")+" or create your own. Private licks are stored offline on your device."),
           React.createElement("button",{onClick:function(){sSE(true);},style:{padding:"12px 28px",borderRadius:12,border:"none",background:t.accent,color:"#fff",fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer",boxShadow:"0 4px 16px "+t.accentGlow}},"\u002B  Create Lick")),
-        // Separated sections for My Licks
+        // My Licks: sub-tabs Saved / Private
         lickSource==="mine"&&fl.length>0&&(function(){
           var savedLicks=fl.filter(function(l){return !l.private;});
           var privateLicks=fl.filter(function(l){return l.private;});
+          var activeLicks=myLicksSub==="saved"?savedLicks:privateLicks;
           return React.createElement("div",null,
-            // SAVED section
-            savedLicks.length>0&&React.createElement("div",{style:{marginBottom:privateLicks.length>0?20:0}},
-              React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:10}},
-                React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5}},(isStudio?"\u2299":"\u2605")+" SAVED"),
-                React.createElement("span",{style:{fontSize:10,color:t.subtle,fontFamily:"'JetBrains Mono',monospace"}},savedLicks.length)),
-              savedLicks.map(function(l){return React.createElement(LickCard,{key:l.id,lick:l,onSelect:openLick,th:t,liked:likedSet.has(l.id),saved:savedSet.has(l.id),onLike:toggleLike,onSave:toggleSave,userInst:userInst});})),
-            // PRIVATE section
-            privateLicks.length>0&&React.createElement("div",null,
-              React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:10}},
-                React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5}},"\uD83D\uDD12 PRIVATE"),
-                React.createElement("span",{style:{fontSize:10,color:t.subtle,fontFamily:"'JetBrains Mono',monospace"}},privateLicks.length)),
-              privateLicks.map(function(l){return React.createElement(LickCard,{key:l.id,lick:l,onSelect:openLick,th:t,liked:likedSet.has(l.id),saved:savedSet.has(l.id),onLike:toggleLike,onSave:toggleSave,userInst:userInst});})));
+            React.createElement("div",{style:{display:"flex",gap:2,background:t.filterBg,borderRadius:8,padding:2,marginBottom:12}},
+              [["saved",(isStudio?"\u2299 ":"\u2605 ")+"Saved ("+savedLicks.length+")"],["private","\uD83D\uDD12 Private ("+privateLicks.length+")"]].map(function(m){
+                return React.createElement("button",{key:m[0],onClick:function(){setMyLicksSub(m[0]);},style:{flex:1,padding:"6px 12px",borderRadius:6,border:"none",background:myLicksSub===m[0]?t.card:"transparent",color:myLicksSub===m[0]?t.text:t.subtle,fontSize:11,fontWeight:myLicksSub===m[0]?600:400,fontFamily:"'Inter',sans-serif",cursor:"pointer",boxShadow:myLicksSub===m[0]?"0 1px 4px rgba(0,0,0,0.08)":"none",transition:"all 0.15s"}},m[1]);})),
+            activeLicks.length>0&&activeLicks.map(function(l){return React.createElement(LickCard,{key:l.id,lick:l,onSelect:openLick,th:t,liked:likedSet.has(l.id),saved:savedSet.has(l.id),onLike:toggleLike,onSave:toggleSave,userInst:userInst});}),
+            activeLicks.length===0&&React.createElement("div",{style:{textAlign:"center",padding:"40px 20px",background:t.card,borderRadius:14,border:"1px solid "+t.border}},
+              React.createElement("div",{style:{fontSize:12,color:t.subtle,fontFamily:"'Inter',sans-serif"}},myLicksSub==="saved"?"No saved licks yet — "+(isStudio?"target \u2299":"star \u2605")+" licks to save them":"No private licks yet — create one with the + button")));
         })(),
         lickSource==="community"&&React.createElement("div",{style:{fontSize:11,color:t.subtle,fontFamily:"'Inter',sans-serif",marginBottom:10,fontWeight:500}},fl.length+" lick"+(fl.length!==1?"s":"")),
         lickSource==="community"&&fl.map(l=>React.createElement(LickCard,{key:l.id,lick:l,onSelect:openLick,th:t,liked:likedSet.has(l.id),saved:savedSet.has(l.id),onLike:toggleLike,onSave:toggleSave,userInst:userInst})),
