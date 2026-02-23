@@ -4173,6 +4173,30 @@ function Filters({instrument,setInstrument,category,setCategory,sq,setSq,th}){
 // ============================================================
 export default function Etudy(){
   const[theme,setTheme]=useState(null);const[view,sV]=useState("explore");const[selectedLick,setSelected]=useState(null);const[inst,sI]=useState("All");const[cat,sC]=useState("All");const[sq,sQ]=useState("");const[showEd,sSE]=useState(false);const[licks,sL]=useState(SAMPLE_LICKS);
+  // PWA Install prompt
+  const[installPrompt,setInstallPrompt]=useState(null);
+  const[isStandalone,setIsStandalone]=useState(false);
+  const[isIOS,setIsIOS]=useState(false);
+  const[showIOSGuide,setShowIOSGuide]=useState(false);
+  const[installed,setInstalled]=useState(false);
+  useEffect(()=>{
+    // Detect if already running as installed PWA
+    var standalone=window.matchMedia("(display-mode: standalone)").matches||window.navigator.standalone===true;
+    setIsStandalone(standalone);
+    // Detect iOS
+    var ua=navigator.userAgent||"";
+    setIsIOS(/iPad|iPhone|iPod/.test(ua)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1));
+    // Capture install prompt (Android/Chrome/Edge)
+    var handler=function(e){e.preventDefault();setInstallPrompt(e);};
+    window.addEventListener("beforeinstallprompt",handler);
+    window.addEventListener("appinstalled",function(){setInstalled(true);});
+    return function(){window.removeEventListener("beforeinstallprompt",handler);};
+  },[]);
+  var doInstall=function(){
+    if(!installPrompt)return;
+    installPrompt.prompt();
+    installPrompt.userChoice.then(function(r){if(r.outcome==="accepted")setInstalled(true);setInstallPrompt(null);});
+  };
   const[myLicks,setMyLicks]=useState([]);
   const[lickSource,setLickSource]=useState("community"); // community | mine
   const allLicks=useMemo(function(){return[...licks,...myLicks];},[licks,myLicks]);
@@ -4295,6 +4319,54 @@ export default function Etudy(){
   const deletePrivateLick=(id)=>{
     setMyLicks(prev=>{const u=prev.filter(l=>l.id!==id);const g=getStg();if(g)g.set("etudy:myLicks",JSON.stringify(u)).catch(()=>{});return u;});
     closeLick();};
+
+  // INSTALL LANDING PAGE — shown only in browser (not when already installed as PWA)
+  if(!isStandalone&&!installed&&!theme&&(installPrompt||isIOS)){
+    var S=React.createElement;
+    var canInstall=!!installPrompt;
+    return S("div",{style:{minHeight:"100vh",background:"#08080F",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"24px 20px",position:"relative",overflow:"hidden"}},
+      S("style",null,"@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;500;700&family=Inter:wght@300;400;500;600;700&display=swap');@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}@keyframes pulse{0%,100%{opacity:0.4}50%{opacity:0.8}}@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}"),
+      // Background glow
+      S("div",{style:{position:"absolute",top:"20%",left:"50%",transform:"translateX(-50%)",width:300,height:300,borderRadius:"50%",background:"radial-gradient(circle,rgba(34,216,158,0.08) 0%,transparent 70%)",pointerEvents:"none"}}),
+      S("div",{style:{textAlign:"center",maxWidth:380,animation:"fadeIn 0.6s ease",position:"relative",zIndex:1}},
+        // Logo
+        S("div",{style:{fontSize:44,marginBottom:6,animation:"float 3s ease-in-out infinite"}},"\u266A"),
+        S("h1",{style:{fontSize:38,fontFamily:"'Instrument Serif',Georgia,serif",color:"#fff",margin:"0 0 4px",fontWeight:400}},"\u00C9tudy"),
+        S("p",{style:{fontSize:10,color:"#555566",fontFamily:"'JetBrains Mono',monospace",letterSpacing:4,margin:"0 0 32px"}},"JAZZ LICK COLLECTION"),
+        // Feature pills
+        S("div",{style:{display:"flex",gap:8,justifyContent:"center",flexWrap:"wrap",marginBottom:36}},
+          ["\uD83C\uDFB5 500+ Jazz Licks","\uD83D\uDC42 Ear Training","\uD83E\uDD41 Rhythm Games","\uD83C\uDFB9 Playback"].map(function(f){
+            return S("span",{key:f,style:{padding:"6px 12px",borderRadius:20,background:"rgba(34,216,158,0.08)",border:"1px solid rgba(34,216,158,0.15)",color:"#22D89E",fontSize:11,fontFamily:"'Inter',sans-serif",fontWeight:500,whiteSpace:"nowrap"}},f);
+          })),
+        // Install button (Android/Chrome) or iOS guide
+        canInstall?S("button",{onClick:doInstall,style:{width:"100%",padding:"16px 24px",borderRadius:14,border:"none",background:"linear-gradient(135deg,#22D89E,#1AB87A)",color:"#fff",fontSize:16,fontWeight:700,fontFamily:"'Inter',sans-serif",cursor:"pointer",boxShadow:"0 4px 24px rgba(34,216,158,0.3),0 8px 40px rgba(34,216,158,0.15)",transition:"transform 0.15s",marginBottom:12,display:"flex",alignItems:"center",justifyContent:"center",gap:10}},
+          S("span",{style:{fontSize:20}},"\u2B07"),
+          "App installieren"):
+        // iOS guide
+        isIOS?S("div",null,
+          !showIOSGuide?S("button",{onClick:function(){setShowIOSGuide(true);},style:{width:"100%",padding:"16px 24px",borderRadius:14,border:"none",background:"linear-gradient(135deg,#22D89E,#1AB87A)",color:"#fff",fontSize:16,fontWeight:700,fontFamily:"'Inter',sans-serif",cursor:"pointer",boxShadow:"0 4px 24px rgba(34,216,158,0.3)",marginBottom:12,display:"flex",alignItems:"center",justifyContent:"center",gap:10}},
+            S("span",{style:{fontSize:20}},"\u2B07"),
+            "App installieren"):
+          S("div",{style:{background:"rgba(255,255,255,0.05)",borderRadius:16,padding:"20px",border:"1px solid rgba(34,216,158,0.2)",marginBottom:12,textAlign:"left",animation:"fadeIn 0.3s ease"}},
+            S("p",{style:{fontSize:13,fontWeight:600,color:"#fff",fontFamily:"'Inter',sans-serif",marginBottom:14,textAlign:"center"}},"So installierst du \u00C9tudy:"),
+            [
+              {icon:"\u2B06\uFE0F",text:"Tippe unten auf das Teilen-Symbol",sub:"(Quadrat mit Pfeil nach oben)"},
+              {icon:"\u2B07\uFE0F",text:"Scrolle runter im Men\u00FC"},
+              {icon:"\u2795",text:'Tippe auf "Zum Home-Bildschirm"'},
+              {icon:"\u2705",text:'Tippe auf "Hinzuf\u00FCgen" \u2014 fertig!'}
+            ].map(function(step,i){
+              return S("div",{key:i,style:{display:"flex",gap:12,alignItems:"flex-start",marginBottom:i<3?14:0}},
+                S("span",{style:{fontSize:18,lineHeight:"1.2",flexShrink:0}},step.icon),
+                S("div",null,
+                  S("span",{style:{fontSize:13,color:"#E8E8F0",fontFamily:"'Inter',sans-serif",fontWeight:500}},step.text),
+                  step.sub&&S("span",{style:{display:"block",fontSize:11,color:"#666677",fontFamily:"'Inter',sans-serif",marginTop:2}},step.sub)));
+            }))):null,
+        // "Continue in browser" link
+        S("button",{onClick:function(){setInstalled(true);},style:{background:"none",border:"none",color:"#555566",fontSize:12,fontFamily:"'Inter',sans-serif",cursor:"pointer",padding:"12px",marginTop:4,transition:"color 0.15s"}},
+          "Im Browser fortfahren \u2192"),
+        // Bottom tagline
+        S("p",{style:{fontSize:10,color:"#333344",fontFamily:"'JetBrains Mono',monospace",marginTop:32,letterSpacing:1}},"FREE \u00B7 OFFLINE \u00B7 NO ADS")));
+  }
 
   // THEME SELECTION SCREEN
   if(!theme){return React.createElement("div",{style:{minHeight:"100vh",background:"#111118",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24}},
