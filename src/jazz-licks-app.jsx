@@ -991,7 +991,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
   const curNoteRef=useRef(-1);const[focus,setFocus]=useState(false);
   const playerCtrlRef=useRef({toggle:null,playing:false});
   const[trOpen,setTrOpen]=useState(false);const[moreOpen,setMoreOpen]=useState(false);
-  const lc=lick.likes+(liked?1:0);
+  const lc=lick.likes;
   const[burst,sBurst]=useState(null);const burstKeyRef=useRef(0);
   const instOff=INST_TRANS[trInst]||0;
   const notationAbc=transposeAbc(lick.abc,instOff+trMan);
@@ -1106,7 +1106,7 @@ function DailyLickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:user
         React.createElement("button",{onClick:e=>{e.stopPropagation();onSave(lick.id);},style:{background:"none",border:"none",cursor:"pointer",padding:"4px 2px",display:"flex",alignItems:"center",marginLeft:4,transition:"all 0.15s"}},
           isStudio?IC.target(20,saved?"#22D89E":"#55556A"):React.createElement("span",{style:{fontSize:20,color:saved?"#F59E0B":t.muted}},saved?"\u2605":"\u2606")),
         React.createElement("div",{style:{flex:1}}),
-        React.createElement("span",{style:{fontSize:11,fontWeight:600,fontFamily:"'JetBrains Mono',monospace",color:liked?(isStudio?"#F97316":"#EF4444"):t.muted}},lick.likes+(liked?1:0)+(liked?" flame":" flames")),
+        React.createElement("span",{style:{fontSize:11,fontWeight:600,fontFamily:"'JetBrains Mono',monospace",color:liked?(isStudio?"#F97316":"#EF4444"):t.muted}},lick.likes+(liked?" flame":" flames")),
         isStudio?IC.arrowR(14,catC):React.createElement("span",{style:{fontSize:14,color:t.subtle,marginLeft:6}},"\u203A"))));}
 
 
@@ -1141,7 +1141,7 @@ function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst}
         React.createElement("button",{onClick:e=>{e.stopPropagation();onSave(lick.id);},style:{background:"none",border:"none",cursor:"pointer",padding:"3px 2px",display:"flex",alignItems:"center",marginLeft:4,transition:"all 0.15s"}},
           isStudio?IC.target(18,saved?"#22D89E":"#55556A"):React.createElement("span",{style:{fontSize:18,color:saved?"#F59E0B":t.muted}},saved?"\u2605":"\u2606")),
         React.createElement("div",{style:{flex:1}}),
-        React.createElement("span",{style:{fontSize:10,fontWeight:600,fontFamily:"'JetBrains Mono',monospace",color:liked?(isStudio?"#F97316":"#EF4444"):t.muted}},lick.likes+(liked?1:0)+" flames"),
+        React.createElement("span",{style:{fontSize:10,fontWeight:600,fontFamily:"'JetBrains Mono',monospace",color:liked?(isStudio?"#F97316":"#EF4444"):t.muted}},lick.likes+" flames"),
         isStudio?React.createElement("div",{style:{marginLeft:6}},IC.arrowR(12,catC)):React.createElement("span",{style:{fontSize:13,color:t.subtle,marginLeft:6}},"\u203A"))));}
 
 
