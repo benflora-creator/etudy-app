@@ -1179,7 +1179,7 @@ function DailyLickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:user
         React.createElement("button",{onClick:e=>{e.stopPropagation();onSave(lick.id);},style:{background:"none",border:"none",cursor:"pointer",padding:"4px 2px",display:"flex",alignItems:"center",marginLeft:4,transition:"all 0.15s"}},
           isStudio?IC.target(20,saved?"#22D89E":"#55556A"):React.createElement("span",{style:{fontSize:20,color:saved?"#F59E0B":t.muted}},saved?"\u2605":"\u2606")),
         React.createElement("div",{style:{flex:1}}),
-        React.createElement("span",{style:{fontSize:11,fontWeight:600,fontFamily:"'JetBrains Mono',monospace",color:liked?(isStudio?"#F97316":"#EF4444"):t.muted}},lick.likes+(lick.likes===1?" flame":" flames")),
+        React.createElement("span",{style:{fontSize:11,fontWeight:600,fontFamily:"'JetBrains Mono',monospace",color:liked?(isStudio?"#F97316":"#EF4444"):t.muted}},lick.likes+(isStudio?(lick.likes===1?" flame":" flames"):(lick.likes===1?" like":" likes"))),
         isStudio?IC.arrowR(14,catC):React.createElement("span",{style:{fontSize:14,color:t.subtle,marginLeft:6}},"\u203A"))));}
 
 
@@ -1215,7 +1215,7 @@ function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst}
         React.createElement("button",{onClick:e=>{e.stopPropagation();onSave(lick.id);},style:{background:"none",border:"none",cursor:"pointer",padding:"3px 2px",display:"flex",alignItems:"center",marginLeft:4,transition:"all 0.15s"}},
           isStudio?IC.target(18,saved?"#22D89E":"#55556A"):React.createElement("span",{style:{fontSize:18,color:saved?"#F59E0B":t.muted}},saved?"\u2605":"\u2606")),
         React.createElement("div",{style:{flex:1}}),
-        React.createElement("span",{style:{fontSize:10,fontWeight:600,fontFamily:"'JetBrains Mono',monospace",color:liked?(isStudio?"#F97316":"#EF4444"):t.muted}},lick.likes+(lick.likes===1?" flame":" flames")),
+        React.createElement("span",{style:{fontSize:10,fontWeight:600,fontFamily:"'JetBrains Mono',monospace",color:liked?(isStudio?"#F97316":"#EF4444"):t.muted}},lick.likes+(isStudio?(lick.likes===1?" flame":" flames"):(lick.likes===1?" like":" likes"))),
         isStudio?React.createElement("div",{style:{marginLeft:6}},IC.arrowR(12,catC)):React.createElement("span",{style:{fontSize:13,color:t.subtle,marginLeft:6}},"\u203A"))));}
 
 
@@ -4514,7 +4514,7 @@ export default function Etudy(){
         lickSource==="mine"&&fl.length===0&&!sq&&inst==="All"&&cat==="All"&&React.createElement("div",{style:{textAlign:"center",padding:"48px 20px",background:t.card,borderRadius:14,border:"1px solid "+t.border,marginBottom:16}},
           React.createElement("div",{style:{fontSize:32,marginBottom:12}},"\u270D"),
           React.createElement("div",{style:{fontSize:15,fontWeight:600,color:t.text,fontFamily:"'Inter',sans-serif",marginBottom:6}},"Your collection"),
-          React.createElement("div",{style:{fontSize:12,color:t.muted,fontFamily:"'Inter',sans-serif",lineHeight:1.5,marginBottom:16}},"Pin licks from the community with "+(isStudio?"\u2605":"the star")+" or create your own. Private licks are stored offline on your device."),
+          React.createElement("div",{style:{fontSize:12,color:t.muted,fontFamily:"'Inter',sans-serif",lineHeight:1.5,marginBottom:16}},"Pin licks from the community with "+(isStudio?"the target \u2299":"the star \u2605")+" or create your own. Private licks are stored offline on your device."),
           React.createElement("button",{onClick:function(){sSE(true);},style:{padding:"12px 28px",borderRadius:12,border:"none",background:t.accent,color:"#fff",fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer",boxShadow:"0 4px 16px "+t.accentGlow}},"\u002B  Create Lick")),
         React.createElement("div",{style:{fontSize:11,color:t.subtle,fontFamily:"'Inter',sans-serif",marginBottom:10,fontWeight:500}},fl.length+" lick"+(fl.length!==1?"s":"")),
         fl.map(l=>React.createElement(LickCard,{key:l.id,lick:l,onSelect:openLick,th:t,liked:likedSet.has(l.id),saved:savedSet.has(l.id),onLike:toggleLike,onSave:toggleSave,userInst:userInst})),
@@ -4556,7 +4556,7 @@ export default function Etudy(){
 
         // ─── QUICK STATS ───
         React.createElement("div",{style:{display:"flex",gap:8,marginBottom:20}},
-          [{label:"Saved",value:savedSet.size+myLicks.length,icon:IC.target(16,isStudio?"#22D89E":"#F59E0B")},
+          [{label:"Saved",value:savedSet.size+myLicks.length,icon:isStudio?IC.target(16,"#22D89E"):React.createElement("span",{style:{fontSize:16,color:"#F59E0B"}},"\u2605")},
            {label:"Streak",value:streakDays,icon:IC.flame(16,isStudio?"#F97316":"#EF4444",true)},
            {label:"Hours",value:totalHours,icon:IC.tabRhythm(16,isStudio?"#3B82F6":"#2563EB",true)}].map(function(s,i){
             return React.createElement("div",{key:i,style:{flex:1,background:t.card,borderRadius:14,padding:"14px 12px",border:"1px solid "+t.border,textAlign:"center",boxShadow:isStudio?"0 2px 12px rgba(0,0,0,0.3)":"0 2px 8px rgba(0,0,0,0.04)"}},
@@ -4571,7 +4571,7 @@ export default function Etudy(){
             React.createElement("div",{style:{fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5}},"SAVED LICKS"),
             savedSet.size>0&&React.createElement("span",{style:{fontSize:10,color:t.subtle,fontFamily:"'JetBrains Mono',monospace"}},savedSet.size+" lick"+(savedSet.size!==1?"s":""))),
           savedSet.size===0&&myLicks.length===0?React.createElement("div",{style:{background:t.card,borderRadius:14,border:"1px solid "+t.border,padding:"20px 16px",textAlign:"center"}},
-            React.createElement("span",{style:{fontSize:12,color:t.subtle,fontFamily:"'Inter',sans-serif"}},"Save licks with the "+(isStudio?"\u2605":"pin")+" or create your own")):
+            React.createElement("span",{style:{fontSize:12,color:t.subtle,fontFamily:"'Inter',sans-serif"}},"Save licks with "+(isStudio?"the target \u2299":"the star \u2605")+" or create your own")):
           React.createElement("div",{style:{display:"flex",gap:8,overflowX:"auto",scrollbarWidth:"none",WebkitOverflowScrolling:"touch",paddingBottom:4}},
             licks.filter(function(l){return savedSet.has(l.id);}).concat(myLicks).map(function(lick){
               var cc=getCatColor(lick.category,t);
@@ -4587,7 +4587,7 @@ export default function Etudy(){
             React.createElement("div",{style:{fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5}},"LIKED LICKS"),
             likedSet.size>0&&React.createElement("span",{style:{fontSize:10,color:t.subtle,fontFamily:"'JetBrains Mono',monospace"}},likedSet.size+" lick"+(likedSet.size!==1?"s":""))),
           likedSet.size===0?React.createElement("div",{style:{background:t.card,borderRadius:14,border:"1px solid "+t.border,padding:"20px 16px",textAlign:"center"}},
-            React.createElement("span",{style:{fontSize:12,color:t.subtle,fontFamily:"'Inter',sans-serif"}},"Flame licks you love "+(isStudio?"\uD83D\uDD25":"")+" to see them here")):
+            React.createElement("span",{style:{fontSize:12,color:t.subtle,fontFamily:"'Inter',sans-serif"}},isStudio?"Flame licks you love \uD83D\uDD25 to see them here":"Like licks you love \u2764\uFE0F to see them here")):
           React.createElement("div",{style:{display:"flex",gap:8,overflowX:"auto",scrollbarWidth:"none",WebkitOverflowScrolling:"touch",paddingBottom:4}},
             licks.filter(function(l){return likedSet.has(l.id);}).map(function(lick){
               var cc=getCatColor(lick.category,t);
