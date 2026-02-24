@@ -372,7 +372,7 @@ function transposeAbc(abc,semi){if(!semi)return abc;const lines=abc.split("\n");
 // ABC PARSER
 // ============================================================
 function parseAbc(abcStr,tOv){const lines=abcStr.split("\n");let dL=1/8,bpm=120,ks={},tsN=4;for(const l of lines){const t=l.trim();if(t.startsWith("L:")){const m=t.match(/(\d+)\/(\d+)/);if(m)dL=parseInt(m[1])/parseInt(m[2]);}else if(t.startsWith("Q:")){const m=t.match(/(\d+)$/);if(m)bpm=parseInt(m[1]);}else if(t.startsWith("K:")){ks=KEY_SIG[t.replace("K:","").trim().split(/\s/)[0]]||{};}else if(t.startsWith("M:")){const m=t.match(/(\d+)\/(\d+)/);if(m)tsN=parseInt(m[1]);}}if(tOv)bpm=tOv;const spb=60/bpm;let mu="";for(const l of lines){const t=l.trim();if(/^[A-Z]:/.test(t))continue;mu+=" "+t;}const ev=[],ch=[];let i=0;while(i<mu.length){const c=mu[i];if(c===" "||c==="\t"){i++;continue;}if(c==="|"||c===":"){i++;continue;}if(c==="]"){i++;continue;}if(c==='"'){i++;let cn="";while(i<mu.length&&mu[i]!=='"'){cn+=mu[i];i++;}if(i<mu.length)i++;let p=0;for(const e of ev)p+=e.rL;ch.push({name:cn,pos:p});continue;}if(c==="!"||c==="+"){i++;while(i<mu.length&&mu[i]!==c)i++;if(i<mu.length)i++;continue;}if(c==="("){i++;while(i<mu.length&&mu[i]>="0"&&mu[i]<="9")i++;continue;}if(c==="-"||c==="~"||c==="."||c==="H"){i++;continue;}if(c==="["){if(i+1<mu.length&&(mu[i+1]==="|"||mu[i+1]==="1"||mu[i+1]==="2")){i++;continue;}i++;const ct=[];while(i<mu.length&&mu[i]!=="]"){const nr=rN(mu,i,ks);if(nr){ct.push(nr.t);i=nr.n;}else i++;}if(i<mu.length)i++;const dr=rD(mu,i);i=dr.n;ev.push({tn:ct.length?ct:null,rL:dL*dr.m});continue;}if(c==="z"||c==="x"){i++;const dr=rD(mu,i);i=dr.n;ev.push({tn:null,rL:dL*dr.m});continue;}const nr=rN(mu,i,ks);if(nr){i=nr.n;const dr=rD(mu,i);i=dr.n;ev.push({tn:[nr.t],rL:dL*dr.m});continue;}i++;}return{events:ev,chords:ch,bpm,spb,tsNum:tsN};}
-function applyTiming(p,sw){const{events:ev,spb}=p;const eL=1/8;const r=[];let pos=0;for(const e of ev){let d=e.rL*4*spb;let st=pos*4*spb;if(sw>0&&Math.abs(e.rL-eL)<0.001){const bL=1/4;const pIB=((pos%bL)+bL)%bL;if(pIB<0.001){d=(1/4)*(0.5+sw*0.17)*4*spb;}else if(Math.abs(pIB-eL)<0.001){st+=sw*0.17*(1/4)*4*spb;d=(1/4)*(0.5-sw*0.17)*4*spb;}}r.push({tones:e.tn,dur:Math.max(d,0.02),startTime:st});pos+=e.rL;}return{scheduled:r,totalDur:pos*4*spb,chordTimes:p.chords.map(c=>({name:c.name,time:c.pos*4*spb}))};}
+function applyTiming(p,sw){const{events:ev,spb}=p;const eL=1/8;const r=[];let pos=0;for(const e of ev){let d=e.rL*4*spb;let st=pos*4*spb;let vel=1;if(sw>0&&Math.abs(e.rL-eL)<0.001){const bL=1/4;const pIB=((pos%bL)+bL)%bL;if(pIB<0.001){d=(1/4)*(0.5+sw*0.17)*4*spb;vel=0.85;}else if(Math.abs(pIB-eL)<0.001){st+=sw*0.17*(1/4)*4*spb;d=(1/4)*(0.5-sw*0.17)*4*spb;vel=1+sw*0.15;}}r.push({tones:e.tn,dur:Math.max(d,0.02),startTime:st,vel:vel});pos+=e.rL;}return{scheduled:r,totalDur:pos*4*spb,chordTimes:p.chords.map(c=>({name:c.name,time:c.pos*4*spb}))};}
 function rN(s,i,ks){let a=null;while(i<s.length&&(s[i]==="^"||s[i]==="_"||s[i]==="=")){if(s[i]==="^")a=(a===null?1:a+1);else if(s[i]==="_")a=(a===null?-1:a-1);else a=0;i++;}if(i>=s.length)return null;const c=s[i];if(!((c>="A"&&c<="G")||(c>="a"&&c<="g")))return null;const lo=c>="a",nl=c.toUpperCase();let o=lo?5:4;i++;while(i<s.length&&(s[i]==="'"||s[i]===",")){if(s[i]==="'")o++;else o--;i++;}let sa=0;if(a!==null)sa=a;else{const ka=ks[nl.toLowerCase()];if(ka)sa=ka;}let tn=nl;if(sa>0)tn+="#";else if(sa<0)tn+="b";tn+=o;return{t:tn,n:i};}
 function rD(s,i){let nm="";while(i<s.length&&s[i]>="0"&&s[i]<="9"){nm+=s[i];i++;}let m=nm?parseInt(nm):1;if(i<s.length&&s[i]==="/"){i++;let dn="";while(i<s.length&&s[i]>="0"&&s[i]<="9"){dn+=s[i];i++;}m=m/(dn?parseInt(dn):2);}return{m:m||1,n:i};}
 
@@ -383,8 +383,8 @@ const SAL_BASE="https://tonejs.github.io/audio/salamander/";
 const SAL_MAP={"C2":"C2.mp3","D#2":"Ds2.mp3","F#2":"Fs2.mp3","A2":"A2.mp3","C3":"C3.mp3","D#3":"Ds3.mp3","F#3":"Fs3.mp3","A3":"A3.mp3","C4":"C4.mp3","D#4":"Ds4.mp3","F#4":"Fs4.mp3","A4":"A4.mp3","C5":"C5.mp3","D#5":"Ds5.mp3","F#5":"Fs5.mp3","A5":"A5.mp3","C6":"C6.mp3","D#6":"Ds6.mp3","F#6":"Fs6.mp3","A6":"A6.mp3","C7":"C7.mp3"};
 let _sampler=null,_samplerReady=false,_samplerPromise=null,_samplerFailed=false;
 function preloadPiano(){if(_samplerPromise)return _samplerPromise;_samplerPromise=new Promise(res=>{try{_sampler=new Tone.Sampler({urls:SAL_MAP,baseUrl:SAL_BASE,release:1.5,onload:()=>{_samplerReady=true;res(true);},onerror:()=>{_samplerFailed=true;res(false);}});setTimeout(()=>{if(!_samplerReady){_samplerFailed=true;res(false);}},15000);}catch(e){_samplerFailed=true;res(false);}});return _samplerPromise;}
-function makeSamplerPiano(bag){const rev=new Tone.Reverb({decay:2.8,wet:0.18}).toDestination();const comp=new Tone.Compressor({threshold:-22,ratio:3,attack:0.005,release:0.12}).connect(rev);_sampler.disconnect();_sampler.connect(comp);bag.push(rev,comp);return{play:(n,d,t)=>{try{_sampler.triggerAttackRelease(n,d,t);}catch(e){}}};}
-function makeSamplerRhodes(bag){const rev=new Tone.Reverb({decay:2.2,wet:0.18}).toDestination();const ch=new Tone.Chorus({frequency:0.7,delayTime:4,depth:0.2,wet:0.2}).connect(rev);ch.start();const tr=new Tone.Tremolo({frequency:3,depth:0.22,wet:0.3}).connect(ch);tr.start();const flt=new Tone.Filter({frequency:3000,type:"lowpass",rolloff:-12}).connect(tr);_sampler.disconnect();_sampler.connect(flt);bag.push(rev,ch,tr,flt);return{play:(n,d,t)=>{try{_sampler.triggerAttackRelease(n,d,t);}catch(e){}}};}
+function makeSamplerPiano(bag){const rev=new Tone.Reverb({decay:2.8,wet:0.18}).toDestination();const comp=new Tone.Compressor({threshold:-22,ratio:3,attack:0.005,release:0.12}).connect(rev);_sampler.disconnect();_sampler.connect(comp);bag.push(rev,comp);return{play:(n,d,t,v)=>{try{_sampler.triggerAttackRelease(n,d,t,v);}catch(e){}}};}
+function makeSamplerRhodes(bag){const rev=new Tone.Reverb({decay:2.2,wet:0.18}).toDestination();const ch=new Tone.Chorus({frequency:0.7,delayTime:4,depth:0.2,wet:0.2}).connect(rev);ch.start();const tr=new Tone.Tremolo({frequency:3,depth:0.22,wet:0.3}).connect(ch);tr.start();const flt=new Tone.Filter({frequency:3000,type:"lowpass",rolloff:-12}).connect(tr);_sampler.disconnect();_sampler.connect(flt);bag.push(rev,ch,tr,flt);return{play:(n,d,t,v)=>{try{_sampler.triggerAttackRelease(n,d,t,v);}catch(e){}}};}
 function makeSynthPiano(bag){
   // Rich piano: layered AMSynth + harmonic partials + reverb + compression
   const rev=new Tone.Reverb({decay:2.8,wet:0.2}).toDestination();
@@ -405,7 +405,7 @@ function makeSynthPiano(bag){
     volume:-18
   }).connect(comp);
   bag.push(s,atk,comp,rev);
-  return{play:(n,d,t)=>{s.triggerAttackRelease(n,d,t);atk.triggerAttackRelease(n,"32n",t);}};
+  return{play:(n,d,t,v)=>{s.triggerAttackRelease(n,d,t,v);atk.triggerAttackRelease(n,"32n",t,v);}};
 }
 function makeSax(bag){
   // Sax: FM with breath noise, vibrato, formant-like filtering
@@ -432,7 +432,7 @@ function makeSax(bag){
     volume:-26
   }).connect(nFlt);
   bag.push(s,breathNoise,mix,f1,f2,nFlt,vib,rev);
-  return{play:(n,d,t)=>{s.triggerAttackRelease(n,d,t);breathNoise.triggerAttackRelease(d,t);}};
+  return{play:(n,d,t,v)=>{s.triggerAttackRelease(n,d,t,v);breathNoise.triggerAttackRelease(d,t,v);}};
 }
 function makeTrumpet(bag){
   // Trumpet: bright FM, muted high partials, controlled bite
@@ -455,7 +455,7 @@ function makeTrumpet(bag){
     volume:-22
   }).connect(flt);
   bag.push(s,atk,dist,flt,rev);
-  return{play:(n,d,t)=>{s.triggerAttackRelease(n,d,t);atk.triggerAttackRelease(n,"64n",t);}};
+  return{play:(n,d,t,v)=>{s.triggerAttackRelease(n,d,t,v);atk.triggerAttackRelease(n,"64n",t,v);}};
 }
 function makeGuitar(bag){
   // Guitar: pluck-like with fast decay, chorus for width
@@ -480,7 +480,7 @@ function makeGuitar(bag){
     volume:-20
   }).connect(nFlt);
   bag.push(s,pluckNoise,flt,nFlt,ch,rev);
-  return{play:(n,d,t)=>{s.triggerAttackRelease(n,d,t);pluckNoise.triggerAttackRelease("32n",t);}};
+  return{play:(n,d,t,v)=>{s.triggerAttackRelease(n,d,t,v);pluckNoise.triggerAttackRelease("32n",t,v);}};
 }
 function makeFlute(bag){
   // Flute: pure sine with breath noise, wide vibrato, airy reverb
@@ -499,7 +499,7 @@ function makeFlute(bag){
     volume:-24
   }).connect(nFlt);
   bag.push(s,breath,nFlt,vib,rev);
-  return{play:(n,d,t)=>{s.triggerAttackRelease(n,d,t);breath.triggerAttackRelease(d,t);}};
+  return{play:(n,d,t,v)=>{s.triggerAttackRelease(n,d,t,v);breath.triggerAttackRelease(d,t,v);}};
 }
 function makeVibes(bag){
   // Vibes: metallic FM with tremolo, long decay
@@ -521,10 +521,25 @@ function makeVibes(bag){
     volume:-16
   }).connect(rev);
   bag.push(s,atk,tr,rev);
-  return{play:(n,d,t)=>{s.triggerAttackRelease(n,d,t);atk.triggerAttackRelease(n,"64n",t);}};
+  return{play:(n,d,t,v)=>{s.triggerAttackRelease(n,d,t,v);atk.triggerAttackRelease(n,"64n",t,v);}};
 }
 function makeMelSynth(id,bag){if((id==="piano"||id==="rhodes")&&_samplerReady&&_sampler)return id==="piano"?makeSamplerPiano(bag):makeSamplerRhodes(bag);switch(id){case"piano":case"rhodes":return makeSynthPiano(bag);case"sax":return makeSax(bag);case"trumpet":return makeTrumpet(bag);case"guitar":return makeGuitar(bag);case"flute":return makeFlute(bag);case"vibes":return makeVibes(bag);default:return makeSynthPiano(bag);}}
-function makeChordSynth(bag){const rev=new Tone.Reverb({decay:3,wet:0.22}).toDestination();const ch=new Tone.Chorus({frequency:0.4,delayTime:6,depth:0.22,wet:0.22}).connect(rev);ch.start();const tr=new Tone.Tremolo({frequency:2.2,depth:0.12,wet:0.18}).connect(ch);tr.start();const flt=new Tone.Filter({frequency:1800,type:"lowpass",rolloff:-24}).connect(tr);const s=new Tone.PolySynth(Tone.FMSynth,{harmonicity:3,modulationIndex:0.6,oscillator:{type:"fatsine2",spread:15,count:3},modulation:{type:"sine"},envelope:{attack:0.015,decay:1.0,sustain:0.3,release:1.5},modulationEnvelope:{attack:0.008,decay:0.6,sustain:0,release:0.6},volume:-18}).connect(flt);bag.push(s,flt,tr,ch,rev);return s;}
+function makeChordSynth(bag){
+  // Use piano sampler for warm comping sound when available
+  if(_samplerReady&&_sampler){
+    const rev=new Tone.Reverb({decay:2.5,wet:0.22}).toDestination();
+    const comp=new Tone.Compressor({threshold:-24,ratio:4,attack:0.01,release:0.15}).connect(rev);
+    const flt=new Tone.Filter({frequency:2200,type:"lowpass",rolloff:-12}).connect(comp);
+    const gain=new Tone.Gain(0.35).connect(flt);
+    // Create a dedicated sampler clone for chords so melody sampler stays independent
+    const chordSampler=new Tone.Sampler({urls:SAL_MAP,baseUrl:SAL_BASE,release:1.2,volume:-14,
+      onload:()=>{chordSampler._chordReady=true;},onerror:()=>{}}).connect(gain);
+    bag.push(chordSampler,gain,flt,comp,rev);
+    return chordSampler;
+  }
+  // Fallback: FM synth comping
+  const rev=new Tone.Reverb({decay:3,wet:0.22}).toDestination();const ch=new Tone.Chorus({frequency:0.4,delayTime:6,depth:0.22,wet:0.22}).connect(rev);ch.start();const tr=new Tone.Tremolo({frequency:2.2,depth:0.12,wet:0.18}).connect(ch);tr.start();const flt=new Tone.Filter({frequency:1800,type:"lowpass",rolloff:-24}).connect(tr);const s=new Tone.PolySynth(Tone.FMSynth,{harmonicity:3,modulationIndex:0.6,oscillator:{type:"fatsine2",spread:15,count:3},modulation:{type:"sine"},envelope:{attack:0.015,decay:1.0,sustain:0.3,release:1.5},modulationEnvelope:{attack:0.008,decay:0.6,sustain:0,release:0.6},volume:-18}).connect(flt);bag.push(s,flt,tr,ch,rev);return s;
+}
 function makeClick(bag){const rev=new Tone.Reverb({decay:0.2,wet:0.06}).toDestination();const flt=new Tone.Filter({frequency:7000,type:"bandpass",Q:2}).connect(rev);const hi=new Tone.NoiseSynth({noise:{type:"white"},envelope:{attack:0.001,decay:0.035,sustain:0,release:0.015},volume:-10}).connect(flt);const lo=new Tone.NoiseSynth({noise:{type:"pink"},envelope:{attack:0.001,decay:0.02,sustain:0,release:0.01},volume:-16}).connect(flt);bag.push(hi,lo,flt,rev);return{hi,lo};}
 let _pS=null,_pR=null,_pReady=false;
 function _ensurePreviewSynth(){
@@ -541,8 +556,8 @@ function prevNote(n,o,a){
   try{
     Tone.start();
     var nm=n;if(a===1)nm+="#";else if(a===-1)nm+="b";nm+=o;
-    // Use sampler if available (best sound)
-    if(_samplerReady&&_sampler){_sampler.triggerAttackRelease(nm,"4n");return;}
+    // Use sampler if available — reconnect to destination in case effects chain was disposed
+    if(_samplerReady&&_sampler){try{_sampler.toDestination();}catch(e){}_sampler.triggerAttackRelease(nm,"4n");return;}
     // Fallback: persistent synth
     _ensurePreviewSynth();
     if(_pS)_pS.triggerAttackRelease(nm,"4n");
@@ -764,7 +779,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
   useEffect(()=>{if(!samplesOk&&_samplerReady)setSamplesOk(true);},[]);
   const setPr=v=>{if(prBarRef.current)prBarRef.current.style.width=(v*100)+"%";};
   const setLc=v=>{if(lcDispRef.current){lcDispRef.current.textContent=v;lcDispRef.current.parentElement.style.display=v>1?"flex":"none";}};
-  const disposeBag=()=>{if(_sampler&&_samplerReady)try{_sampler.releaseAll();}catch(e){}for(const n of bagRef.current){try{n.releaseAll&&n.releaseAll();}catch(e){}try{n.stop&&n.stop();}catch(e){}try{n.dispose();}catch(e){}}bagRef.current=[];};
+  const disposeBag=()=>{if(_sampler&&_samplerReady)try{_sampler.releaseAll();}catch(e){}for(const n of bagRef.current){try{n.releaseAll&&n.releaseAll();}catch(e){}try{n.stop&&n.stop();}catch(e){}try{n.dispose();}catch(e){}}bagRef.current=[];if(_sampler&&_samplerReady)try{_sampler.toDestination();}catch(e){}};
   const metroCtrlRef=useRef({});// MiniMetronome writes start/stop here
   const clr=useCallback(()=>{sT.current=true;if(aR.current)cancelAnimationFrame(aR.current);disposeBag();sPl(false);setPr(0);setLc(0);setLoading(false);lcR.current=0;curNoteR.current=-1;if(onCurNoteR.current)onCurNoteR.current(-1);try{metroCtrlRef.current.stop&&metroCtrlRef.current.stop();}catch(e){}},[]);
   // Live restart at new BPM (called when user changes BPM during playback)
@@ -804,7 +819,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
     let cOff=doCi?parsed.spb*parsed.tsNum:0;
     // Count-in clicks removed — MiniMetronome handles the count-in
     const abActive=abOnR.current;const abS=abActive?abAR.current*totalDur:0;const abE=abActive?abBR.current*totalDur:totalDur;
-    for(const n of notes){if(!n.tones)continue;if(abActive&&(n.startTime<abS-0.001||n.startTime>=abE-0.001))continue;const nt=now+cOff+(abActive?n.startTime-abS:n.startTime);if(mlR.current)n.tones.forEach(tn=>mel.play(tn,Math.min(n.dur*0.9,2),nt));}
+    for(const n of notes){if(!n.tones)continue;if(abActive&&(n.startTime<abS-0.001||n.startTime>=abE-0.001))continue;const nt=now+cOff+(abActive?n.startTime-abS:n.startTime);if(mlR.current)n.tones.forEach(tn=>mel.play(tn,Math.min(n.dur*0.9,2),nt,n.vel));}
     if(bR.current)for(const c of chordTimes){if(abActive&&(c.time<abS-0.001||c.time>=abE-0.001))continue;const cn=chordToNotes(c.name);if(cn.length)cs.triggerAttackRelease(cn,"2n",now+cOff+(abActive?c.time-abS:c.time));}
     if(mR.current){const bLen=parsed.spb;for(let tm=0;tm<totalDur;tm+=bLen){if(abActive&&(tm<abS-0.001||tm>=abE-0.001))continue;const bt=now+cOff+(abActive?tm-abS:tm);const bIdx=Math.round(tm/bLen)%parsed.tsNum;click[bIdx===0?"hi":"lo"].triggerAttackRelease("32n",bt);}}
     noteFracsR.current=getNoteTimeFracs(abcR.current);dR.current=totalDur;return cOff;};
