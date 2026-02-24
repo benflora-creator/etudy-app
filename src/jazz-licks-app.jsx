@@ -778,7 +778,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
   useEffect(()=>{if(!samplesOk&&_samplerReady)setSamplesOk(true);},[]);
   const setPr=v=>{if(prBarRef.current)prBarRef.current.style.width=(v*100)+"%";};
   const setLc=v=>{if(lcDispRef.current){lcDispRef.current.textContent=v;lcDispRef.current.parentElement.style.display=v>1?"flex":"none";}};
-  const disposeBag=()=>{if(_sampler&&_samplerReady)try{_sampler.releaseAll();}catch(e){}if(_chordSampler&&_chordSamplerReady)try{_chordSampler.releaseAll();}catch(e){}for(const n of bagRef.current){try{n.releaseAll&&n.releaseAll();}catch(e){}try{n.stop&&n.stop();}catch(e){}try{n.dispose();}catch(e){}}bagRef.current=[];if(_sampler&&_samplerReady)try{_sampler.toDestination();}catch(e){}if(_chordSampler&&_chordSamplerReady)try{_chordSampler.toDestination();}catch(e){}};
+  const disposeBag=()=>{if(_sampler&&_samplerReady)try{_sampler.releaseAll();_sampler.disconnect();}catch(e){}if(_chordSampler&&_chordSamplerReady)try{_chordSampler.releaseAll();_chordSampler.disconnect();}catch(e){}for(const n of bagRef.current){try{n.releaseAll&&n.releaseAll();}catch(e){}try{n.stop&&n.stop();}catch(e){}try{n.dispose();}catch(e){}}bagRef.current=[];};
   const metroCtrlRef=useRef({});// MiniMetronome writes start/stop here
   const clr=useCallback(()=>{sT.current=true;if(aR.current)cancelAnimationFrame(aR.current);disposeBag();sPl(false);setPr(0);setLc(0);setLoading(false);lcR.current=0;curNoteR.current=-1;if(onCurNoteR.current)onCurNoteR.current(-1);try{metroCtrlRef.current.stop&&metroCtrlRef.current.stop();}catch(e){}},[]);
   // Live restart at new BPM (called when user changes BPM during playback)
