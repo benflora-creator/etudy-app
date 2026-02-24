@@ -786,48 +786,76 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
   // Live restart at new BPM (called when user changes BPM during playback)
   const liveRestart=useCallback((newBpm)=>{
     if(sT.current)return;// not playing
-    sT.current=true;if(aR.current)cancelAnimationFrame(aR.current);disposeBag();
+    // Pause animation loop to avoid race condition while updating refs
+    sT.current=true;if(aR.current)cancelAnimationFrame(aR.current);
+    // Calculate current progress fraction
+    const el=Tone.now()-toneStartR.current;const oldDur=dR.current;const cOff=ciOffR.current;
+    const musicEl=Math.max(0,el-cOff);const frac=oldDur>0?Math.min(musicEl/oldDur,0.999):0;
+    // Cancel pending note timers
+    clearScheduled();if(_sampler&&_samplerReady)try{_sampler.releaseAll();_sampler.disconnect();}catch(e){}if(_chordSampler&&_chordSamplerReady)try{_chordSampler.releaseAll();_chordSampler.disconnect();}catch(e){}for(const n of bagRef.current){try{n.releaseAll&&n.releaseAll();}catch(e){}try{n.stop&&n.stop();}catch(e){}try{n.dispose();}catch(e){}}bagRef.current=[];
+    // Reparse at new tempo
     pTR.current=newBpm;
-    const p=parseAbc(abcR.current,newBpm);sT.current=false;
-    // Shared time ref for lick + metronome
-    var t0=Tone.now();toneStartR.current=t0;
-    ciOffR.current=0;sch(p,false,t0);
+    const p=parseAbc(abcR.current,newBpm);
+    const bag=[];const sw=fR.current==="straight"?0:fR.current==="swing"?1:2;
+    const{scheduled:notes,totalDur,chordTimes}=applyTiming(p,sw);
+    const skipSec=frac*totalDur;
+    // Update ALL refs atomically before resuming animation
+    var t0=Tone.now();
+    dR.current=totalDur;
+    toneStartR.current=t0-skipSec;
+    ciOffR.current=0;
+    // Reschedule remaining notes from current position
+    const mel=makeMelSynth(soR.current,bag);const click=makeClick(bag);
+    const cs=makeChordSynth(bag);bagRef.current=bag;
+    const timers=[];const LA=0.04;const baseTime=t0-skipSec;
+    const abActive=abOnR.current;const abS=abActive?abAR.current*totalDur:0;const abE=abActive?abBR.current*totalDur:totalDur;
+    for(const n of notes){if(!n.tones)continue;if(abActive&&(n.startTime<abS-0.001||n.startTime>=abE-0.001))continue;const noteTime=abActive?n.startTime-abS:n.startTime;if(noteTime<skipSec-0.01)continue;
+      if(mlR.current){const _n=n;const fireMs=Math.max(0,(noteTime-skipSec)*1000-LA*1000);timers.push(setTimeout(()=>{if(sT.current)return;_n.tones.forEach(tn=>mel.play(tn,Math.min(_n.dur*0.9,2),baseTime+noteTime,_n.vel));},fireMs));}}
+    if(bR.current){let lastBefore=null;for(let ci2=0;ci2<chordTimes.length;ci2++){const c=chordTimes[ci2];if(abActive&&(c.time<abS-0.001||c.time>=abE-0.001))continue;const cn=chordToNotes(c.name);if(!cn.length)continue;const ct=abActive?c.time-abS:c.time;const nextTime=ci2<chordTimes.length-1?chordTimes[ci2+1].time:totalDur;const dur2=Math.max(0.3,(abActive?Math.min(nextTime,abE)-c.time:nextTime-c.time)*0.95);if(ct<skipSec-0.01){lastBefore={cn,ct,dur:dur2,nextTime:abActive?Math.min(nextTime,abE):nextTime};continue;}const fireMs=Math.max(0,(ct-skipSec)*1000-LA*1000);const _d=dur2;timers.push(setTimeout(()=>{if(sT.current)return;cs.triggerAttackRelease(cn,_d,baseTime+ct);},fireMs));}
+      if(lastBefore&&skipSec<(abActive?lastBefore.nextTime-abS:lastBefore.nextTime)){const remDur=Math.max(0.2,(abActive?lastBefore.nextTime-abS:lastBefore.nextTime)-skipSec);timers.push(setTimeout(()=>{if(sT.current)return;cs.triggerAttackRelease(lastBefore.cn,remDur,t0);},0));}}
+    if(mR.current){const bLen=p.spb;for(let tm=0;tm<totalDur;tm+=bLen){if(abActive&&(tm<abS-0.001||tm>=abE-0.001))continue;const ct=abActive?tm-abS:tm;if(ct<skipSec-0.01)continue;const fireMs=Math.max(0,(ct-skipSec)*1000-LA*1000);const bIdx=Math.round(tm/bLen)%p.tsNum;timers.push(setTimeout(()=>{if(sT.current)return;click[bIdx===0?"hi":"lo"].triggerAttackRelease("32n",baseTime+ct);},fireMs));}}
+    scheduledTimers.current=timers;noteFracsR.current=getNoteTimeFracs(abcR.current);
+    // Resume animation loop and metronome
+    sT.current=false;
     try{metroCtrlRef.current.start&&metroCtrlRef.current.start(t0);}catch(e){}
-    const an=()=>{if(sT.current)return;const el=Tone.now()-toneStartR.current;const dur=dR.current;if(dur<=0)return;
-      const cOff=ciOffR.current;const musicEl=el-cOff;
-      if(musicEl<0){setPr(0);aR.current=requestAnimationFrame(an);return;}
+    const an=()=>{if(sT.current)return;const el2=Tone.now()-toneStartR.current;const dur=dR.current;if(dur<=0)return;
+      const musicEl2=el2-ciOffR.current;
+      if(musicEl2<0){setPr(0);aR.current=requestAnimationFrame(an);return;}
       if(abOnR.current){
         const abStart=abAR.current;const abEnd=abBR.current;const segDur=dur*(abEnd-abStart);
         if(segDur<=0){aR.current=requestAnimationFrame(an);return;}
-        const segP=musicEl/segDur;
-        if(segP>=1&&!sT.current){try{metroCtrlRef.current.notifyLoop&&metroCtrlRef.current.notifyLoop();}catch(e){}if(metroCtrlRef.current.getBpm)pTR.current=metroCtrlRef.current.getBpm();var lt0=toneStartR.current+ciOffR.current+segDur;toneStartR.current=lt0;lcR.current++;setLc(lcR.current);var _lr=onLoopCompleteR.current?onLoopCompleteR.current(lcR.current):null;if(_lr&&_lr.abc){abcR.current=_lr.abc;}if(_lr&&_lr.stop){clr();return;}ciOffR.current=sch(parseAbc(abcR.current,pTR.current),_lr&&_lr.countIn,lt0);noteFracsR.current=getNoteTimeFracs(abcR.current);try{metroCtrlRef.current.start&&metroCtrlRef.current.start(lt0);}catch(e){}aR.current=requestAnimationFrame(an);return;}
-        const effP=abStart+(musicEl%segDur)/dur;
+        const segP=musicEl2/segDur;
+        if(segP>=1&&!sT.current){try{metroCtrlRef.current.notifyLoop&&metroCtrlRef.current.notifyLoop();}catch(e){}if(metroCtrlRef.current.getBpm)pTR.current=metroCtrlRef.current.getBpm();lcR.current++;setLc(lcR.current);var _lr=onLoopCompleteR.current?onLoopCompleteR.current(lcR.current):null;if(_lr&&_lr.abc){abcR.current=_lr.abc;}if(_lr&&_lr.stop){clr();return;}var lt0=toneStartR.current+ciOffR.current+segDur;toneStartR.current=lt0;ciOffR.current=sch(parseAbc(abcR.current,pTR.current),_lr&&_lr.countIn,lt0);noteFracsR.current=getNoteTimeFracs(abcR.current);try{metroCtrlRef.current.start&&metroCtrlRef.current.start(lt0);}catch(e){}aR.current=requestAnimationFrame(an);return;}
+        const effP=abStart+(musicEl2%segDur)/dur;
         setPr(Math.min(effP,1));
-        if(noteFracsR.current){const fracs=noteFracsR.current;let ci2=-1;for(let i=0;i<fracs.length;i++){if(effP>=fracs[i].frac-0.001&&effP<fracs[i].endFrac+0.001){ci2=i;break;}}if(ci2!==curNoteR.current){curNoteR.current=ci2;if(onCurNoteR.current)onCurNoteR.current(ci2);}}
+        if(noteFracsR.current){const fracs=noteFracsR.current;let ci3=-1;for(let i=0;i<fracs.length;i++){if(effP>=fracs[i].frac-0.001&&effP<fracs[i].endFrac+0.001){ci3=i;break;}}if(ci3!==curNoteR.current){curNoteR.current=ci3;if(onCurNoteR.current)onCurNoteR.current(ci3);}}
       }else{
-        const rawP=musicEl/dur;
+        const rawP=musicEl2/dur;
         setPr(Math.min(rawP,1));
-        if(noteFracsR.current){const fracs=noteFracsR.current;let ci2=-1;for(let i=0;i<fracs.length;i++){if(rawP>=fracs[i].frac-0.001&&rawP<fracs[i].endFrac+0.001){ci2=i;break;}}if(ci2!==curNoteR.current){curNoteR.current=ci2;if(onCurNoteR.current)onCurNoteR.current(ci2);}}
+        if(noteFracsR.current){const fracs=noteFracsR.current;let ci3=-1;for(let i=0;i<fracs.length;i++){if(rawP>=fracs[i].frac-0.001&&rawP<fracs[i].endFrac+0.001){ci3=i;break;}}if(ci3!==curNoteR.current){curNoteR.current=ci3;if(onCurNoteR.current)onCurNoteR.current(ci3);}}
         if(rawP>=1){if(lR.current&&!sT.current){try{metroCtrlRef.current.notifyLoop&&metroCtrlRef.current.notifyLoop();}catch(e){}if(metroCtrlRef.current.getBpm)pTR.current=metroCtrlRef.current.getBpm();var lt0=toneStartR.current+ciOffR.current+dR.current;toneStartR.current=lt0;lcR.current++;setLc(lcR.current);var _lr=onLoopCompleteR.current?onLoopCompleteR.current(lcR.current):null;if(_lr&&_lr.abc){abcR.current=_lr.abc;}if(_lr&&_lr.stop){clr();return;}ciOffR.current=sch(parseAbc(abcR.current,pTR.current),_lr&&_lr.countIn,lt0);noteFracsR.current=getNoteTimeFracs(abcR.current);try{metroCtrlRef.current.start&&metroCtrlRef.current.start(lt0);}catch(e){}aR.current=requestAnimationFrame(an);}else{clr();}return;}
       }
       aR.current=requestAnimationFrame(an);};aR.current=requestAnimationFrame(an);
   },[]);
   useEffect(()=>()=>clr(),[]);
-  const sch=(parsed,doCi,refNow)=>{disposeBag();const bag=[];const sw=fR.current==="straight"?0:fR.current==="swing"?1:2;
+  const sch=(parsed,doCi,refNow,skipTo)=>{disposeBag();const bag=[];const sw=fR.current==="straight"?0:fR.current==="swing"?1:2;
     const{scheduled:notes,totalDur,chordTimes}=applyTiming(parsed,sw);dR.current=totalDur;
     const mel=makeMelSynth(soR.current,bag);const click=makeClick(bag);
     const cs=makeChordSynth(bag);bagRef.current=bag;const now=refNow||Tone.now();
     let cOff=doCi?parsed.spb*parsed.tsNum:0;
+    const skip=skipTo||0;// seconds into the piece to skip past
     const abActive=abOnR.current;const abS=abActive?abAR.current*totalDur:0;const abE=abActive?abBR.current*totalDur:totalDur;
-    const timers=[];const LA=0.04;// 40ms lookahead — setTimeout fires early, Web Audio handles precision
-    const baseTime=now+cOff;
-    // Schedule melody
-    for(const n of notes){if(!n.tones)continue;if(abActive&&(n.startTime<abS-0.001||n.startTime>=abE-0.001))continue;const noteTime=abActive?n.startTime-abS:n.startTime;
-      if(mlR.current){const _n=n;const fireMs=Math.max(0,noteTime*1000-LA*1000);timers.push(setTimeout(()=>{if(sT.current)return;const t=baseTime+noteTime;_n.tones.forEach(tn=>mel.play(tn,Math.min(_n.dur*0.9,2),t,_n.vel));},fireMs));}}
-    // Schedule backing chords — sustain until next chord
-    if(bR.current){for(let ci=0;ci<chordTimes.length;ci++){const c=chordTimes[ci];if(abActive&&(c.time<abS-0.001||c.time>=abE-0.001))continue;const cn=chordToNotes(c.name);if(!cn.length)continue;const ct=abActive?c.time-abS:c.time;const nextTime=ci<chordTimes.length-1?chordTimes[ci+1].time:totalDur;const dur=Math.max(0.3,(abActive?Math.min(nextTime,abE)-c.time:nextTime-c.time)*0.95);const fireMs=Math.max(0,ct*1000-LA*1000);const _dur=dur;timers.push(setTimeout(()=>{if(sT.current)return;cs.triggerAttackRelease(cn,_dur,baseTime+ct);},fireMs));}}
-    // Schedule metronome clicks
-    if(mR.current){const bLen=parsed.spb;for(let tm=0;tm<totalDur;tm+=bLen){if(abActive&&(tm<abS-0.001||tm>=abE-0.001))continue;const ct=abActive?tm-abS:tm;const fireMs=Math.max(0,ct*1000-LA*1000);const bIdx=Math.round(tm/bLen)%parsed.tsNum;timers.push(setTimeout(()=>{if(sT.current)return;click[bIdx===0?"hi":"lo"].triggerAttackRelease("32n",baseTime+ct);},fireMs));}}
+    const timers=[];const LA=0.04;
+    const baseTime=now+cOff-skip;// shift base backwards so skipped notes are in the past
+    // Schedule melody — only notes after skip point
+    for(const n of notes){if(!n.tones)continue;if(abActive&&(n.startTime<abS-0.001||n.startTime>=abE-0.001))continue;const noteTime=abActive?n.startTime-abS:n.startTime;if(noteTime<skip-0.01)continue;
+      if(mlR.current){const _n=n;const fireMs=Math.max(0,(noteTime-skip)*1000-LA*1000);timers.push(setTimeout(()=>{if(sT.current)return;const t=baseTime+noteTime;_n.tones.forEach(tn=>mel.play(tn,Math.min(_n.dur*0.9,2),t,_n.vel));},fireMs));}}
+    // Schedule backing chords — only after skip, sustain until next chord
+    if(bR.current){let lastBefore=null;for(let ci=0;ci<chordTimes.length;ci++){const c=chordTimes[ci];if(abActive&&(c.time<abS-0.001||c.time>=abE-0.001))continue;const cn=chordToNotes(c.name);if(!cn.length)continue;const ct=abActive?c.time-abS:c.time;const nextTime=ci<chordTimes.length-1?chordTimes[ci+1].time:totalDur;const dur=Math.max(0.3,(abActive?Math.min(nextTime,abE)-c.time:nextTime-c.time)*0.95);if(ct<skip-0.01){lastBefore={cn,ct,dur,nextTime:abActive?Math.min(nextTime,abE):nextTime};continue;}const fireMs=Math.max(0,(ct-skip)*1000-LA*1000);const _dur=dur;timers.push(setTimeout(()=>{if(sT.current)return;cs.triggerAttackRelease(cn,_dur,baseTime+ct);},fireMs));}
+      // Trigger the chord that was active at skip point immediately
+      if(lastBefore&&skip<(abActive?lastBefore.nextTime-abS:lastBefore.nextTime)){const remDur=Math.max(0.2,(abActive?lastBefore.nextTime-abS:lastBefore.nextTime)-skip);timers.push(setTimeout(()=>{if(sT.current)return;cs.triggerAttackRelease(lastBefore.cn,remDur,now+cOff);},0));}}
+    // Schedule metronome clicks — only after skip
+    if(mR.current){const bLen=parsed.spb;for(let tm=0;tm<totalDur;tm+=bLen){if(abActive&&(tm<abS-0.001||tm>=abE-0.001))continue;const ct=abActive?tm-abS:tm;if(ct<skip-0.01)continue;const fireMs=Math.max(0,(ct-skip)*1000-LA*1000);const bIdx=Math.round(tm/bLen)%parsed.tsNum;timers.push(setTimeout(()=>{if(sT.current)return;click[bIdx===0?"hi":"lo"].triggerAttackRelease("32n",baseTime+ct);},fireMs));}}
     scheduledTimers.current=timers;
     noteFracsR.current=getNoteTimeFracs(abcR.current);dR.current=totalDur;return cOff;};
   const ciOffR=useRef(0);
