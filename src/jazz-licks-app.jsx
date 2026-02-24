@@ -524,18 +524,17 @@ function makeVibes(bag){
   return{play:(n,d,t,v)=>{s.triggerAttackRelease(n,d,t,v);atk.triggerAttackRelease(n,"64n",t,v);}};
 }
 function makeMelSynth(id,bag){if((id==="piano"||id==="rhodes")&&_samplerReady&&_sampler)return id==="piano"?makeSamplerPiano(bag):makeSamplerRhodes(bag);switch(id){case"piano":case"rhodes":return makeSynthPiano(bag);case"sax":return makeSax(bag);case"trumpet":return makeTrumpet(bag);case"guitar":return makeGuitar(bag);case"flute":return makeFlute(bag);case"vibes":return makeVibes(bag);default:return makeSynthPiano(bag);}}
+let _chordSampler=null,_chordSamplerReady=false,_chordSamplerPromise=null;
+function preloadChordPiano(){if(_chordSamplerPromise)return _chordSamplerPromise;_chordSamplerPromise=new Promise(res=>{try{_chordSampler=new Tone.Sampler({urls:SAL_MAP,baseUrl:SAL_BASE,release:1.2,volume:-14,onload:()=>{_chordSamplerReady=true;res(true);},onerror:()=>{res(false);}});setTimeout(()=>{if(!_chordSamplerReady)res(false);},15000);}catch(e){res(false);}});return _chordSamplerPromise;}
 function makeChordSynth(bag){
-  // Use piano sampler for warm comping sound when available
-  if(_samplerReady&&_sampler){
+  // Use pre-loaded piano sampler for warm comping sound
+  if(_chordSamplerReady&&_chordSampler){
     const rev=new Tone.Reverb({decay:2.5,wet:0.22}).toDestination();
     const comp=new Tone.Compressor({threshold:-24,ratio:4,attack:0.01,release:0.15}).connect(rev);
     const flt=new Tone.Filter({frequency:2200,type:"lowpass",rolloff:-12}).connect(comp);
-    const gain=new Tone.Gain(0.35).connect(flt);
-    // Create a dedicated sampler clone for chords so melody sampler stays independent
-    const chordSampler=new Tone.Sampler({urls:SAL_MAP,baseUrl:SAL_BASE,release:1.2,volume:-14,
-      onload:()=>{chordSampler._chordReady=true;},onerror:()=>{}}).connect(gain);
-    bag.push(chordSampler,gain,flt,comp,rev);
-    return chordSampler;
+    _chordSampler.disconnect();_chordSampler.connect(flt);
+    bag.push(flt,comp,rev);
+    return _chordSampler;
   }
   // Fallback: FM synth comping
   const rev=new Tone.Reverb({decay:3,wet:0.22}).toDestination();const ch=new Tone.Chorus({frequency:0.4,delayTime:6,depth:0.22,wet:0.22}).connect(rev);ch.start();const tr=new Tone.Tremolo({frequency:2.2,depth:0.12,wet:0.18}).connect(ch);tr.start();const flt=new Tone.Filter({frequency:1800,type:"lowpass",rolloff:-24}).connect(tr);const s=new Tone.PolySynth(Tone.FMSynth,{harmonicity:3,modulationIndex:0.6,oscillator:{type:"fatsine2",spread:15,count:3},modulation:{type:"sine"},envelope:{attack:0.015,decay:1.0,sustain:0.3,release:1.5},modulationEnvelope:{attack:0.008,decay:0.6,sustain:0,release:0.6},volume:-18}).connect(flt);bag.push(s,flt,tr,ch,rev);return s;
@@ -779,7 +778,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
   useEffect(()=>{if(!samplesOk&&_samplerReady)setSamplesOk(true);},[]);
   const setPr=v=>{if(prBarRef.current)prBarRef.current.style.width=(v*100)+"%";};
   const setLc=v=>{if(lcDispRef.current){lcDispRef.current.textContent=v;lcDispRef.current.parentElement.style.display=v>1?"flex":"none";}};
-  const disposeBag=()=>{if(_sampler&&_samplerReady)try{_sampler.releaseAll();}catch(e){}for(const n of bagRef.current){try{n.releaseAll&&n.releaseAll();}catch(e){}try{n.stop&&n.stop();}catch(e){}try{n.dispose();}catch(e){}}bagRef.current=[];if(_sampler&&_samplerReady)try{_sampler.toDestination();}catch(e){}};
+  const disposeBag=()=>{if(_sampler&&_samplerReady)try{_sampler.releaseAll();}catch(e){}if(_chordSampler&&_chordSamplerReady)try{_chordSampler.releaseAll();}catch(e){}for(const n of bagRef.current){try{n.releaseAll&&n.releaseAll();}catch(e){}try{n.stop&&n.stop();}catch(e){}try{n.dispose();}catch(e){}}bagRef.current=[];if(_sampler&&_samplerReady)try{_sampler.toDestination();}catch(e){}if(_chordSampler&&_chordSamplerReady)try{_chordSampler.toDestination();}catch(e){}};
   const metroCtrlRef=useRef({});// MiniMetronome writes start/stop here
   const clr=useCallback(()=>{sT.current=true;if(aR.current)cancelAnimationFrame(aR.current);disposeBag();sPl(false);setPr(0);setLc(0);setLoading(false);lcR.current=0;curNoteR.current=-1;if(onCurNoteR.current)onCurNoteR.current(-1);try{metroCtrlRef.current.stop&&metroCtrlRef.current.stop();}catch(e){}},[]);
   // Live restart at new BPM (called when user changes BPM during playback)
@@ -824,12 +823,13 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
     if(mR.current){const bLen=parsed.spb;for(let tm=0;tm<totalDur;tm+=bLen){if(abActive&&(tm<abS-0.001||tm>=abE-0.001))continue;const bt=now+cOff+(abActive?tm-abS:tm);const bIdx=Math.round(tm/bLen)%parsed.tsNum;click[bIdx===0?"hi":"lo"].triggerAttackRelease("32n",bt);}}
     noteFracsR.current=getNoteTimeFracs(abcR.current);dR.current=totalDur;return cOff;};
   const ciOffR=useRef(0);
-  const tg=async()=>{if(pl){clr();return;}try{await Tone.start();}catch(e){}
+  const tg=async()=>{if(pl){clr();return;}if(!sT.current)return;sT.current=false;try{await Tone.start();}catch(e){}
     // Read BPM from metronome (single source of truth)
     if(metroCtrlRef.current.getBpm){pTR.current=metroCtrlRef.current.getBpm();}
     setLoading(true);
     if(!_samplerReady&&!_samplerFailed){await preloadPiano();setSamplesOk(_samplerReady);}
-    const p=parseAbc(abcR.current,pTR.current);sT.current=false;
+    if(!_chordSamplerReady)await preloadChordPiano();
+    const p=parseAbc(abcR.current,pTR.current);
     // Capture ONE time reference — shared by lick notes AND metronome
     var t0=Tone.now();toneStartR.current=t0;
     var useCi=ciR.current;
@@ -3138,7 +3138,7 @@ function PolyrhythmTrainer({th,sharedInput,sharedMicSilent}){
 function Editor({onClose,onSubmit,onSubmitPrivate,th}){const t=th||TH.classic;const isStudio=t===TH.studio;
   const[title,sT]=useState("");const[artist,sA]=useState("");const[inst,sI]=useState("Alto Sax");const[cat,sC]=useState("ii-V-I");const[keySig,sK]=useState("C");const[timeSig,sTS]=useState("4/4");const[tempo,sTm]=useState("120");const[abc,sAbc]=useState("X:1\nT:My Lick\nM:4/4\nL:1/8\nQ:1/4=120\nK:C\n");const[mode,setMode]=useState("visual");const[yu,sYu]=useState("");const[tm,sTmn]=useState("");const[ts,sTs]=useState("");const[sp,sSp]=useState("");const[desc,sD]=useState("");const[tags,sTg]=useState("");const[extrasOpen,setExtrasOpen]=useState(false);
   // Pre-init audio on editor open for instant feedback
-  useEffect(function(){try{Tone.start();}catch(e){}preloadPiano();_ensurePreviewSynth();},[]);
+  useEffect(function(){try{Tone.start();}catch(e){}preloadPiano();preloadChordPiano();_ensurePreviewSynth();},[]);
   const KEYS=["C","Db","D","Eb","E","F","F#","G","Ab","A","Bb","B"];const TS=["4/4","3/4","6/8","5/4","7/8"];const yt=parseYT(yu);const tSec=(parseInt(tm)||0)*60+(parseInt(ts)||0);
   const lb={fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5,display:"block",marginBottom:4};
   const ip={width:"100%",background:t.inputBg,border:"1px solid "+t.inputBorder,borderRadius:10,padding:"10px 14px",color:t.text,fontSize:14,fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"};
@@ -4395,7 +4395,7 @@ export default function Etudy(){
         if(lick&&adding){g.get("etudy:savedLicksData").then(r=>{var m={};try{m=r&&r.value?JSON.parse(r.value):{};}catch(e){}m[id]=lick;g.set("etudy:savedLicksData",JSON.stringify(m)).catch(()=>{});}).catch(()=>{});}
         if(!adding){g.get("etudy:savedLicksData").then(r=>{var m={};try{m=r&&r.value?JSON.parse(r.value):{};}catch(e){}delete m[id];g.set("etudy:savedLicksData",JSON.stringify(m)).catch(()=>{});}).catch(()=>{});}
       }return n;});};
-  useEffect(()=>{preloadPiano();},[]);
+  useEffect(()=>{preloadPiano();preloadChordPiano();},[]);
   const dayOfYear=Math.floor((Date.now()-new Date(new Date().getFullYear(),0,0))/86400000);
   const dailyLick=licks.length>0?licks[dayOfYear%licks.length]:null;
   const srcLicks=lickSource==="mine"?licks.filter(function(l){return savedSet.has(l.id);}).concat(myLicks):licks;
