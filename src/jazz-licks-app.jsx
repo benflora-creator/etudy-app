@@ -819,14 +819,15 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
     const cs=makeChordSynth(bag);bagRef.current=bag;const now=refNow||Tone.now();
     let cOff=doCi?parsed.spb*parsed.tsNum:0;
     const abActive=abOnR.current;const abS=abActive?abAR.current*totalDur:0;const abE=abActive?abBR.current*totalDur:totalDur;
-    const timers=[];
-    // Schedule melody via setTimeout (cancellable on stop)
-    for(const n of notes){if(!n.tones)continue;if(abActive&&(n.startTime<abS-0.001||n.startTime>=abE-0.001))continue;const delay=((cOff+(abActive?n.startTime-abS:n.startTime)))*1000;
-      if(mlR.current){const _n=n;timers.push(setTimeout(()=>{if(sT.current)return;_n.tones.forEach(tn=>mel.play(tn,Math.min(_n.dur*0.9,2),Tone.now(),_n.vel));},Math.max(0,delay)));}}
+    const timers=[];const LA=0.04;// 40ms lookahead — setTimeout fires early, Web Audio handles precision
+    const baseTime=now+cOff;
+    // Schedule melody
+    for(const n of notes){if(!n.tones)continue;if(abActive&&(n.startTime<abS-0.001||n.startTime>=abE-0.001))continue;const noteTime=abActive?n.startTime-abS:n.startTime;
+      if(mlR.current){const _n=n;const fireMs=Math.max(0,noteTime*1000-LA*1000);timers.push(setTimeout(()=>{if(sT.current)return;const t=baseTime+noteTime;_n.tones.forEach(tn=>mel.play(tn,Math.min(_n.dur*0.9,2),t,_n.vel));},fireMs));}}
     // Schedule backing chords
-    if(bR.current)for(const c of chordTimes){if(abActive&&(c.time<abS-0.001||c.time>=abE-0.001))continue;const cn=chordToNotes(c.name);if(cn.length){const delay=(cOff+(abActive?c.time-abS:c.time))*1000;timers.push(setTimeout(()=>{if(sT.current)return;cs.triggerAttackRelease(cn,"2n");},Math.max(0,delay)));}}
+    if(bR.current)for(const c of chordTimes){if(abActive&&(c.time<abS-0.001||c.time>=abE-0.001))continue;const cn=chordToNotes(c.name);if(cn.length){const ct=abActive?c.time-abS:c.time;const fireMs=Math.max(0,ct*1000-LA*1000);timers.push(setTimeout(()=>{if(sT.current)return;cs.triggerAttackRelease(cn,"2n",baseTime+ct);},fireMs));}}
     // Schedule metronome clicks
-    if(mR.current){const bLen=parsed.spb;for(let tm=0;tm<totalDur;tm+=bLen){if(abActive&&(tm<abS-0.001||tm>=abE-0.001))continue;const delay=(cOff+(abActive?tm-abS:tm))*1000;const bIdx=Math.round(tm/bLen)%parsed.tsNum;timers.push(setTimeout(()=>{if(sT.current)return;click[bIdx===0?"hi":"lo"].triggerAttackRelease("32n");},Math.max(0,delay)));}}
+    if(mR.current){const bLen=parsed.spb;for(let tm=0;tm<totalDur;tm+=bLen){if(abActive&&(tm<abS-0.001||tm>=abE-0.001))continue;const ct=abActive?tm-abS:tm;const fireMs=Math.max(0,ct*1000-LA*1000);const bIdx=Math.round(tm/bLen)%parsed.tsNum;timers.push(setTimeout(()=>{if(sT.current)return;click[bIdx===0?"hi":"lo"].triggerAttackRelease("32n",baseTime+ct);},fireMs));}}
     scheduledTimers.current=timers;
     noteFracsR.current=getNoteTimeFracs(abcR.current);dR.current=totalDur;return cOff;};
   const ciOffR=useRef(0);
