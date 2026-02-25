@@ -1138,7 +1138,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
     React.createElement("div",{style:{maxWidth:520,margin:"0 auto",padding:"0 16px 100px"}},
 
       // HEADER
-      React.createElement("div",{style:{position:"sticky",top:0,zIndex:100,background:t.headerBg,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",padding:"12px 0 10px",paddingTop:"calc(env(safe-area-inset-top, 0px) + 12px)",borderBottom:"1px solid "+t.border,marginBottom:16}},
+      React.createElement("div",{style:{position:"sticky",top:0,zIndex:100,background:t.headerBg,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",padding:"12px 0 10px",paddingTop:"calc(env(safe-area-inset-top, 0px) + 12px)",borderBottom:"1px solid "+t.border,marginBottom:28}},
         React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10}},
           React.createElement("button",{onClick:onBack,style:{background:"none",border:"none",cursor:"pointer",color:isStudio?t.accent:t.muted,fontSize:22,padding:"4px 8px 4px 0",display:"flex",alignItems:"center"}},"\u2039"),
           React.createElement("div",{style:{flex:1,minWidth:0}},
@@ -1158,25 +1158,25 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
         React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace",background:t.card,padding:"4px 10px",borderRadius:8,border:"1px solid "+t.border}},keyDisplay),
         React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace",background:t.card,padding:"4px 10px",borderRadius:8,border:"1px solid "+t.border,display:"flex",alignItems:"center",gap:3}},isStudio&&lick.tempo>=160&&IC.flame(11,"#F97316",true),isStudio&&lick.tempo<=100&&IC.slow(11,"#8888A0"),"\u2669="+lick.tempo)),
 
-      // NOTATION + PLAYER — no inner card box
-      React.createElement("div",{"data-coach":"player",style:{marginBottom:12,position:"relative"}},
+      // NOTATION + PLAYER — edge to edge, no card
+      React.createElement("div",{"data-coach":"player",style:{marginBottom:12,marginLeft:-16,marginRight:-16,paddingLeft:16,paddingRight:16,position:"relative"}},
         React.createElement("div",{onClick:()=>setFocus(true),style:{cursor:"zoom-in"}},
           React.createElement(Notation,{abc:notationAbc,compact:false,abRange:abOn?[abA,abB]:null,curNoteRef,th:t})),
-        React.createElement("button",{onClick:()=>setFocus(true),style:{position:"absolute",top:10,right:10,width:28,height:28,borderRadius:7,background:t.accentBg,display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid "+t.accentBorder,cursor:"pointer"}},React.createElement("span",{style:{fontSize:12,color:t.accent}},"\u26F6")),
+        React.createElement("button",{onClick:()=>setFocus(true),style:{position:"absolute",top:10,right:26,width:28,height:28,borderRadius:7,background:t.accentBg,display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid "+t.accentBorder,cursor:"pointer"}},React.createElement("span",{style:{fontSize:12,color:t.accent}},"\u26F6")),
         abOn&&React.createElement("div",{style:{borderTop:"1px solid "+t.border,marginTop:8,paddingTop:8}},
           React.createElement(ABRangeBar,{abc:notationAbc,abA,abB,setAbA,setAbB,onReset:()=>{setAbA(0);setAbB(1);},th:t})),
-        React.createElement("div",{style:{borderTop:"1px solid "+t.border,marginTop:abOn?8:10,paddingTop:6}},
+        // TRANSPOSE — above player controls
+        React.createElement("div",{style:{marginTop:10}},
+          React.createElement("button",{onClick:function(){setTrOpen(!trOpen);},style:{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",padding:"8px 0",background:"none",border:"none",cursor:"pointer"}},
+            React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
+              React.createElement("span",{style:{fontSize:11,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600}},"TRANSPOSE"),
+              (instOff+trMan)!==0&&React.createElement("span",{style:{fontSize:10,color:t.accent,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,background:t.accentBg,padding:"2px 8px",borderRadius:6}},trKeyName("C",instOff+trMan))),
+            React.createElement("span",{style:{fontSize:10,color:t.subtle,transform:trOpen?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.15s"}},"\u25BC")),
+          trOpen&&React.createElement("div",{"data-coach":"transpose",style:{paddingBottom:6}},
+            React.createElement(TransposeBar,{trInst,setTrInst,trMan,setTrMan,th:t}))),
+        React.createElement("div",{style:{borderTop:"1px solid "+t.border,marginTop:6,paddingTop:6}},
           React.createElement(Player,{abc:soundAbc,tempo:pT,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo:lick.tempo,trInst:null,setTrInst:null,trMan:null,setTrMan:null,onCurNote:n=>{curNoteRef.current=n;},th:t,ctrlRef:playerCtrlRef,initFeel:lick.feel}))),
       focus&&React.createElement(SheetFocus,{abc:notationAbc,onClose:()=>setFocus(false),abRange:abOn?[abA,abB]:null,curNoteRef,th:t,playerCtrlRef:playerCtrlRef}),
-
-      // TRANSPOSE — collapsible
-      React.createElement("button",{onClick:function(){setTrOpen(!trOpen);},style:{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",padding:"10px 14px",borderRadius:trOpen?"14px 14px 0 0":14,border:"1px solid "+t.border,borderBottom:trOpen?"none":"1px solid "+t.border,background:t.card,cursor:"pointer",marginBottom:trOpen?0:12,boxShadow:"0 1px 4px rgba(0,0,0,0.05)"}},
-        React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
-          React.createElement("span",{style:{fontSize:11,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600}},"TRANSPOSE"),
-          (instOff+trMan)!==0&&React.createElement("span",{style:{fontSize:10,color:t.accent,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,background:t.accentBg,padding:"2px 8px",borderRadius:6}},trKeyName("C",instOff+trMan))),
-        React.createElement("span",{style:{fontSize:10,color:t.subtle,transform:trOpen?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.15s"}},"\u25BC")),
-      trOpen&&React.createElement("div",{"data-coach":"transpose",style:{background:t.card,borderRadius:"0 0 14px 14px",padding:"10px 14px 14px",border:"1px solid "+t.border,borderTop:"none",marginBottom:12,boxShadow:"0 1px 4px rgba(0,0,0,0.05)"}},
-        React.createElement(TransposeBar,{trInst,setTrInst,trMan,setTrMan,th:t})),
 
       // MORE — Description, Tags, YouTube, Spotify collapsed
       (lick.description||lick.youtubeId||lick.spotifyId||(lick.tags&&lick.tags.length>0))&&React.createElement("div",{style:{marginBottom:12}},
