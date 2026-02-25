@@ -4326,7 +4326,7 @@ function LoginModal({onClose, onLogin, th}) {
   var step = _s[0], setStep = _s[1];
   var _e = useState("");
   var email = _e[0], setEmail = _e[1];
-  var _c = useState(["","","","","",""]);
+  var _c = useState(["","","","","","","",""]);
   var code = _c[0], setCode = _c[1];
   var _err = useState("");
   var errMsg = _err[0], setErr = _err[1];
@@ -4349,12 +4349,12 @@ function LoginModal({onClose, onLogin, th}) {
     var next = code.slice();
     next[idx] = val;
     setCode(next);
-    if (val && idx < 5 && inputRefs.current[idx + 1]) {
+    if (val && idx < 7 && inputRefs.current[idx + 1]) {
       inputRefs.current[idx + 1].focus();
     }
-    if (val && idx === 5) {
+    if (val && idx === 7) {
       var fullCode = next.join("");
-      if (fullCode.length === 6) { submitCode(fullCode); }
+      if (fullCode.length === 8) { submitCode(fullCode); }
     }
   };
 
@@ -4366,11 +4366,11 @@ function LoginModal({onClose, onLogin, th}) {
 
   var handleCodePaste = function(e) {
     var pasted = (e.clipboardData || window.clipboardData).getData("text").trim();
-    if (/^\d{6}$/.test(pasted)) {
+    if (/^\d{8}$/.test(pasted)) {
       e.preventDefault();
       var digits = pasted.split("");
       setCode(digits);
-      if (inputRefs.current[5]) inputRefs.current[5].focus();
+      if (inputRefs.current[7]) inputRefs.current[7].focus();
       submitCode(pasted);
     }
   };
@@ -4383,7 +4383,7 @@ function LoginModal({onClose, onLogin, th}) {
     }).catch(function(e) {
       setErr(e.message || "Invalid code. Please try again.");
       setStep("code");
-      setCode(["","","","","",""]);
+      setCode(["","","","","","","",""]);
       if (inputRefs.current[0]) inputRefs.current[0].focus();
     });
   };
@@ -4429,7 +4429,7 @@ function LoginModal({onClose, onLogin, th}) {
         React.createElement("div", {
           style: { fontSize: 13, color: t.muted, fontFamily: "'Inter',sans-serif", marginTop: 4 }
         }, step === "code" || step === "verifying"
-          ? "Enter the 6-digit code from your email"
+          ? "Enter the 8-digit code from your email"
           : "Sign in to save licks, track progress & more")),
       (step === "idle" || step === "sending") && React.createElement("div", null,
         React.createElement("button", {
@@ -4484,9 +4484,9 @@ function LoginModal({onClose, onLogin, th}) {
             style: { fontSize: 12, color: t.accent, fontFamily: "'JetBrains Mono',monospace" }
           }, email)),
         React.createElement("div", {
-          style: { display: "flex", gap: 8, justifyContent: "center", marginBottom: 20 }
+          style: { display: "flex", gap: 6, justifyContent: "center", marginBottom: 20 }
         },
-          [0,1,2,3,4,5].map(function(i) {
+          [0,1,2,3,4,5,6,7].map(function(i) {
             return React.createElement("input", {
               key: i,
               ref: function(el) { inputRefs.current[i] = el; },
@@ -4498,8 +4498,8 @@ function LoginModal({onClose, onLogin, th}) {
               autoFocus: i === 0,
               disabled: step === "verifying",
               style: {
-                width: 44, height: 52, textAlign: "center", fontSize: 22, fontWeight: 700,
-                fontFamily: "'JetBrains Mono',monospace", borderRadius: 12,
+                width: 38, height: 48, textAlign: "center", fontSize: 20, fontWeight: 700,
+                fontFamily: "'JetBrains Mono',monospace", borderRadius: 10,
                 border: "2px solid " + (code[i] ? t.accent : t.border),
                 background: t.inputBg || t.filterBg, color: t.text, outline: "none",
                 transition: "border-color 0.15s"
@@ -4514,7 +4514,7 @@ function LoginModal({onClose, onLogin, th}) {
           }, "Verifying\u2026")),
         step === "code" && React.createElement("div", { style: { textAlign: "center" } },
           React.createElement("button", {
-            onClick: function() { setStep("idle"); setCode(["","","","","",""]); },
+            onClick: function() { setStep("idle"); setCode(["","","","","","","",""]); },
             style: {
               background: "none", border: "none", color: t.muted, fontSize: 12,
               fontFamily: "'Inter',sans-serif", cursor: "pointer", textDecoration: "underline"
