@@ -254,11 +254,11 @@ function CoachMarks({tips,onDone,th}){
           background:"none",border:"none",color:isStudio?"#888":"#999",
           fontSize:16,cursor:"pointer",padding:"0 0 0 4px",lineHeight:1}},"\u00D7"))));}
 
-const SAMPLE_LICKS = [  { id:1, title:"Classic Charlie Parker ii-V-I", artist:"Charlie Parker", instrument:"Alto Sax", category:"ii-V-I", key:"C Major", tempo:180, abc:'X:1\nT:Parker ii-V-I\nM:4/4\nL:1/8\nQ:1/4=180\nK:C\n"Dm7"d2 fe dc BA | "G7"B2 AG ^FG AB | "Cmaj7"c4 z4 |', youtubeId:"hkDjOjfUbJM", youtubeStart:45, spotifyId:"4a7NbEGRb3MGnSJQyjsiv5", likes:234, user:"BirdLover42", tags:["bebop","essential"], description:"The quintessential Bird lick over a ii-V-I in C." },
-  { id:2, title:"Coltrane Pentatonic Run", artist:"John Coltrane", instrument:"Tenor Sax", category:"Pentatonic", key:"Bb Major", tempo:160, abc:"X:1\nT:Coltrane Pentatonic\nM:4/4\nL:1/16\nQ:1/4=160\nK:Bb\n\"Bbmaj7\"B2cd efga | bagf edcB | \"Eb7\"e2fg abc'b | agfe dcBA |", youtubeId:"TsgGbgWDOuo", youtubeStart:120, spotifyId:"7aBo1GlChOBEEreEHqB7EY", likes:189, user:"TraneFanatic", tags:["modal","advanced"], description:"A flowing pentatonic idea from Trane's modal period." },
-  { id:3, title:"Clifford Brown Turnaround", artist:"Clifford Brown", instrument:"Trumpet", category:"Turnaround", key:"F Major", tempo:140, abc:'X:1\nT:Brownie Turnaround\nM:4/4\nL:1/8\nQ:1/4=140\nK:F\n"Fmaj7"f2 ed cA GF | "D7"^F2 AB cd ef | "Gm7"g2 fe dc BA | "C7"G2 AB c4 |', youtubeId:"p9VOoYfIFek", youtubeStart:30, likes:156, user:"BrownieJazz", tags:["turnaround","hard-bop"], description:"Brownie's elegant turnaround lick." },
-  { id:4, title:"Bill Evans Shell Voicings", artist:"Bill Evans", instrument:"Piano", category:"ii-V-I", key:"D Minor", tempo:120, abc:'X:1\nT:Evans Shells\nM:4/4\nL:1/4\nQ:1/4=120\nK:Dm\n"Em7b5"[EB]2 [EA]2 | "A7"[^CG]2 [^CF]2 | "Dm7"[DA]4 |', youtubeId:"bJBgtAIC5Wk", youtubeStart:60, likes:312, user:"EvansKeys", tags:["voicings","essential"], description:"Bill Evans' signature shell voicing approach." },
-  { id:5, title:"Wes Montgomery Octave Lick", artist:"Wes Montgomery", instrument:"Guitar", category:"Blues", key:"Bb Blues", tempo:130, abc:'X:1\nT:Wes Octaves\nM:4/4\nL:1/8\nQ:1/4=130\nK:Bb\n"Bb7"B,2 D2 F2 A2 | B2 AF DB, z2 | "Eb7"E,2 G,2 B,2 d2 | e2 dB G,E, z2 |', youtubeId:"MOm17yw__tE", youtubeStart:15, likes:201, user:"OctaveKing", tags:["octaves","blues"], description:"Wes's trademark octave technique." }
+const SAMPLE_LICKS = [  { id:1, title:"Classic Charlie Parker ii-V-I", artist:"Charlie Parker", instrument:"Alto Sax", category:"ii-V-I", key:"C Major", tempo:180, feel:"swing", abc:'X:1\nT:Parker ii-V-I\nM:4/4\nL:1/8\nQ:1/4=180\nK:C\n"Dm7"d2 fe dc BA | "G7"B2 AG ^FG AB | "Cmaj7"c4 z4 |', youtubeId:"hkDjOjfUbJM", youtubeStart:45, spotifyId:"4a7NbEGRb3MGnSJQyjsiv5", likes:234, user:"BirdLover42", tags:["bebop","essential"], description:"The quintessential Bird lick over a ii-V-I in C." },
+  { id:2, title:"Coltrane Pentatonic Run", artist:"John Coltrane", instrument:"Tenor Sax", category:"Pentatonic", key:"Bb Major", tempo:160, feel:"straight", abc:"X:1\nT:Coltrane Pentatonic\nM:4/4\nL:1/16\nQ:1/4=160\nK:Bb\n\"Bbmaj7\"B2cd efga | bagf edcB | \"Eb7\"e2fg abc'b | agfe dcBA |", youtubeId:"TsgGbgWDOuo", youtubeStart:120, spotifyId:"7aBo1GlChOBEEreEHqB7EY", likes:189, user:"TraneFanatic", tags:["modal","advanced"], description:"A flowing pentatonic idea from Trane's modal period." },
+  { id:3, title:"Clifford Brown Turnaround", artist:"Clifford Brown", instrument:"Trumpet", category:"Turnaround", key:"F Major", tempo:140, feel:"swing", abc:'X:1\nT:Brownie Turnaround\nM:4/4\nL:1/8\nQ:1/4=140\nK:F\n"Fmaj7"f2 ed cA GF | "D7"^F2 AB cd ef | "Gm7"g2 fe dc BA | "C7"G2 AB c4 |', youtubeId:"p9VOoYfIFek", youtubeStart:30, likes:156, user:"BrownieJazz", tags:["turnaround","hard-bop"], description:"Brownie's elegant turnaround lick." },
+  { id:4, title:"Bill Evans Shell Voicings", artist:"Bill Evans", instrument:"Piano", category:"ii-V-I", key:"D Minor", tempo:120, feel:"straight", abc:'X:1\nT:Evans Shells\nM:4/4\nL:1/4\nQ:1/4=120\nK:Dm\n"Em7b5"[EB]2 [EA]2 | "A7"[^CG]2 [^CF]2 | "Dm7"[DA]4 |', youtubeId:"bJBgtAIC5Wk", youtubeStart:60, likes:312, user:"EvansKeys", tags:["voicings","essential"], description:"Bill Evans' signature shell voicing approach." },
+  { id:5, title:"Wes Montgomery Octave Lick", artist:"Wes Montgomery", instrument:"Guitar", category:"Blues", key:"Bb Blues", tempo:130, feel:"swing", abc:'X:1\nT:Wes Octaves\nM:4/4\nL:1/8\nQ:1/4=130\nK:Bb\n"Bb7"B,2 D2 F2 A2 | B2 AF DB, z2 | "Eb7"E,2 G,2 B,2 d2 | e2 dB G,E, z2 |', youtubeId:"MOm17yw__tE", youtubeStart:15, likes:201, user:"OctaveKing", tags:["octaves","blues"], description:"Wes's trademark octave technique." }
 ];
 
 // ============================================================
@@ -302,7 +302,7 @@ function lickToDb(d) {
     spotify_id: d.spotifyId || null,
     likes: 0,
     reports: 0,
-    status: 'pending',
+    status: 'approved',
     username: d.user || 'Anonymous',
     tags: d.tags || [],
     description: d.description || '',
@@ -313,7 +313,7 @@ async function fetchLicks() {
     const { data, error } = await supabase
       .from('licks')
       .select('*')
-      .not('status','eq','reported')
+      .neq('status','reported')
       .order('created_at', { ascending: false });
     if (error) throw error;
     return data.map(dbToLick);
@@ -800,7 +800,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
   const[ci,setCi]=useState(true);const lcDispRef=useRef(null);const[settingsOpen,setSettingsOpen]=useState(false);
   const prBarRef=useRef(null);
   const bagRef=useRef([]);const aR=useRef(null);const tR=useRef(0);const dR=useRef(0);const sT=useRef(true);
-  const lR=useRef(false);const mR=useRef(false);const bR=useRef(false);const mlR=useRef(true);const fR=useRef("straight");const soR=useRef("piano");const ciR=useRef(true);
+  const lR=useRef(false);const mR=useRef(false);const bR=useRef(false);const mlR=useRef(true);const fR=useRef(initFeel||"straight");const soR=useRef("piano");const ciR=useRef(true);
   const abOnR=useRef(false);const abAR=useRef(0);const abBR=useRef(1);const lcR=useRef(0);
   const noteFracsR=useRef(null);const curNoteR=useRef(-1);const onCurNoteR=useRef(null);const onLoopCompleteR=useRef(null);
   const pTR=useRef(pT||tempo);
@@ -809,6 +809,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
   useEffect(()=>{abcR.current=abc;},[abc]);
   useEffect(()=>{lR.current=lp;},[lp]);useEffect(()=>{bR.current=bk;},[bk]);
   useEffect(()=>{mlR.current=ml;},[ml]);useEffect(()=>{fR.current=fl;},[fl]);useEffect(()=>{soR.current=sound;},[sound]);
+  useEffect(()=>{if(initFeel&&initFeel!==fl){sFl(initFeel);fR.current=initFeel;}},[initFeel]);
   useEffect(()=>{ciR.current=ci;},[ci]);
   useEffect(()=>{abOnR.current=abOn;abAR.current=abA;abBR.current=abB;},[abOn,abA,abB]);
   useEffect(()=>{onCurNoteR.current=onCurNote;},[onCurNote]);
@@ -1147,7 +1148,8 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
           React.createElement("div",{style:{display:"flex",gap:8,flexShrink:0,alignItems:"center"}},
             React.createElement("button",{onClick:e=>{onLike(lick.id);if(!liked&&isStudio){const r=e.target.closest("button").getBoundingClientRect();burstKeyRef.current++;sBurst({x:r.left+r.width/2,y:r.top+r.height/2,k:burstKeyRef.current});const b=e.target.closest("button");b.style.animation="none";void b.offsetHeight;b.style.animation="firePop 0.35s ease";}},style:{background:"none",border:"none",cursor:"pointer",padding:"4px",display:"flex",alignItems:"center",gap:5,transition:"all 0.15s"}},isStudio?(liked?IC.flame(22,"#F97316",true):IC.flameOff(22)):React.createElement("span",{style:{fontSize:22,color:liked?"#EF4444":t.muted}},liked?"\u2665":"\u2661"),React.createElement("span",{style:{fontSize:12,fontWeight:600,fontFamily:"'JetBrains Mono',monospace",color:liked?(isStudio?"#F97316":"#EF4444"):t.muted}},lc)),
             React.createElement("button",{onClick:e=>{onSave(lick.id);if(!saved&&isStudio&&e.target.closest("button")){const b=e.target.closest("button");b.style.animation="none";void b.offsetHeight;b.style.animation="firePop 0.35s ease";}},style:{background:"none",border:"none",cursor:"pointer",padding:"4px",display:"flex",alignItems:"center",transition:"all 0.15s"}},isStudio?IC.target(22,saved?"#22D89E":"#55556A"):React.createElement("span",{style:{fontSize:22,color:saved?"#F59E0B":t.muted}},saved?"\u2605":"\u2606")),
-            !showTips&&onReShowTips&&React.createElement("button",{onClick:onReShowTips,style:{width:20,height:20,borderRadius:10,border:"1px solid "+t.border,background:t.filterBg,color:t.subtle,fontSize:10,fontFamily:"'Inter',sans-serif",fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,marginLeft:2,animation:"helpGlow 0.8s ease"}},"?")))),
+            !showTips&&onReShowTips&&React.createElement("button",{onClick:onReShowTips,style:{width:20,height:20,borderRadius:10,border:"1px solid "+t.border,background:t.filterBg,color:t.subtle,fontSize:10,fontFamily:"'Inter',sans-serif",fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,marginLeft:2,animation:"helpGlow 0.8s ease"}},"?"),
+            !lick.private&&onReport&&React.createElement("button",{onClick:function(){if(confirm("Report this lick as spam or inappropriate?")){onReport(lick.id);}},style:{width:20,height:20,borderRadius:10,border:"1px solid "+t.border,background:t.filterBg,color:t.subtle,fontSize:10,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,marginLeft:2}},"\u26A0"))),
 
       // META chips — colorful in Studio
       React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:14,flexWrap:"wrap"}},
@@ -1200,9 +1202,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
         React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4,padding:"8px 12px",borderRadius:10,background:isStudio?"rgba(34,216,158,0.1)":"#E8F5E9"}},
           React.createElement("span",{style:{fontSize:10,color:isStudio?"#22D89E":"#2E7D32",fontFamily:"'Inter',sans-serif",fontWeight:500}},"\uD83D\uDD12 Private \u00B7 Offline"))),
 
-      // REPORT — community licks only
-      !lick.private&&onReport&&React.createElement("div",{style:{marginTop:16,display:"flex",justifyContent:"flex-end"}},
-        React.createElement("button",{onClick:function(){if(confirm("Report this lick as spam or inappropriate content?")){onReport(lick.id);}},style:{padding:"6px 14px",borderRadius:8,border:"1px solid "+t.border,background:"transparent",color:t.subtle,fontSize:10,fontWeight:500,fontFamily:"'Inter',sans-serif",cursor:"pointer",display:"flex",alignItems:"center",gap:4,transition:"all 0.15s"}},"\u26A0 Report")),
+      // REPORT — moved to header
 
     burst&&React.createElement(FireBurst,{key:burst.k,originX:burst.x,originY:burst.y,onDone:()=>sBurst(null)}),
     showTips&&React.createElement(CoachMarks,{tips:DETAIL_TIPS,onDone:onTipsDone,th:t}));}
@@ -4401,7 +4401,10 @@ export default function Etudy(){
   },[]);
   // Load community licks from Supabase
   useEffect(()=>{
-    fetchLicks().then(data=>{if(data&&data.length>0)sL(data);});
+    fetchLicks().then(data=>{if(data&&data.length>0){sL(data);
+      // Sync selectedLick with fresh data (e.g. feel, status)
+      setSelected(prev=>{if(!prev)return null;var fresh=data.find(l=>l.id===prev.id);return fresh||prev;});
+    }});
   },[]);
   const calcStreak=(sessions)=>{
     if(!sessions||!sessions.length){setStreakDays(0);return;}
@@ -4453,7 +4456,7 @@ export default function Etudy(){
   const srcLicks=lickSource==="mine"?licks.filter(function(l){return savedSet.has(l.id);}).concat(myLicks):licks;
   const fl=srcLicks.filter(l=>{if(lickSource==="community"&&dailyLick&&l.id===dailyLick.id)return false;if(inst!=="All"&&l.instrument!==inst)return false;if(cat!=="All"&&l.category!==cat)return false;if(sq){const q=sq.toLowerCase();return l.title.toLowerCase().includes(q)||l.artist.toLowerCase().includes(q)||l.key.toLowerCase().includes(q)||(l.tags||[]).some(tg2=>tg2.includes(q));}return true;});
   const addLick=d=>{
-    const temp={...d,id:Date.now(),likes:0,user:"You",tags:d.tags||[],status:"pending"};
+    const temp={...d,id:Date.now(),likes:0,user:"You",tags:d.tags||[]};
     sL([temp,...licks]);sSE(false);openLick(temp);
     insertLick({...d,user:"You"}).then(real=>{
       if(real)sL(prev=>prev.map(l=>l.id===temp.id?real:l));
