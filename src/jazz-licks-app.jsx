@@ -4773,7 +4773,7 @@ export default function Etudy(){
     setAuthUser(user);
     fetchProfile(user.id).then(function(p){
       setAuthProfile(p);
-      if(p&&(!p.display_name||p.display_name==="Musician"))setShowOnboarding(true);
+      if(!p||!p.onboarding_done)setShowOnboarding(true);
     }).catch(function(){setShowOnboarding(true);});
     // Load server-side likes & saves
     fetchUserLicks(user.id).then(function(result){
@@ -4807,7 +4807,7 @@ export default function Etudy(){
   };
   var handleOnboardingComplete=function(data){
     if(!authUser)return;
-    updateProfile(authUser.id,data).then(function(p){
+    updateProfile(authUser.id,{...data, onboarding_done:true}).then(function(p){
       setAuthProfile(p);
       setShowOnboarding(false);
       // Auto-set transposition instrument if applicable
