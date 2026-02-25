@@ -1148,8 +1148,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
           React.createElement("div",{style:{display:"flex",gap:8,flexShrink:0,alignItems:"center"}},
             React.createElement("button",{onClick:e=>{onLike(lick.id);if(!liked&&isStudio){const r=e.target.closest("button").getBoundingClientRect();burstKeyRef.current++;sBurst({x:r.left+r.width/2,y:r.top+r.height/2,k:burstKeyRef.current});const b=e.target.closest("button");b.style.animation="none";void b.offsetHeight;b.style.animation="firePop 0.35s ease";}},style:{background:"none",border:"none",cursor:"pointer",padding:"4px",display:"flex",alignItems:"center",gap:5,transition:"all 0.15s"}},isStudio?(liked?IC.flame(22,"#F97316",true):IC.flameOff(22)):React.createElement("span",{style:{fontSize:22,color:liked?"#EF4444":t.muted}},liked?"\u2665":"\u2661"),React.createElement("span",{style:{fontSize:12,fontWeight:600,fontFamily:"'JetBrains Mono',monospace",color:liked?(isStudio?"#F97316":"#EF4444"):t.muted}},lc)),
             React.createElement("button",{onClick:e=>{onSave(lick.id);if(!saved&&isStudio&&e.target.closest("button")){const b=e.target.closest("button");b.style.animation="none";void b.offsetHeight;b.style.animation="firePop 0.35s ease";}},style:{background:"none",border:"none",cursor:"pointer",padding:"4px",display:"flex",alignItems:"center",transition:"all 0.15s"}},isStudio?IC.target(22,saved?"#22D89E":"#55556A"):React.createElement("span",{style:{fontSize:22,color:saved?"#F59E0B":t.muted}},saved?"\u2605":"\u2606")),
-            !showTips&&onReShowTips&&React.createElement("button",{onClick:onReShowTips,style:{width:20,height:20,borderRadius:10,border:"1px solid "+t.border,background:t.filterBg,color:t.subtle,fontSize:10,fontFamily:"'Inter',sans-serif",fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,marginLeft:2,animation:"helpGlow 0.8s ease"}},"?"),
-            !lick.private&&onReport&&React.createElement("button",{onClick:function(){if(confirm("Report this lick as spam or inappropriate?")){onReport(lick.id);}},style:{width:20,height:20,borderRadius:10,border:"1px solid "+t.border,background:t.filterBg,color:t.subtle,fontSize:10,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,marginLeft:2}},"\u26A0"))),
+            !showTips&&onReShowTips&&React.createElement("button",{onClick:onReShowTips,style:{width:20,height:20,borderRadius:10,border:"1px solid "+t.border,background:t.filterBg,color:t.subtle,fontSize:10,fontFamily:"'Inter',sans-serif",fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,marginLeft:2,animation:"helpGlow 0.8s ease"}},"?"))),
 
       // META chips — colorful in Studio
       React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:14,flexWrap:"wrap"}},
@@ -1158,25 +1157,25 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
         React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace",background:t.card,padding:"4px 10px",borderRadius:8,border:"1px solid "+t.border}},keyDisplay),
         React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace",background:t.card,padding:"4px 10px",borderRadius:8,border:"1px solid "+t.border,display:"flex",alignItems:"center",gap:3}},isStudio&&lick.tempo>=160&&IC.flame(11,"#F97316",true),isStudio&&lick.tempo<=100&&IC.slow(11,"#8888A0"),"\u2669="+lick.tempo)),
 
-      // NOTATION + PLAYER — unified card
-      React.createElement("div",{"data-coach":"player",style:{background:t.card,borderRadius:14,padding:14,border:"1px solid "+t.border,marginBottom:12,position:"relative",boxShadow:"0 1px 4px rgba(0,0,0,0.05)"}},
+      // NOTATION + PLAYER
+      React.createElement("div",{"data-coach":"player",style:{marginBottom:12,position:"relative"}},
         React.createElement("div",{onClick:()=>setFocus(true),style:{cursor:"zoom-in"}},
           React.createElement(Notation,{abc:notationAbc,compact:false,abRange:abOn?[abA,abB]:null,curNoteRef,th:t})),
         React.createElement("button",{onClick:()=>setFocus(true),style:{position:"absolute",top:10,right:10,width:28,height:28,borderRadius:7,background:t.accentBg,display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid "+t.accentBorder,cursor:"pointer"}},React.createElement("span",{style:{fontSize:12,color:t.accent}},"\u26F6")),
         abOn&&React.createElement("div",{style:{borderTop:"1px solid "+t.border,marginTop:8,paddingTop:8}},
           React.createElement(ABRangeBar,{abc:notationAbc,abA,abB,setAbA,setAbB,onReset:()=>{setAbA(0);setAbB(1);},th:t})),
-        React.createElement("div",{style:{borderTop:"1px solid "+t.border,marginTop:abOn?8:10,paddingTop:6}},
+        // TRANSPOSE — inline above player
+        React.createElement("div",{style:{marginTop:10}},
+          React.createElement("button",{onClick:function(){setTrOpen(!trOpen);},style:{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",padding:"8px 0",background:"none",border:"none",cursor:"pointer"}},
+            React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
+              React.createElement("span",{style:{fontSize:11,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600}},"TRANSPOSE"),
+              (instOff+trMan)!==0&&React.createElement("span",{style:{fontSize:10,color:t.accent,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,background:t.accentBg,padding:"2px 8px",borderRadius:6}},trKeyName("C",instOff+trMan))),
+            React.createElement("span",{style:{fontSize:10,color:t.subtle,transform:trOpen?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.15s"}},"\u25BC")),
+          trOpen&&React.createElement("div",{"data-coach":"transpose",style:{paddingBottom:6}},
+            React.createElement(TransposeBar,{trInst,setTrInst,trMan,setTrMan,th:t}))),
+        React.createElement("div",{style:{borderTop:"1px solid "+t.border,marginTop:6,paddingTop:6}},
           React.createElement(Player,{abc:soundAbc,tempo:pT,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo:lick.tempo,trInst:null,setTrInst:null,trMan:null,setTrMan:null,onCurNote:n=>{curNoteRef.current=n;},th:t,ctrlRef:playerCtrlRef,initFeel:lick.feel}))),
       focus&&React.createElement(SheetFocus,{abc:notationAbc,onClose:()=>setFocus(false),abRange:abOn?[abA,abB]:null,curNoteRef,th:t,playerCtrlRef:playerCtrlRef}),
-
-      // TRANSPOSE — collapsible
-      React.createElement("button",{onClick:function(){setTrOpen(!trOpen);},style:{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",padding:"10px 14px",borderRadius:trOpen?"14px 14px 0 0":14,border:"1px solid "+t.border,borderBottom:trOpen?"none":"1px solid "+t.border,background:t.card,cursor:"pointer",marginBottom:trOpen?0:12,boxShadow:"0 1px 4px rgba(0,0,0,0.05)"}},
-        React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
-          React.createElement("span",{style:{fontSize:11,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600}},"TRANSPOSE"),
-          (instOff+trMan)!==0&&React.createElement("span",{style:{fontSize:10,color:t.accent,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,background:t.accentBg,padding:"2px 8px",borderRadius:6}},trKeyName("C",instOff+trMan))),
-        React.createElement("span",{style:{fontSize:10,color:t.subtle,transform:trOpen?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.15s"}},"\u25BC")),
-      trOpen&&React.createElement("div",{"data-coach":"transpose",style:{background:t.card,borderRadius:"0 0 14px 14px",padding:"10px 14px 14px",border:"1px solid "+t.border,borderTop:"none",marginBottom:12,boxShadow:"0 1px 4px rgba(0,0,0,0.05)"}},
-        React.createElement(TransposeBar,{trInst,setTrInst,trMan,setTrMan,th:t})),
 
       // MORE — Description, Tags, YouTube, Spotify collapsed
       (lick.description||lick.youtubeId||lick.spotifyId||(lick.tags&&lick.tags.length>0))&&React.createElement("div",{style:{marginBottom:12}},
@@ -1201,6 +1200,10 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
         onDeletePrivate&&React.createElement("button",{onClick:function(){if(confirm("Delete this lick?"))onDeletePrivate(lick.id);},style:{padding:"12px 20px",borderRadius:12,border:"1.5px solid #EF4444",background:"#EF444410",color:"#EF4444",fontSize:12,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer"}},"\u2715  Delete"),
         React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4,padding:"8px 12px",borderRadius:10,background:isStudio?"rgba(34,216,158,0.1)":"#E8F5E9"}},
           React.createElement("span",{style:{fontSize:10,color:isStudio?"#22D89E":"#2E7D32",fontFamily:"'Inter',sans-serif",fontWeight:500}},"\uD83D\uDD12 Private \u00B7 Offline"))),
+
+      // REPORT — prominent bottom button
+      !lick.private&&onReport&&React.createElement("div",{style:{marginTop:24,display:"flex",justifyContent:"center"}},
+        React.createElement("button",{onClick:function(){if(confirm("Report this lick as spam or inappropriate?")){onReport(lick.id);}},style:{display:"flex",alignItems:"center",gap:8,padding:"12px 24px",borderRadius:12,border:"1.5px solid "+(isStudio?"#55556A30":"#E5E7EB"),background:isStudio?"rgba(85,85,106,0.08)":"#F9FAFB",color:t.subtle,fontSize:12,fontWeight:500,fontFamily:"'Inter',sans-serif",cursor:"pointer",transition:"all 0.15s"}},"\u26A0\uFE0F  Report this lick")),
 
       // REPORT — moved to header
     ),
