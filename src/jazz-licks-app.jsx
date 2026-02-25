@@ -281,8 +281,12 @@ function dbToLick(row) {
     user: row.username || 'Anonymous',
     tags: row.tags || [],
     description: row.description || '',
+    feel: row.feel || 'straight',
+    status: row.status || 'approved',
+    reports: row.reports || 0,
   };
 }
+function countAbcNotes(abcStr){try{var p=parseAbc(abcStr);return p.events.filter(function(e){return e.tn&&e.tn.length>0;}).length;}catch(e){return 0;}}
 function lickToDb(d) {
   return {
     title: d.title,
@@ -291,11 +295,14 @@ function lickToDb(d) {
     category: d.category || 'ii-V-I',
     key: d.key || 'C',
     tempo: d.tempo || 120,
+    feel: d.feel || 'straight',
     abc: d.abc || '',
     youtube_id: d.youtubeId || null,
     youtube_start: d.youtubeStart || 0,
     spotify_id: d.spotifyId || null,
     likes: 0,
+    reports: 0,
+    status: 'pending',
     username: d.user || 'Anonymous',
     tags: d.tags || [],
     description: d.description || '',
@@ -306,12 +313,28 @@ async function fetchLicks() {
     const { data, error } = await supabase
       .from('licks')
       .select('*')
+      .not('status','eq','reported')
       .order('created_at', { ascending: false });
     if (error) throw error;
     return data.map(dbToLick);
   } catch (e) {
     console.warn('Supabase fetch failed, using sample licks:', e);
     return null; // signals fallback
+  }
+}
+async function reportLick(id) {
+  try {
+    // Increment reports count; auto-hide if >= 3
+    const { data, error } = await supabase.from('licks').select('reports').eq('id', id).single();
+    if (error) throw error;
+    var newCount = (data.reports || 0) + 1;
+    var updates = { reports: newCount };
+    if (newCount >= 3) updates.status = 'reported';
+    await supabase.from('licks').update(updates).eq('id', id);
+    return newCount;
+  } catch (e) {
+    console.error('Failed to report lick:', e);
+    return null;
   }
 }
 async function insertLick(d) {
@@ -574,21 +597,37 @@ async function previewPlay(lickId,abc,tempo){
   previewStop();
   var myGen=_preview.gen;
   try{await Tone.start();}catch(e){}
-  // If another play/stop happened during await, bail out
+  if(myGen!==_preview.gen)return;
+  if(!_samplerReady&&!_samplerFailed){await preloadPiano();}
   if(myGen!==_preview.gen)return;
   var parsed=parseAbc(abc,tempo);
   var result=applyTiming(parsed,0);
   var notes=result.scheduled;var totalDur=result.totalDur;
-  // Dedicated synth per preview — fully disposable, no shared state
-  var rev=new Tone.Reverb({decay:1.8,wet:0.16}).toDestination();
-  var syn=new Tone.PolySynth(Tone.FMSynth,{harmonicity:2,modulationIndex:0.8,oscillator:{type:"fatsine2",spread:12,count:3},modulation:{type:"sine"},envelope:{attack:0.005,decay:0.5,sustain:0.15,release:0.8},modulationEnvelope:{attack:0.005,decay:0.4,sustain:0,release:0.4},volume:-10}).connect(rev);
-  // Check again after synth creation
-  if(myGen!==_preview.gen){try{syn.dispose();}catch(e){}try{rev.dispose();}catch(e){}return;}
-  var now=Tone.now();
-  for(var i=0;i<notes.length;i++){var n=notes[i];if(!n.tones)continue;for(var j=0;j<n.tones.length;j++){try{syn.triggerAttackRelease(n.tones[j],Math.min(n.dur*0.85,1.5),now+n.startTime);}catch(e){}}}
-  _preview.id=lickId;
-  var tid=setTimeout(function(){if(_preview.id===lickId)previewStop();},totalDur*1000+300);
-  _preview.stop=function(){clearTimeout(tid);try{syn.releaseAll();}catch(e){}try{syn.dispose();}catch(e){}try{rev.dispose();}catch(e){}};
+  var timers=[];
+  if(_samplerReady&&_sampler){
+    // Use piano sampler with dedicated effects chain
+    var rev=new Tone.Reverb({decay:2.2,wet:0.16}).toDestination();
+    var comp=new Tone.Compressor({threshold:-22,ratio:3,attack:0.005,release:0.12}).connect(rev);
+    _sampler.disconnect();_sampler.connect(comp);
+    var now=Tone.now();var LA=0.04;
+    for(var i=0;i<notes.length;i++){var n=notes[i];if(!n.tones)continue;
+      (function(_n){var fireMs=Math.max(0,_n.startTime*1000-LA*1000);timers.push(setTimeout(function(){if(_preview.gen!==myGen)return;for(var j=0;j<_n.tones.length;j++){try{_sampler.triggerAttackRelease(_n.tones[j],Math.min(_n.dur*0.85,1.5),now+_n.startTime,_n.vel);}catch(e){}}},fireMs));})(n);}
+    if(myGen!==_preview.gen){for(var k=0;k<timers.length;k++)clearTimeout(timers[k]);try{_sampler.disconnect();_sampler.toDestination();}catch(e){}try{rev.dispose();}catch(e){}try{comp.dispose();}catch(e){}return;}
+    _preview.id=lickId;
+    var tid=setTimeout(function(){if(_preview.id===lickId)previewStop();},totalDur*1000+300);
+    _preview.stop=function(){clearTimeout(tid);for(var k=0;k<timers.length;k++)clearTimeout(timers[k]);try{_sampler.releaseAll();_sampler.disconnect();_sampler.toDestination();}catch(e){}try{comp.dispose();}catch(e){}try{rev.dispose();}catch(e){}};
+  } else {
+    // Fallback: dedicated synth
+    var rev2=new Tone.Reverb({decay:1.8,wet:0.16}).toDestination();
+    var syn=new Tone.PolySynth(Tone.FMSynth,{harmonicity:2,modulationIndex:0.8,oscillator:{type:"fatsine2",spread:12,count:3},modulation:{type:"sine"},envelope:{attack:0.005,decay:0.5,sustain:0.15,release:0.8},modulationEnvelope:{attack:0.005,decay:0.4,sustain:0,release:0.4},volume:-10}).connect(rev2);
+    if(myGen!==_preview.gen){try{syn.dispose();}catch(e){}try{rev2.dispose();}catch(e){}return;}
+    var now2=Tone.now();
+    for(var i2=0;i2<notes.length;i2++){var n2=notes[i2];if(!n2.tones)continue;
+      (function(_n){var fireMs=Math.max(0,_n.startTime*1000-40);timers.push(setTimeout(function(){if(_preview.gen!==myGen)return;for(var j=0;j<_n.tones.length;j++){try{syn.triggerAttackRelease(_n.tones[j],Math.min(_n.dur*0.85,1.5),now2+_n.startTime);}catch(e){}}},fireMs));})(n2);}
+    _preview.id=lickId;
+    var tid2=setTimeout(function(){if(_preview.id===lickId)previewStop();},totalDur*1000+300);
+    _preview.stop=function(){clearTimeout(tid2);for(var k=0;k<timers.length;k++)clearTimeout(timers[k]);try{syn.releaseAll();}catch(e){}try{syn.dispose();}catch(e){}try{rev2.dispose();}catch(e){}};
+  }
   previewNotify();
 }
 function usePreviewState(lickId){
@@ -754,9 +793,9 @@ function ABRangeBar({abc,abA,abB,setAbA,setAbB,onReset,th}){
 // ============================================================
 // PLAYER — themed, 3-tier
 // ============================================================
-function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,trInst,setTrInst,trMan,setTrMan,onCurNote,th,onLoopComplete,forceLoop,autoPlay,hideControls,ctrlRef}){
+function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,trInst,setTrInst,trMan,setTrMan,onCurNote,th,onLoopComplete,forceLoop,autoPlay,hideControls,ctrlRef,initFeel}){
   const t=th||TH.classic;
-  const[pl,sPl]=useState(false);const[lp,sLp]=useState(forceLoop||false);const[bk,sBk]=useState(false);const[ml,sMl]=useState(true);const[fl,sFl]=useState("straight");
+  const[pl,sPl]=useState(false);const[lp,sLp]=useState(forceLoop||false);const[bk,sBk]=useState(false);const[ml,sMl]=useState(true);const[fl,sFl]=useState(initFeel||"straight");
   const[sound,setSound]=useState("piano");const[loading,setLoading]=useState(false);const[samplesOk,setSamplesOk]=useState(_samplerReady);
   const[ci,setCi]=useState(true);const lcDispRef=useRef(null);const[settingsOpen,setSettingsOpen]=useState(false);
   const prBarRef=useRef(null);
@@ -1077,7 +1116,7 @@ function SpotifyEmbed({trackId,th}){const t=th||TH.classic;if(!trackId)return nu
 // ============================================================
 // LICK DETAIL — full-screen practice view, themed
 // ============================================================
-function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDone,onReShowTips,defaultInst,onDeletePrivate}){
+function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDone,onReShowTips,defaultInst,onDeletePrivate,onReport}){
   const t=th||TH.classic;const isStudio=t===TH.studio;
   const[trInst,setTrInst]=useState(defaultInst||"Concert");const[trMan,setTrMan]=useState(0);
   const[pT,sPT]=useState(lick.tempo);
@@ -1103,6 +1142,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
           React.createElement("button",{onClick:onBack,style:{background:"none",border:"none",cursor:"pointer",color:isStudio?t.accent:t.muted,fontSize:22,padding:"4px 8px 4px 0",display:"flex",alignItems:"center"}},"\u2039"),
           React.createElement("div",{style:{flex:1,minWidth:0}},
             React.createElement("h1",{style:{fontSize:20,fontWeight:isStudio?700:600,color:t.text,margin:0,fontFamily:t.titleFont,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}},lick.title),
+            lick.status==="pending"&&React.createElement("span",{style:{fontSize:9,color:"#F59E0B",fontFamily:"'Inter',sans-serif",fontWeight:600,background:"#F59E0B15",padding:"2px 8px",borderRadius:6,border:"1px solid #F59E0B30",marginTop:2,display:"inline-block"}},"\u23F3 Pending review"),
             React.createElement("p",{style:{fontSize:11,color:t.muted,margin:"2px 0 0",fontFamily:"'JetBrains Mono',monospace"}},lick.artist)),
           React.createElement("div",{style:{display:"flex",gap:8,flexShrink:0,alignItems:"center"}},
             React.createElement("button",{onClick:e=>{onLike(lick.id);if(!liked&&isStudio){const r=e.target.closest("button").getBoundingClientRect();burstKeyRef.current++;sBurst({x:r.left+r.width/2,y:r.top+r.height/2,k:burstKeyRef.current});const b=e.target.closest("button");b.style.animation="none";void b.offsetHeight;b.style.animation="firePop 0.35s ease";}},style:{background:"none",border:"none",cursor:"pointer",padding:"4px",display:"flex",alignItems:"center",gap:5,transition:"all 0.15s"}},isStudio?(liked?IC.flame(22,"#F97316",true):IC.flameOff(22)):React.createElement("span",{style:{fontSize:22,color:liked?"#EF4444":t.muted}},liked?"\u2665":"\u2661"),React.createElement("span",{style:{fontSize:12,fontWeight:600,fontFamily:"'JetBrains Mono',monospace",color:liked?(isStudio?"#F97316":"#EF4444"):t.muted}},lc)),
@@ -1124,7 +1164,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
         abOn&&React.createElement("div",{style:{borderTop:"1px solid "+t.border,marginTop:8,paddingTop:8}},
           React.createElement(ABRangeBar,{abc:notationAbc,abA,abB,setAbA,setAbB,onReset:()=>{setAbA(0);setAbB(1);},th:t})),
         React.createElement("div",{style:{borderTop:"1px solid "+t.border,marginTop:abOn?8:10,paddingTop:6}},
-          React.createElement(Player,{abc:soundAbc,tempo:pT,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo:lick.tempo,trInst:null,setTrInst:null,trMan:null,setTrMan:null,onCurNote:n=>{curNoteRef.current=n;},th:t,ctrlRef:playerCtrlRef}))),
+          React.createElement(Player,{abc:soundAbc,tempo:pT,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo:lick.tempo,trInst:null,setTrInst:null,trMan:null,setTrMan:null,onCurNote:n=>{curNoteRef.current=n;},th:t,ctrlRef:playerCtrlRef,initFeel:lick.feel}))),
       focus&&React.createElement(SheetFocus,{abc:notationAbc,onClose:()=>setFocus(false),abRange:abOn?[abA,abB]:null,curNoteRef,th:t,playerCtrlRef:playerCtrlRef}),
 
       // TRANSPOSE — collapsible
@@ -1150,15 +1190,19 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
           React.createElement(SpotifyEmbed,{trackId:lick.spotifyId,th:t}))),
 
       // ABC CODE
-      React.createElement("details",{style:{marginTop:12}},
-        React.createElement("summary",{style:{fontSize:11,color:t.subtle,fontFamily:"monospace",cursor:"pointer",letterSpacing:1,display:"flex",alignItems:"center",gap:5}},isStudio&&IC.code(11,t.subtle),isStudio?"ABC CODE":"VIEW ABC"),
-        React.createElement("pre",{style:{fontSize:12,color:t.accent,background:t.card,padding:14,borderRadius:12,marginTop:8,overflow:"auto",fontFamily:"'JetBrains Mono',monospace",lineHeight:1.5,whiteSpace:"pre-wrap",border:"1px solid "+t.border}},notationAbc))),
+//       React.createElement("details",{style:{marginTop:12}},
+//         React.createElement("summary",{style:{fontSize:11,color:t.subtle,fontFamily:"monospace",cursor:"pointer",letterSpacing:1,display:"flex",alignItems:"center",gap:5}},isStudio&&IC.code(11,t.subtle),isStudio?"ABC CODE":"VIEW ABC"),
+//         React.createElement("pre",{style:{fontSize:12,color:t.accent,background:t.card,padding:14,borderRadius:12,marginTop:8,overflow:"auto",fontFamily:"'JetBrains Mono',monospace",lineHeight:1.5,whiteSpace:"pre-wrap",border:"1px solid "+t.border}},notationAbc))),
 
       // PRIVATE LICK ACTIONS
       lick.private&&React.createElement("div",{style:{marginTop:16,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}},
         onDeletePrivate&&React.createElement("button",{onClick:function(){if(confirm("Delete this lick?"))onDeletePrivate(lick.id);},style:{padding:"12px 20px",borderRadius:12,border:"1.5px solid #EF4444",background:"#EF444410",color:"#EF4444",fontSize:12,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer"}},"\u2715  Delete"),
         React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4,padding:"8px 12px",borderRadius:10,background:isStudio?"rgba(34,216,158,0.1)":"#E8F5E9"}},
           React.createElement("span",{style:{fontSize:10,color:isStudio?"#22D89E":"#2E7D32",fontFamily:"'Inter',sans-serif",fontWeight:500}},"\uD83D\uDD12 Private \u00B7 Offline"))),
+
+      // REPORT — community licks only
+      !lick.private&&onReport&&React.createElement("div",{style:{marginTop:16,display:"flex",justifyContent:"flex-end"}},
+        React.createElement("button",{onClick:function(){if(confirm("Report this lick as spam or inappropriate content?")){onReport(lick.id);}},style:{padding:"6px 14px",borderRadius:8,border:"1px solid "+t.border,background:"transparent",color:t.subtle,fontSize:10,fontWeight:500,fontFamily:"'Inter',sans-serif",cursor:"pointer",display:"flex",alignItems:"center",gap:4,transition:"all 0.15s"}},"\u26A0 Report")),
 
     burst&&React.createElement(FireBurst,{key:burst.k,originX:burst.x,originY:burst.y,onDone:()=>sBurst(null)}),
     showTips&&React.createElement(CoachMarks,{tips:DETAIL_TIPS,onDone:onTipsDone,th:t}));}
@@ -1382,7 +1426,7 @@ function EarTrainer({licks,onLike,onOpen,likedSet,th,userInst:userInst}){
             React.createElement("span",{style:{fontSize:12,fontWeight:600,color:t.text,fontFamily:"'Inter',sans-serif"}},"Listen first, then reveal"))),
 
         // PLAYER — with tempo slider
-        React.createElement(Player,{abc:lick.abc,tempo:pT||lick.tempo,pT:pT||lick.tempo,sPT:sPT,lickTempo:lick.tempo,onCurNote:function(n){curNoteRef.current=n;},th:t}),
+        React.createElement(Player,{abc:lick.abc,tempo:pT||lick.tempo,pT:pT||lick.tempo,sPT:sPT,lickTempo:lick.tempo,onCurNote:function(n){curNoteRef.current=n;},th:t,initFeel:lick.feel}),
 
         // ACTION AREA
         !isRevealed&&phase==="listen"&&React.createElement("button",{"data-coach":"ear-reveal",onClick:reveal,style:{width:"100%",padding:"14px",marginTop:14,background:"none",border:"2px dashed "+(isStudio?t.accent+"50":t.border),borderRadius:14,color:isStudio?t.accent:t.text,fontSize:14,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer",transition:"all 0.2s"}},"I think I got it — reveal!"),
@@ -3143,15 +3187,18 @@ function PolyrhythmTrainer({th,sharedInput,sharedMicSilent}){
 // EDITOR — themed
 // ============================================================
 function Editor({onClose,onSubmit,onSubmitPrivate,th}){const t=th||TH.classic;const isStudio=t===TH.studio;
-  const[title,sT]=useState("");const[artist,sA]=useState("");const[inst,sI]=useState("Alto Sax");const[cat,sC]=useState("ii-V-I");const[keySig,sK]=useState("C");const[timeSig,sTS]=useState("4/4");const[tempo,sTm]=useState("120");const[abc,sAbc]=useState("X:1\nT:My Lick\nM:4/4\nL:1/8\nQ:1/4=120\nK:C\n");const[mode,setMode]=useState("visual");const[yu,sYu]=useState("");const[tm,sTmn]=useState("");const[ts,sTs]=useState("");const[sp,sSp]=useState("");const[desc,sD]=useState("");const[tags,sTg]=useState("");const[extrasOpen,setExtrasOpen]=useState(false);
+  const[title,sT]=useState("");const[artist,sA]=useState("");const[inst,sI]=useState("Alto Sax");const[cat,sC]=useState("ii-V-I");const[keySig,sK]=useState("C");const[timeSig,sTS]=useState("4/4");const[tempo,sTm]=useState("120");const[abc,sAbc]=useState("X:1\nT:My Lick\nM:4/4\nL:1/8\nQ:1/4=120\nK:C\n");const[mode,setMode]=useState("visual");const[feel,setFeel]=useState("straight");const[yu,sYu]=useState("");const[tm,sTmn]=useState("");const[ts,sTs]=useState("");const[sp,sSp]=useState("");const[desc,sD]=useState("");const[tags,sTg]=useState("");const[extrasOpen,setExtrasOpen]=useState(false);
   // Pre-init audio on editor open for instant feedback
   useEffect(function(){try{Tone.start();}catch(e){}preloadPiano();preloadChordPiano();_ensurePreviewSynth();},[]);
   const KEYS=["C","Db","D","Eb","E","F","F#","G","Ab","A","Bb","B"];const TS=["4/4","3/4","6/8","5/4","7/8"];const yt=parseYT(yu);const tSec=(parseInt(tm)||0)*60+(parseInt(ts)||0);
   const lb={fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5,display:"block",marginBottom:4};
   const ip={width:"100%",background:t.inputBg,border:"1px solid "+t.inputBorder,borderRadius:10,padding:"10px 14px",color:t.text,fontSize:14,fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"};
   const hasNotes=abc.split("\n").length>6||abc.includes("|");
-  const canPublish=title&&hasNotes;
-  const step1Done=!!title;const step2Done=hasNotes;
+  const noteCount=useMemo(()=>countAbcNotes(abc),[abc]);
+  const titleOk=title.trim().length>=3;
+  const notesOk=noteCount>=4;
+  const canPublish=titleOk&&notesOk;
+  const step1Done=titleOk;const step2Done=notesOk;
   const extrasCount=(yu&&yt.videoId?1:0)+(sp&&parseSpotify(sp)?1:0)+(desc?1:0)+(tags?1:0);
 
   // Section wrapper
@@ -3198,27 +3245,25 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th}){const t=th||TH.classic;co
                 React.createElement("select",{style:{...ip,appearance:"none",cursor:"pointer",fontSize:12,padding:"10px 8px"},value:timeSig,onChange:e=>sTS(e.target.value)},TS.map(ts2=>React.createElement("option",{key:ts2,value:ts2,style:{background:t.card}},ts2)))),
               React.createElement("div",null,
                 React.createElement("label",{style:lb},"BPM"),
-                React.createElement("input",{style:{...ip,fontSize:12,padding:"10px 8px"},type:"number",value:tempo,onChange:e=>sTm(e.target.value)}))))),
+                React.createElement("input",{style:{...ip,fontSize:12,padding:"10px 8px"},type:"number",value:tempo,onChange:e=>sTm(e.target.value)}))),
+            // Feel selector
+            React.createElement("div",null,
+              React.createElement("label",{style:lb},"FEEL"),
+              React.createElement("div",{style:{display:"flex",gap:4}},
+                ["straight","swing","hard-swing"].map(v=>React.createElement("button",{key:v,onClick:()=>setFeel(v),style:{flex:1,padding:"8px 0",borderRadius:8,border:feel===v?"1.5px solid "+t.accent:"1px solid "+t.border,background:feel===v?(isStudio?t.accentBg:t.accent+"10"):t.inputBg,color:feel===v?t.accent:t.muted,fontSize:11,fontWeight:feel===v?600:400,fontFamily:"'Inter',sans-serif",cursor:"pointer",transition:"all 0.15s"}},v==="straight"?"Straight":v==="swing"?"Swing":"Hard Swing")))))),
 
         // STEP 2 — Notation
         sec("2","Write the notes",step2Done,
           React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:12}},
-            React.createElement("div",{style:{display:"flex",gap:0,background:t.filterBg,borderRadius:10,padding:3}},
-              React.createElement("button",{onClick:()=>setMode("visual"),style:{flex:1,padding:"8px 0",borderRadius:8,border:"none",cursor:"pointer",fontSize:11,fontFamily:"'Inter',sans-serif",fontWeight:500,background:mode==="visual"?t.card:"transparent",color:mode==="visual"?t.text:t.subtle,boxShadow:mode==="visual"?"0 1px 3px rgba(0,0,0,0.06)":"none"}},"Note Builder"),
-              React.createElement("button",{onClick:()=>setMode("abc"),style:{flex:1,padding:"8px 0",borderRadius:8,border:"none",cursor:"pointer",fontSize:11,fontFamily:"'Inter',sans-serif",fontWeight:500,background:mode==="abc"?t.card:"transparent",color:mode==="abc"?t.text:t.subtle,boxShadow:mode==="abc"?"0 1px 3px rgba(0,0,0,0.06)":"none"}},"ABC Code")),
-            // Input — NoteBuilder or ABC code
-            mode==="visual"?React.createElement("div",{style:{borderRadius:12,padding:14,border:"1px solid "+t.border}},
+            // Input — NoteBuilder only
+            React.createElement("div",{style:{borderRadius:12,padding:14,border:"1px solid "+t.border}},
               React.createElement(NoteBuilder,{onAbcChange:sAbc,keySig,timeSig,tempo:parseInt(tempo)||120,
                 previewEl:hasNotes?React.createElement("div",{style:{background:t.noteBg,borderRadius:10,padding:10,border:"1px solid "+t.borderSub}},
                   React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}},
                     React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,fontWeight:600}},"PREVIEW"),
                     React.createElement("span",{style:{fontSize:9,color:t.accent,fontFamily:"monospace"}},"\u2713")),
                   React.createElement(Notation,{abc,compact:false,th:t})):null,
-                playerEl:React.createElement(Player,{abc,tempo:parseInt(tempo)||120,th:t})}))
-            :React.createElement("div",null,
-              React.createElement("textarea",{style:{...ip,height:120,resize:"vertical",lineHeight:1.6,fontFamily:"'JetBrains Mono',monospace",fontSize:13},value:abc,onChange:e=>sAbc(e.target.value),spellCheck:false}),
-              hasNotes&&React.createElement("div",{style:{marginTop:8}},React.createElement(Notation,{abc,compact:false,th:t})),
-              React.createElement(Player,{abc,tempo:parseInt(tempo)||120,th:t})))),
+                playerEl:React.createElement(Player,{abc,tempo:parseInt(tempo)||120,th:t})})))),
 
         // STEP 3 — Extras (collapsible)
         React.createElement("div",{style:{background:t.card,borderRadius:14,border:"1px solid "+t.border,marginBottom:16,overflow:"hidden"}},
@@ -3262,12 +3307,12 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th}){const t=th||TH.classic;co
     // Sticky publish bar
     React.createElement("div",{style:{position:"sticky",bottom:0,background:t.headerBg,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",borderTop:"1px solid "+t.border,padding:"12px 16px",paddingBottom:"max(12px, env(safe-area-inset-bottom))"}},
       React.createElement("div",{style:{maxWidth:520,margin:"0 auto",display:"flex",alignItems:"center",gap:8}},
-        !canPublish&&React.createElement("div",{style:{flex:1,display:"flex",gap:6,alignItems:"center"}},
-          !step1Done&&React.createElement("span",{style:{fontSize:10,color:t.subtle,fontFamily:"'Inter',sans-serif",background:t.filterBg,padding:"3px 8px",borderRadius:6}},"\u2460 needs a title"),
-          step1Done&&!step2Done&&React.createElement("span",{style:{fontSize:10,color:t.subtle,fontFamily:"'Inter',sans-serif",background:t.filterBg,padding:"3px 8px",borderRadius:6}},"\u2461 add some notes")),
+        !canPublish&&React.createElement("div",{style:{flex:1,display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}},
+          !titleOk&&React.createElement("span",{style:{fontSize:10,color:t.subtle,fontFamily:"'Inter',sans-serif",background:t.filterBg,padding:"3px 8px",borderRadius:6}},title.length>0?"\u2460 title too short (min 3)":"\u2460 needs a title"),
+          titleOk&&!notesOk&&React.createElement("span",{style:{fontSize:10,color:t.subtle,fontFamily:"'Inter',sans-serif",background:t.filterBg,padding:"3px 8px",borderRadius:6}},noteCount>0?"\u2461 min 4 notes ("+noteCount+" so far)":"\u2461 add some notes")),
         canPublish&&React.createElement("div",{style:{flex:1}}),
-        React.createElement("button",{onClick:()=>{if(!canPublish)return;var d={title,artist,instrument:inst,category:cat,key:keySig,tempo:parseInt(tempo),abc,youtubeId:yt.videoId,youtubeStart:tSec,spotifyId:parseSpotify(sp),description:desc,tags:tags.split(",").map(tg2=>tg2.trim()).filter(Boolean)};onSubmitPrivate(d);},disabled:!canPublish,style:{padding:"12px 20px",background:canPublish?t.card:t.border,color:canPublish?t.text:t.subtle,border:canPublish?"1.5px solid "+t.accent:"none",borderRadius:12,fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:canPublish?"pointer":"default",transition:"all 0.2s"}},"\uD83D\uDD12 Private"),
-        React.createElement("button",{onClick:()=>{if(!canPublish)return;var d={title,artist,instrument:inst,category:cat,key:keySig,tempo:parseInt(tempo),abc,youtubeId:yt.videoId,youtubeStart:tSec,spotifyId:parseSpotify(sp),description:desc,tags:tags.split(",").map(tg2=>tg2.trim()).filter(Boolean)};onSubmit(d);},disabled:!canPublish,style:{padding:"12px 24px",background:canPublish?(isStudio?t.playBg:t.accent):t.border,color:canPublish?"#fff":t.subtle,border:"none",borderRadius:12,fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:canPublish?"pointer":"default",boxShadow:canPublish?"0 4px 16px "+t.accentGlow:"none",transition:"all 0.2s"}},"Publish"))));}
+        React.createElement("button",{onClick:()=>{if(!canPublish)return;var d={title,artist,instrument:inst,category:cat,key:keySig,tempo:parseInt(tempo),feel,abc,youtubeId:yt.videoId,youtubeStart:tSec,spotifyId:parseSpotify(sp),description:desc,tags:tags.split(",").map(tg2=>tg2.trim()).filter(Boolean)};onSubmitPrivate(d);},disabled:!canPublish,style:{padding:"12px 20px",background:canPublish?t.card:t.border,color:canPublish?t.text:t.subtle,border:canPublish?"1.5px solid "+t.accent:"none",borderRadius:12,fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:canPublish?"pointer":"default",transition:"all 0.2s"}},"\uD83D\uDD12 Private"),
+        React.createElement("button",{onClick:()=>{if(!canPublish)return;var d={title,artist,instrument:inst,category:cat,key:keySig,tempo:parseInt(tempo),feel,abc,youtubeId:yt.videoId,youtubeStart:tSec,spotifyId:parseSpotify(sp),description:desc,tags:tags.split(",").map(tg2=>tg2.trim()).filter(Boolean)};onSubmit(d);},disabled:!canPublish,style:{padding:"12px 24px",background:canPublish?(isStudio?t.playBg:t.accent):t.border,color:canPublish?"#fff":t.subtle,border:"none",borderRadius:12,fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:canPublish?"pointer":"default",boxShadow:canPublish?"0 4px 16px "+t.accentGlow:"none",transition:"all 0.2s"}},"Publish"))));}
 
 
 // ============================================================
@@ -4408,9 +4453,8 @@ export default function Etudy(){
   const srcLicks=lickSource==="mine"?licks.filter(function(l){return savedSet.has(l.id);}).concat(myLicks):licks;
   const fl=srcLicks.filter(l=>{if(lickSource==="community"&&dailyLick&&l.id===dailyLick.id)return false;if(inst!=="All"&&l.instrument!==inst)return false;if(cat!=="All"&&l.category!==cat)return false;if(sq){const q=sq.toLowerCase();return l.title.toLowerCase().includes(q)||l.artist.toLowerCase().includes(q)||l.key.toLowerCase().includes(q)||(l.tags||[]).some(tg2=>tg2.includes(q));}return true;});
   const addLick=d=>{
-    const temp={...d,id:Date.now(),likes:0,user:"You",tags:d.tags||[]};
+    const temp={...d,id:Date.now(),likes:0,user:"You",tags:d.tags||[],status:"pending"};
     sL([temp,...licks]);sSE(false);openLick(temp);
-    // Save to Supabase in background, then replace temp with real DB entry
     insertLick({...d,user:"You"}).then(real=>{
       if(real)sL(prev=>prev.map(l=>l.id===temp.id?real:l));
     });
@@ -4421,6 +4465,13 @@ export default function Etudy(){
   const deletePrivateLick=(id)=>{
     setMyLicks(prev=>{const u=prev.filter(l=>l.id!==id);const g=getStg();if(g)g.set("etudy:myLicks",JSON.stringify(u)).catch(()=>{});return u;});
     closeLick();};
+  const handleReport=async(id)=>{
+    var result=await reportLick(id);
+    if(result!==null){
+      if(result>=3){sL(prev=>prev.filter(l=>l.id!==id));closeLick();}
+      alert(result>=3?"Lick removed. Thank you for keeping the community clean!":"Thank you for reporting. We'll review this lick.");
+    }
+  };
 
   // INSTALL LANDING PAGE — shown only in browser (not when already installed as PWA)
   if(!isStandalone&&!installed&&!theme&&(installPrompt||isIOS)){
@@ -4650,7 +4701,7 @@ export default function Etudy(){
     feedShowTips&&view==="explore"&&!selectedLick&&!showEd&&React.createElement(CoachMarks,{tips:FEED_TIPS,onDone:markFeedTipped,th:t}),
     earShowTips&&view==="train"&&trainSub==="ear"&&!selectedLick&&React.createElement(CoachMarks,{tips:EAR_TIPS,onDone:markEarTipped,th:t}),
     rhythmShowTips&&view==="train"&&trainSub==="rhythm"&&React.createElement(CoachMarks,{tips:RHYTHM_TIPS,onDone:markRhythmTipped,th:t}),
-    selectedLick&&React.createElement(LickDetail,{key:selectedLick.id,lick:selectedLick,onBack:closeLick,th:t,liked:likedSet.has(selectedLick.id),saved:savedSet.has(selectedLick.id),onLike:toggleLike,onSave:toggleSave,showTips:detailShowTips,onTipsDone:markDetailTipped,onReShowTips:detailTipped?function(){setDetailShowTips(true);}:null,defaultInst:userInst,onDeletePrivate:deletePrivateLick}),
+    selectedLick&&React.createElement(LickDetail,{key:selectedLick.id,lick:selectedLick,onBack:closeLick,th:t,liked:likedSet.has(selectedLick.id),saved:savedSet.has(selectedLick.id),onLike:toggleLike,onSave:toggleSave,showTips:detailShowTips,onTipsDone:markDetailTipped,onReShowTips:detailTipped?function(){setDetailShowTips(true);}:null,defaultInst:userInst,onDeletePrivate:deletePrivateLick,onReport:handleReport}),
     showEd&&React.createElement(Editor,{onClose:()=>sSE(false),onSubmit:addLick,onSubmitPrivate:addPrivateLick,th:t}),
     runningPlan&&React.createElement(PlanRunner,{plan:runningPlan,onClose:function(){setRunningPlan(null);},th:t,licks:allLicks,userInst:userInst,keyProgress:keyProgress,onUpdateKeyProgress:onUpdateKeyProgress,onSessionSaved:function(){setHistoryRefresh(function(k){return k+1;});var s=getStg();if(s)s.get("practice-log").then(function(r){if(r&&r.value){try{var sess=JSON.parse(r.value);calcStreak(sess);calcHours(sess);}catch(e){}}}).catch(function(){});}}),
     // Settings sheet
