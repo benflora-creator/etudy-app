@@ -910,15 +910,16 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
   const bb={border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.15s",fontFamily:"'Inter',sans-serif"};
   const pill=(a,ic,fn,label)=>React.createElement("button",{onClick:e=>{e.stopPropagation();fn();},style:{...bb,gap:4,padding:"5px 12px",fontSize:11,fontWeight:a?600:500,borderRadius:20,background:a?t.accentBg:t.pillBg,color:a?t.accent:t.subtle,border:a?"1.5px solid "+t.accentBorder:"1.5px solid "+t.pillBorder,boxShadow:a?"0 0 8px "+t.accentGlow:"none",letterSpacing:0.2}},ic,label?" "+label:"");
   const sBtn=(a,l,fn)=>React.createElement("button",{onClick:e=>{e.stopPropagation();fn();},style:{...bb,gap:4,padding:"6px 12px",fontSize:11,fontWeight:500,borderRadius:8,background:a?t.accentBg:t.filterBg,color:a?t.accent:t.muted}},l);
-  const nonDefaults=[!ml&&"mute",bk&&"back",fl!=="straight"&&"feel",ci===false&&"no-ci",sound!=="piano"&&"sound"].filter(Boolean);
+  const nonDefaults=[!ml&&"mute",fl!=="straight"&&"feel",ci===false&&"no-ci",sound!=="piano"&&"sound"].filter(Boolean);
 
   if(hideControls)return React.createElement("div",{style:{marginTop:8}},
     // Progress bar only (thin)
     React.createElement("div",{style:{height:3,background:t.progressBg,borderRadius:3,overflow:"hidden",marginBottom:8}},
       React.createElement("div",{ref:prBarRef,style:{width:"0%",height:"100%",background:t.accent,borderRadius:3}})),
-    // Melody toggle
+    // Melody + Backing toggles
     React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:6}},
-      pill(ml,ml?"\u266B":"\u2715",()=>sMl(!ml),ml?"Melody":"Melody off")),
+      pill(ml,ml?"\u266B":"\u2715",()=>sMl(!ml),ml?"Melody":"Melody off"),
+      pill(bk,bk?"\uD83C\uDFB9":"\uD83C\uDFB9",()=>sBk(!bk),bk?"Backing":"Backing off")),
     // MINI METRONOME
     React.createElement("div",{"data-coach":"metro",style:{background:t.settingsBg||t.card,borderRadius:12,border:"1px solid "+t.border,padding:"4px 12px",marginBottom:6}},
       React.createElement(MiniMetronome,{th:t,initBpm:pT||tempo,syncPlaying:pl,ctrlRef:metroCtrlRef,onBpmChange:function(v){pTR.current=v;if(sPT)sPT(v);if(!sT.current)liveRestart(v);},lickTempo:lickTempo||tempo,onSetLoop:function(v){if(v)sLp(true);},lickTimeSig:lickTS})),
@@ -934,7 +935,6 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
         React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,display:"block",marginBottom:6,letterSpacing:0.5}},"FEEL"),
         React.createElement("div",{style:{display:"flex",gap:4}},["straight","swing","hard-swing"].map(v=>sBtn(fl===v,v==="straight"?"Straight":v==="swing"?"Swing":"Hard Swing",()=>sFl(v))))),
       React.createElement("div",{style:{display:"flex",gap:5,flexWrap:"wrap"}},
-        sBtn(bk,"Backing "+(bk?"\u2713":"\u2717"),()=>sBk(!bk)),
         sBtn(ci,"Count-in "+(ci?"\u2713":"\u2717"),()=>setCi(!ci)))));
 
   return React.createElement("div",{style:{marginTop:12}},
@@ -951,9 +951,10 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
       pill(lp,"\u221E",()=>sLp(!lp),"Loop"),
       setAbOn&&React.createElement("span",{"data-coach":"ab-loop"},pill(abOn,"\u2759\u2759",()=>{setAbOn(!abOn);if(!abOn){setAbA(0);setAbB(1);}},"A\u2009\u00B7\u2009B"))),
 
-    // ROW 2: Melody toggle
+    // ROW 2: Melody + Backing toggles
     React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginTop:8}},
-      pill(ml,ml?"\u266B":"\u2715",()=>sMl(!ml),ml?"Melody":"Melody off")),
+      pill(ml,ml?"\u266B":"\u2715",()=>sMl(!ml),ml?"Melody":"Melody off"),
+      pill(bk,bk?"\uD83C\uDFB9":"\uD83C\uDFB9",()=>sBk(!bk),bk?"Backing":"Backing off")),
 
     // MINI METRONOME — single source of truth for tempo
     React.createElement("div",{"data-coach":"metro",style:{marginTop:8,background:t.settingsBg||t.card,borderRadius:12,border:"1px solid "+t.border,padding:"4px 12px"}},
@@ -972,7 +973,6 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
         React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,display:"block",marginBottom:6,letterSpacing:0.5}},"FEEL"),
         React.createElement("div",{style:{display:"flex",gap:4}},["straight","swing","hard-swing"].map(v=>sBtn(fl===v,v==="straight"?"Straight":v==="swing"?"Swing":"Hard Swing",()=>sFl(v))))),
       React.createElement("div",{style:{display:"flex",gap:5,flexWrap:"wrap"}},
-        sBtn(bk,"Backing "+(bk?"\u2713":"\u2717"),()=>sBk(!bk)),
         sBtn(ci,"Count-in "+(ci?"\u2713":"\u2717"),()=>setCi(!ci)))));}
 
 
