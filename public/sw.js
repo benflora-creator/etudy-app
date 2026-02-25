@@ -1,4 +1,4 @@
-const CACHE_NAME = 'etudy-v2';
+const CACHE_NAME = 'etudy-v3';
 
 // App shell — these get cached on install
 const SHELL = [
