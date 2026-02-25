@@ -359,6 +359,50 @@ async function updateLikes(id, newCount) {
   }
 }
 
+// ── User Licks (server-side likes & saves) ──
+async function fetchUserLicks(userId) {
+  try {
+    const { data, error } = await supabase
+      .from('user_licks')
+      .select('lick_id, type')
+      .eq('user_id', userId);
+    if (error) throw error;
+    var likes = new Set();
+    var saves = new Set();
+    (data || []).forEach(function(row) {
+      if (row.type === 'like') likes.add(row.lick_id);
+      if (row.type === 'save') saves.add(row.lick_id);
+    });
+    return { likes: likes, saves: saves };
+  } catch (e) {
+    console.error('Failed to fetch user licks:', e);
+    return { likes: new Set(), saves: new Set() };
+  }
+}
+
+async function addUserLick(userId, lickId, type) {
+  try {
+    await supabase.from('user_licks').upsert(
+      { user_id: userId, lick_id: lickId, type: type },
+      { onConflict: 'user_id,lick_id,type' }
+    );
+  } catch (e) {
+    console.error('Failed to add user lick:', e);
+  }
+}
+
+async function removeUserLick(userId, lickId, type) {
+  try {
+    await supabase.from('user_licks')
+      .delete()
+      .eq('user_id', userId)
+      .eq('lick_id', lickId)
+      .eq('type', type);
+  } catch (e) {
+    console.error('Failed to remove user lick:', e);
+  }
+}
+
 const SOUND_PRESETS = [
   { id:"piano", label:"Piano", sample:true },
   { id:"rhodes", label:"Rhodes", sample:true },
@@ -4724,27 +4768,32 @@ export default function Etudy(){
   const[authLoading,setAuthLoading]=useState(true);
   const[showLogin,setShowLogin]=useState(false);
   const[showOnboarding,setShowOnboarding]=useState(false);
+  // Load profile + likes/saves from Supabase
+  var loadUserData=function(user){
+    setAuthUser(user);
+    fetchProfile(user.id).then(function(p){
+      setAuthProfile(p);
+      if(p&&(!p.display_name||p.display_name==="Musician"))setShowOnboarding(true);
+    }).catch(function(){setShowOnboarding(true);});
+    // Load server-side likes & saves
+    fetchUserLicks(user.id).then(function(result){
+      if(result.likes.size>0)setLikedSet(result.likes);
+      if(result.saves.size>0)setSavedSet(result.saves);
+      // Also cache locally for offline
+      var g=getStg();if(g){
+        g.set("etudy:likedSet",JSON.stringify([...result.likes])).catch(function(){});
+        g.set("etudy:savedSet",JSON.stringify([...result.saves])).catch(function(){});
+      }
+    }).catch(function(){});
+  };
   useEffect(()=>{
     getSession().then(function(session){
-      if(session&&session.user){
-        setAuthUser(session.user);
-        fetchProfile(session.user.id).then(function(p){
-          setAuthProfile(p);
-          if(p&&(!p.display_name||p.display_name==="Musician"))setShowOnboarding(true);
-        }).catch(function(){setShowOnboarding(true);});
-      }
+      if(session&&session.user){ loadUserData(session.user); }
       setAuthLoading(false);
     }).catch(function(){setAuthLoading(false);});
     var sub=onAuthStateChange(function(event,session){
-      if(session&&session.user){
-        setAuthUser(session.user);
-        fetchProfile(session.user.id).then(function(p){
-          setAuthProfile(p);
-          if(p&&(!p.display_name||p.display_name==="Musician"))setShowOnboarding(true);
-        }).catch(function(){setShowOnboarding(true);});
-      } else {
-        setAuthUser(null);setAuthProfile(null);
-      }
+      if(session&&session.user){ loadUserData(session.user); }
+      else { setAuthUser(null);setAuthProfile(null); }
     });
     return function(){if(sub&&sub.unsubscribe)sub.unsubscribe();};
   },[]);
@@ -4753,13 +4802,7 @@ export default function Etudy(){
     setShowLogin(true);
   };
   var handleLoginSuccess=function(session){
-    if(session&&session.user){
-      setAuthUser(session.user);
-      fetchProfile(session.user.id).then(function(p){
-        setAuthProfile(p);
-        if(!p||!p.display_name||p.display_name==="Musician")setShowOnboarding(true);
-      }).catch(function(){setShowOnboarding(true);});
-    }
+    if(session&&session.user){ loadUserData(session.user); }
     setShowLogin(false);
   };
   var handleOnboardingComplete=function(data){
@@ -4778,6 +4821,17 @@ export default function Etudy(){
   var handleLogout=function(){
     signOut().then(function(){
       setAuthUser(null);setAuthProfile(null);
+      // Clear user-specific local data
+      setLikedSet(new Set());setSavedSet(new Set());setMyLicks([]);
+      setStreakDays(0);setTotalHours(0);setKeyProgress({});
+      var g=getStg();if(g){
+        g.delete("etudy:likedSet").catch(function(){});
+        g.delete("etudy:savedSet").catch(function(){});
+        g.delete("etudy:savedLicksData").catch(function(){});
+        g.delete("etudy:myLicks").catch(function(){});
+        g.delete("etudy:keyProgress").catch(function(){});
+        g.delete("practice-log").catch(function(){});
+      }
     }).catch(function(){});
   };
   const[isStandalone,setIsStandalone]=useState(false);
@@ -4904,16 +4958,22 @@ export default function Etudy(){
     if(lick){const newCount=Math.max(0,(lick.likes||0)+(adding?1:-1));
       sL(prev=>prev.map(l=>l.id===id?{...l,likes:newCount}:l));
       updateLikes(id,newCount);}
+    // Sync with Supabase
+    if(adding){addUserLick(authUser.id,id,"like");}else{removeUserLick(authUser.id,id,"like");}
   };
   const toggleSave=id=>{
     if(!authUser){setShowLogin(true);return;}
     const lick=allLicks.find(l=>l.id===id);
-    setSavedSet(s=>{const n=new Set(s);const adding=!n.has(id);if(adding)n.add(id);else n.delete(id);
+    const wassSaved=savedSet.has(id);
+    const adding=!wassSaved;
+    setSavedSet(s=>{const n=new Set(s);if(adding)n.add(id);else n.delete(id);
       const g=getStg();if(g){g.set("etudy:savedSet",JSON.stringify([...n])).catch(()=>{});
-        // Persist full lick data for offline
         if(lick&&adding){g.get("etudy:savedLicksData").then(r=>{var m={};try{m=r&&r.value?JSON.parse(r.value):{};}catch(e){}m[id]=lick;g.set("etudy:savedLicksData",JSON.stringify(m)).catch(()=>{});}).catch(()=>{});}
         if(!adding){g.get("etudy:savedLicksData").then(r=>{var m={};try{m=r&&r.value?JSON.parse(r.value):{};}catch(e){}delete m[id];g.set("etudy:savedLicksData",JSON.stringify(m)).catch(()=>{});}).catch(()=>{});}
-      }return n;});};
+      }return n;});
+    // Sync with Supabase
+    if(adding){addUserLick(authUser.id,id,"save");}else{removeUserLick(authUser.id,id,"save");}
+  };
   useEffect(()=>{preloadPiano();preloadChordPiano();},[]);
   const dayOfYear=Math.floor((Date.now()-new Date(new Date().getFullYear(),0,0))/86400000);
   const dailyLick=licks.length>0?licks[dayOfYear%licks.length]:null;
