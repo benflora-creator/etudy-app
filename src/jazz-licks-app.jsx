@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import * as Tone from "tone";
-import { supabase } from "./supabase.js";
+import { supabase, signInWithGoogle, signInWithMagicLink, signOut, getSession, onAuthStateChange, fetchProfile, updateProfile } from "./supabase.js";
 
 
 const ABCJS_CDN = "https://cdnjs.cloudflare.com/ajax/libs/abcjs/6.4.1/abcjs-basic-min.js";
@@ -4316,8 +4316,201 @@ function Filters({instrument,setInstrument,category,setCategory,sq,setSq,th}){
 // ============================================================
 // APP — theme selector + main view
 // ============================================================
+// ============================================================
+// AUTH: LOGIN MODAL
+// ============================================================
+function LoginModal({onClose,th,onSuccess}){
+  var t=th;var isStudio=t===TH.studio;
+  var[email,setEmail]=useState("");
+  var[magicSent,setMagicSent]=useState(false);
+  var[loading,setLoading]=useState(false);
+  var[error,setError]=useState("");
+
+  var handleGoogle=async function(){
+    setLoading(true);setError("");
+    var result=await signInWithGoogle();
+    if(result.error)setError(result.error.message);
+    setLoading(false);
+  };
+
+  var handleMagic=async function(){
+    if(!email||!email.includes("@")){setError("Bitte gib eine gültige E-Mail ein");return;}
+    setLoading(true);setError("");
+    var result=await signInWithMagicLink(email);
+    if(result.error){setError(result.error.message);setLoading(false);return;}
+    setMagicSent(true);setLoading(false);
+  };
+
+  var backdrop={position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:3000,background:"rgba(0,0,0,"+(isStudio?"0.7":"0.5")+")",display:"flex",alignItems:"center",justifyContent:"center",padding:20,animation:"fadeIn 0.15s ease"};
+  var modal={width:"100%",maxWidth:380,background:t.card,borderRadius:20,padding:"32px 24px",boxShadow:"0 24px 80px rgba(0,0,0,0.3)",position:"relative",border:"1px solid "+t.border};
+  var btnBase={width:"100%",padding:"14px",borderRadius:12,fontSize:14,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer",transition:"all 0.15s",display:"flex",alignItems:"center",justifyContent:"center",gap:10};
+
+  if(magicSent){
+    return React.createElement("div",{onClick:onClose,style:backdrop},
+      React.createElement("div",{onClick:function(e){e.stopPropagation();},style:modal},
+        React.createElement("div",{style:{textAlign:"center"}},
+          React.createElement("div",{style:{fontSize:40,marginBottom:12}},"\u2709\uFE0F"),
+          React.createElement("h2",{style:{fontSize:20,fontWeight:700,color:t.text,fontFamily:t.titleFont,margin:"0 0 8px"}},"Check deine E-Mail!"),
+          React.createElement("p",{style:{fontSize:13,color:t.muted,fontFamily:"'Inter',sans-serif",lineHeight:1.6,margin:"0 0 20px"}},"Wir haben einen Magic Link an ",React.createElement("strong",{style:{color:t.text}},email)," geschickt. Klick den Link um dich einzuloggen."),
+          React.createElement("button",{onClick:onClose,style:{...btnBase,background:t.filterBg,border:"1px solid "+t.border,color:t.text}},"Verstanden"))));
+  }
+
+  return React.createElement("div",{onClick:onClose,style:backdrop},
+    React.createElement("div",{onClick:function(e){e.stopPropagation();},style:modal},
+      // Close button
+      React.createElement("button",{onClick:onClose,style:{position:"absolute",top:14,right:14,background:"none",border:"none",color:t.muted,fontSize:20,cursor:"pointer",padding:4,lineHeight:1}},"\u00D7"),
+
+      // Header
+      React.createElement("div",{style:{textAlign:"center",marginBottom:28}},
+        React.createElement("div",{style:{fontSize:28,marginBottom:6}},"\u266A"),
+        React.createElement("h2",{style:{fontSize:22,fontWeight:isStudio?700:600,color:t.text,fontFamily:t.titleFont,margin:"0 0 6px"}},"\u00C9tudy beitreten"),
+        React.createElement("p",{style:{fontSize:12,color:t.muted,fontFamily:"'Inter',sans-serif"}},"Speichere Licks, teile deine eigenen und tracke deinen Fortschritt")),
+
+      // Google Button
+      React.createElement("button",{onClick:handleGoogle,disabled:loading,style:{...btnBase,background:isStudio?"#fff":"#fff",color:"#333",border:"1px solid #ddd",marginBottom:12,opacity:loading?0.6:1}},
+        React.createElement("svg",{width:18,height:18,viewBox:"0 0 24 24"},
+          React.createElement("path",{d:"M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z",fill:"#4285F4"}),
+          React.createElement("path",{d:"M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z",fill:"#34A853"}),
+          React.createElement("path",{d:"M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z",fill:"#FBBC05"}),
+          React.createElement("path",{d:"M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z",fill:"#EA4335"})),
+        "Weiter mit Google"),
+
+      // Divider
+      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:12,margin:"16px 0"}},
+        React.createElement("div",{style:{flex:1,height:1,background:t.border}}),
+        React.createElement("span",{style:{fontSize:11,color:t.subtle,fontFamily:"'Inter',sans-serif"}},"oder"),
+        React.createElement("div",{style:{flex:1,height:1,background:t.border}})),
+
+      // Magic Link Email
+      React.createElement("div",{style:{marginBottom:16}},
+        React.createElement("label",{style:{fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5,display:"block",marginBottom:6}},"E-MAIL"),
+        React.createElement("input",{type:"email",value:email,onChange:function(e){setEmail(e.target.value);setError("");},onKeyDown:function(e){if(e.key==="Enter")handleMagic();},placeholder:"deine@email.de",style:{width:"100%",padding:"12px 14px",borderRadius:10,border:"1px solid "+t.border,background:t.inputBg||t.filterBg,color:t.text,fontSize:14,fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}})),
+
+      React.createElement("button",{onClick:handleMagic,disabled:loading,style:{...btnBase,background:t.accent,color:"#fff",border:"none",boxShadow:"0 4px 16px "+t.accentGlow,opacity:loading?0.6:1}},
+        loading?"Wird gesendet...":"Magic Link senden"),
+
+      // Error
+      error&&React.createElement("p",{style:{fontSize:11,color:"#EF4444",fontFamily:"'Inter',sans-serif",textAlign:"center",marginTop:12}},error),
+
+      // Footer
+      React.createElement("p",{style:{fontSize:10,color:t.subtle,fontFamily:"'Inter',sans-serif",textAlign:"center",marginTop:20,lineHeight:1.5}},"Kein Passwort nötig. Wir senden dir einen Link zum Einloggen.")));
+}
+
+// ============================================================
+// AUTH: ONBOARDING FLOW (3 Screens, ~30 Sek)
+// ============================================================
+function OnboardingFlow({th,profile,userId,onComplete}){
+  var t=th;var isStudio=t===TH.studio;
+  var[step,setStep]=useState(0); // 0=name, 1=instrument+level, 2=styles
+  var[name,setName]=useState(profile&&profile.display_name||"");
+  var[instrument,setInstrument]=useState(profile&&profile.instrument||"Alto Sax");
+  var[level,setLevel]=useState(profile&&profile.level||"intermediate");
+  var[styles,setStyles]=useState(profile&&profile.style_preferences||[]);
+  var[saving,setSaving]=useState(false);
+
+  var instruments=["Alto Sax","Tenor Sax","Trumpet","Piano","Guitar","Trombone","Flute","Clarinet"];
+  var levels=[{id:"beginner",label:"Anfänger",desc:"Erste Schritte im Jazz"},{id:"intermediate",label:"Fortgeschritten",desc:"Kennt Standards & Grundlagen"},{id:"advanced",label:"Profi",desc:"Spielt regelmäßig Gigs"}];
+  var styleOptions=["Bebop","Modal","Blues","Free Jazz","Latin","Fusion","Cool Jazz","Hard Bop","Swing","Funk"];
+
+  var toggleStyle=function(s){setStyles(function(prev){return prev.includes(s)?prev.filter(function(x){return x!==s;}):prev.concat(s);});};
+
+  var handleFinish=async function(){
+    setSaving(true);
+    await updateProfile(userId,{
+      display_name:name.trim()||"Jazz Cat",
+      instrument:instrument,
+      level:level,
+      style_preferences:styles,
+      onboarding_complete:true
+    });
+    setSaving(false);
+    onComplete({display_name:name.trim()||"Jazz Cat",instrument:instrument,level:level,style_preferences:styles,onboarding_complete:true});
+  };
+
+  var wrap={position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:3000,background:t.bg,display:"flex",flexDirection:"column",animation:"fadeIn 0.2s ease"};
+  var header={padding:"20px 20px 0",paddingTop:"calc(env(safe-area-inset-top, 0px) + 20px)"};
+  var content={flex:1,overflowY:"auto",padding:"24px 20px",maxWidth:420,margin:"0 auto",width:"100%"};
+  var footer={padding:"16px 20px",paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 16px)",maxWidth:420,margin:"0 auto",width:"100%"};
+  var btnNext={width:"100%",padding:"14px",borderRadius:14,border:"none",background:t.accent,color:"#fff",fontSize:15,fontWeight:700,fontFamily:"'Inter',sans-serif",cursor:"pointer",boxShadow:"0 4px 16px "+t.accentGlow,transition:"all 0.15s"};
+  var btnBack={background:"none",border:"none",color:t.muted,fontSize:13,fontFamily:"'Inter',sans-serif",cursor:"pointer",padding:"8px 0"};
+  var chipBase=function(sel){return{padding:"10px 16px",borderRadius:12,border:"1.5px solid "+(sel?t.accent:t.border),background:sel?(isStudio?t.accent+"18":t.accent+"10"):"transparent",color:sel?t.text:t.muted,fontSize:13,fontWeight:sel?600:400,fontFamily:"'Inter',sans-serif",cursor:"pointer",transition:"all 0.15s"};};
+
+  // Progress dots
+  var dots=React.createElement("div",{style:{display:"flex",gap:6,justifyContent:"center",marginBottom:8}},
+    [0,1,2].map(function(i){return React.createElement("div",{key:i,style:{width:step===i?20:6,height:6,borderRadius:3,background:step>=i?t.accent:t.border,transition:"all 0.3s"}});}));
+
+  // STEP 0: Name
+  if(step===0){
+    return React.createElement("div",{style:wrap},
+      React.createElement("div",{style:header},dots),
+      React.createElement("div",{style:content},
+        React.createElement("div",{style:{textAlign:"center",marginBottom:32}},
+          React.createElement("div",{style:{fontSize:40,marginBottom:8}},"\uD83C\uDFB5"),
+          React.createElement("h1",{style:{fontSize:24,fontWeight:isStudio?700:600,color:t.text,fontFamily:t.titleFont,margin:"0 0 8px"}},"Willkommen bei \u00C9tudy!"),
+          React.createElement("p",{style:{fontSize:13,color:t.muted,fontFamily:"'Inter',sans-serif"}},"Wie sollen dich andere Musiker nennen?")),
+        React.createElement("input",{value:name,onChange:function(e){setName(e.target.value);},placeholder:"Dein Name",autoFocus:true,onKeyDown:function(e){if(e.key==="Enter"&&name.trim())setStep(1);},style:{width:"100%",padding:"14px 16px",borderRadius:12,border:"1.5px solid "+t.border,background:t.inputBg||t.filterBg,color:t.text,fontSize:16,fontWeight:500,fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",textAlign:"center"}})),
+      React.createElement("div",{style:footer},
+        React.createElement("button",{onClick:function(){if(name.trim())setStep(1);},disabled:!name.trim(),style:{...btnNext,opacity:name.trim()?1:0.4}},
+          "Weiter")));
+  }
+
+  // STEP 1: Instrument + Level
+  if(step===1){
+    return React.createElement("div",{style:wrap},
+      React.createElement("div",{style:header},dots),
+      React.createElement("div",{style:content},
+        // Instrument
+        React.createElement("div",{style:{marginBottom:28}},
+          React.createElement("h2",{style:{fontSize:18,fontWeight:700,color:t.text,fontFamily:t.titleFont,margin:"0 0 4px"}},"Dein Instrument"),
+          React.createElement("p",{style:{fontSize:12,color:t.muted,fontFamily:"'Inter',sans-serif",margin:"0 0 14px"}},"Notation wird automatisch transponiert"),
+          React.createElement("div",{style:{display:"flex",gap:8,flexWrap:"wrap"}},
+            instruments.map(function(inst){
+              return React.createElement("button",{key:inst,onClick:function(){setInstrument(inst);},style:chipBase(instrument===inst)},inst);}))),
+
+        // Level
+        React.createElement("div",null,
+          React.createElement("h2",{style:{fontSize:18,fontWeight:700,color:t.text,fontFamily:t.titleFont,margin:"0 0 4px"}},"Dein Level"),
+          React.createElement("p",{style:{fontSize:12,color:t.muted,fontFamily:"'Inter',sans-serif",margin:"0 0 14px"}},"Hilft uns passende Licks vorzuschlagen"),
+          React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:8}},
+            levels.map(function(lv){
+              var sel=level===lv.id;
+              return React.createElement("button",{key:lv.id,onClick:function(){setLevel(lv.id);},style:{padding:"14px 16px",borderRadius:12,border:"1.5px solid "+(sel?t.accent:t.border),background:sel?(isStudio?t.accent+"18":t.accent+"10"):"transparent",cursor:"pointer",textAlign:"left",transition:"all 0.15s"}},
+                React.createElement("div",{style:{fontSize:14,fontWeight:sel?600:500,color:sel?t.text:t.muted,fontFamily:"'Inter',sans-serif"}},lv.label),
+                React.createElement("div",{style:{fontSize:11,color:t.subtle,fontFamily:"'Inter',sans-serif",marginTop:2}},lv.desc));})))),
+      React.createElement("div",{style:footer},
+        React.createElement("button",{onClick:function(){setStep(2);},style:btnNext},"Weiter"),
+        React.createElement("div",{style:{textAlign:"center",marginTop:8}},
+          React.createElement("button",{onClick:function(){setStep(0);},style:btnBack},"\u2190 Zurück"))));
+  }
+
+  // STEP 2: Style Preferences
+  return React.createElement("div",{style:wrap},
+    React.createElement("div",{style:header},dots),
+    React.createElement("div",{style:content},
+      React.createElement("div",{style:{textAlign:"center",marginBottom:24}},
+        React.createElement("h2",{style:{fontSize:18,fontWeight:700,color:t.text,fontFamily:t.titleFont,margin:"0 0 4px"}},"Was hörst du gerne?"),
+        React.createElement("p",{style:{fontSize:12,color:t.muted,fontFamily:"'Inter',sans-serif"}},"Wähl so viele wie du willst (kannst du später ändern)")),
+      React.createElement("div",{style:{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"center"}},
+        styleOptions.map(function(s){
+          var sel=styles.includes(s);var cc=CAT_COL[s]||t.accent;
+          return React.createElement("button",{key:s,onClick:function(){toggleStyle(s);},style:{padding:"10px 18px",borderRadius:20,border:"1.5px solid "+(sel?(isStudio?cc:t.accent):t.border),background:sel?(isStudio?cc+"18":t.accent+"10"):"transparent",color:sel?(isStudio?cc:t.accent):t.muted,fontSize:13,fontWeight:sel?600:400,fontFamily:"'Inter',sans-serif",cursor:"pointer",transition:"all 0.15s"}},
+            (sel?"\u2713 ":"")+s);}))),
+    React.createElement("div",{style:footer},
+      React.createElement("button",{onClick:handleFinish,disabled:saving,style:{...btnNext,opacity:saving?0.6:1}},
+        saving?"Wird gespeichert...":"Los geht's! \uD83C\uDFB6"),
+      React.createElement("div",{style:{textAlign:"center",marginTop:8}},
+        React.createElement("button",{onClick:function(){setStep(1);},style:btnBack},"\u2190 Zurück"))));
+}
+
 export default function Etudy(){
   const[theme,setTheme]=useState(null);const[view,sV]=useState("explore");const[selectedLick,setSelected]=useState(null);const[inst,sI]=useState("All");const[cat,sC]=useState("All");const[sq,sQ]=useState("");const[showEd,sSE]=useState(false);const[licks,sL]=useState(SAMPLE_LICKS);
+  // AUTH STATE
+  const[authUser,setAuthUser]=useState(null);       // supabase auth.user
+  const[profile,setProfile]=useState(null);          // profiles table row
+  const[authLoading,setAuthLoading]=useState(true);  // initial session check
+  const[showLogin,setShowLogin]=useState(false);     // login modal
+  const[showOnboarding,setShowOnboarding]=useState(false); // onboarding flow
+  const loginCallbackRef=useRef(null); // action to run after login
   // PWA Install prompt
   const[installPrompt,setInstallPrompt]=useState(null);
   const[isStandalone,setIsStandalone]=useState(false);
@@ -4336,6 +4529,49 @@ export default function Etudy(){
     window.addEventListener("beforeinstallprompt",handler);
     window.addEventListener("appinstalled",function(){setInstalled(true);});
     return function(){window.removeEventListener("beforeinstallprompt",handler);};
+  },[]);
+  // AUTH: Listen to auth state changes & load profile
+  useEffect(function(){
+    var cancelled=false;
+    // Check existing session on mount
+    getSession().then(function(session){
+      if(cancelled)return;
+      if(session&&session.user){
+        setAuthUser(session.user);
+        fetchProfile(session.user.id).then(function(p){
+          if(cancelled)return;
+          setProfile(p);
+          if(p&&!p.onboarding_complete)setShowOnboarding(true);
+          setAuthLoading(false);
+        });
+      }else{
+        setAuthLoading(false);
+      }
+    });
+    // Subscribe to auth changes (login/logout/token refresh)
+    var sub=onAuthStateChange(function(event,session){
+      if(cancelled)return;
+      if(event==="SIGNED_IN"&&session&&session.user){
+        setAuthUser(session.user);
+        fetchProfile(session.user.id).then(function(p){
+          if(cancelled)return;
+          setProfile(p);
+          setShowLogin(false);
+          if(!p||!p.onboarding_complete){
+            setShowOnboarding(true);
+          }else{
+            // Run pending action after login
+            if(loginCallbackRef.current){
+              loginCallbackRef.current();
+              loginCallbackRef.current=null;
+            }
+          }
+        });
+      }else if(event==="SIGNED_OUT"){
+        setAuthUser(null);setProfile(null);
+      }
+    });
+    return function(){cancelled=true;if(sub)sub.unsubscribe();};
   },[]);
   var doInstall=function(){
     if(!installPrompt)return;
@@ -4435,7 +4671,30 @@ export default function Etudy(){
   const markDetailTipped=useCallback(()=>{setDetailTipped(true);setDetailShowTips(false);},[]);
   const markEarTipped=useCallback(()=>{setEarTipped(true);setEarShowTips(false);},[]);
   const markRhythmTipped=useCallback(()=>{setRhythmTipped(true);setRhythmShowTips(false);},[]);
+  // AUTH GATE: require login before action, show modal if not logged in
+  var requireAuth=function(callback){
+    if(authUser&&profile&&profile.onboarding_complete){callback();return;}
+    loginCallbackRef.current=callback;
+    setShowLogin(true);
+  };
+  // Handle onboarding completion
+  var handleOnboardingComplete=function(updatedProfile){
+    setProfile(function(prev){return Object.assign({},prev,updatedProfile);});
+    setShowOnboarding(false);
+    // Sync user instrument with profile instrument
+    var instMap={"Alto Sax":"Alto Sax","Tenor Sax":"Tenor Sax","Trumpet":"Bb Trumpet","Piano":"Concert","Guitar":"Concert","Trombone":"Trombone","Flute":"Flute","Clarinet":"Clarinet"};
+    var mapped=instMap[updatedProfile.instrument]||"Concert";
+    changeUserInst(mapped);
+    // Run pending action
+    if(loginCallbackRef.current){loginCallbackRef.current();loginCallbackRef.current=null;}
+  };
+  // Handle sign out
+  var handleSignOut=async function(){
+    await signOut();
+    setAuthUser(null);setProfile(null);
+  };
   const toggleLike=id=>{
+    if(!authUser){requireAuth(function(){toggleLike(id);});return;}
     const wasLiked=likedSet.has(id);
     const adding=!wasLiked;
     setLikedSet(s=>{const n=new Set(s);if(adding)n.add(id);else n.delete(id);const g=getStg();if(g)g.set("etudy:likedSet",JSON.stringify([...n])).catch(()=>{});return n;});
@@ -4445,6 +4704,7 @@ export default function Etudy(){
       updateLikes(id,newCount);}
   };
   const toggleSave=id=>{
+    if(!authUser){requireAuth(function(){toggleSave(id);});return;}
     const lick=allLicks.find(l=>l.id===id);
     setSavedSet(s=>{const n=new Set(s);const adding=!n.has(id);if(adding)n.add(id);else n.delete(id);
       const g=getStg();if(g){g.set("etudy:savedSet",JSON.stringify([...n])).catch(()=>{});
@@ -4458,9 +4718,10 @@ export default function Etudy(){
   const srcLicks=lickSource==="mine"?licks.filter(function(l){return savedSet.has(l.id);}).concat(myLicks):licks;
   const fl=srcLicks.filter(l=>{if(lickSource==="community"&&dailyLick&&l.id===dailyLick.id)return false;if(inst!=="All"&&l.instrument!==inst)return false;if(cat!=="All"&&l.category!==cat)return false;if(sq){const q=sq.toLowerCase();return l.title.toLowerCase().includes(q)||l.artist.toLowerCase().includes(q)||l.key.toLowerCase().includes(q)||(l.tags||[]).some(tg2=>tg2.includes(q));}return true;});
   const addLick=d=>{
-    const temp={...d,id:Date.now(),likes:0,user:"You",tags:d.tags||[]};
+    var userName=profile&&profile.display_name||"Anonymous";
+    const temp={...d,id:Date.now(),likes:0,user:userName,tags:d.tags||[]};
     sL([temp,...licks]);sSE(false);openLick(temp);
-    insertLick({...d,user:"You"}).then(real=>{
+    insertLick({...d,user:userName}).then(real=>{
       if(real)sL(prev=>prev.map(l=>l.id===temp.id?real:l));
     });
   };
@@ -4646,6 +4907,31 @@ export default function Etudy(){
       // ─── ME TAB ───
       view==="me"&&React.createElement("div",{style:{padding:"8px 0"}},
 
+        // ─── PROFILE CARD (or LOGIN PROMPT) ───
+        authUser&&profile?React.createElement("div",{style:{background:t.card,borderRadius:16,border:"1px solid "+t.border,padding:"20px",marginBottom:20,boxShadow:isStudio?"0 4px 20px rgba(0,0,0,0.3)":"0 2px 8px rgba(0,0,0,0.04)"}},
+          React.createElement("div",{style:{display:"flex",alignItems:"center",gap:14,marginBottom:16}},
+            // Avatar
+            profile.avatar_url?React.createElement("img",{src:profile.avatar_url,style:{width:48,height:48,borderRadius:14,objectFit:"cover",border:"2px solid "+t.border}}):
+            React.createElement("div",{style:{width:48,height:48,borderRadius:14,background:isStudio?t.accent+"20":t.accent+"15",border:"2px solid "+t.accentBorder,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,color:t.accent,fontWeight:700,fontFamily:"'Inter',sans-serif"}},(profile.display_name||"?")[0].toUpperCase()),
+            // Name + Meta
+            React.createElement("div",{style:{flex:1}},
+              React.createElement("div",{style:{fontSize:16,fontWeight:700,color:t.text,fontFamily:"'Inter',sans-serif"}},profile.display_name||"Jazz Cat"),
+              React.createElement("div",{style:{fontSize:11,color:t.muted,fontFamily:"'Inter',sans-serif",marginTop:2}},
+                (profile.instrument||"")+(profile.level?" · "+({beginner:"Anfänger",intermediate:"Fortgeschritten",advanced:"Profi"}[profile.level]||profile.level):"")))),
+          // Style tags
+          profile.style_preferences&&profile.style_preferences.length>0&&React.createElement("div",{style:{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}},
+            profile.style_preferences.map(function(s){var cc=CAT_COL[s]||t.accent;
+              return React.createElement("span",{key:s,style:{padding:"4px 10px",borderRadius:8,background:isStudio?cc+"15":t.accent+"08",border:"1px solid "+(isStudio?cc+"30":t.accentBorder),color:isStudio?cc:t.accent,fontSize:10,fontWeight:600,fontFamily:"'Inter',sans-serif"}},s);})),
+          // Sign Out
+          React.createElement("button",{onClick:handleSignOut,style:{width:"100%",padding:"10px",borderRadius:10,border:"1px solid "+t.border,background:"transparent",color:t.muted,fontSize:12,fontWeight:500,fontFamily:"'Inter',sans-serif",cursor:"pointer",transition:"all 0.15s"}},"Abmelden")):
+
+        // Not logged in → Login prompt
+        React.createElement("button",{onClick:function(){setShowLogin(true);},style:{width:"100%",background:t.card,borderRadius:16,border:"1px solid "+t.border,padding:"24px 20px",marginBottom:20,cursor:"pointer",textAlign:"center",boxShadow:isStudio?"0 4px 20px rgba(0,0,0,0.3)":"0 2px 8px rgba(0,0,0,0.04)",transition:"all 0.15s"}},
+          React.createElement("div",{style:{fontSize:28,marginBottom:8}},"\u266A"),
+          React.createElement("div",{style:{fontSize:15,fontWeight:600,color:t.text,fontFamily:"'Inter',sans-serif",marginBottom:4}},"Einloggen"),
+          React.createElement("div",{style:{fontSize:12,color:t.muted,fontFamily:"'Inter',sans-serif",lineHeight:1.5}},"Speichere deinen Fortschritt, teile Licks und werde Teil der Community"),
+          React.createElement("div",{style:{marginTop:14,padding:"10px 20px",borderRadius:10,background:t.accent,color:"#fff",fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",display:"inline-block"}},"Loslegen")),
+
         // ─── QUICK STATS ───
         React.createElement("div",{style:{display:"flex",gap:8,marginBottom:20}},
           [{label:"Saved",value:savedSet.size+myLicks.length,icon:isStudio?IC.target(16,"#22D89E"):React.createElement("span",{style:{fontSize:16,color:"#F59E0B"}},"\u2605")},
@@ -4701,7 +4987,7 @@ export default function Etudy(){
           IC[tab[1]](20,iconC,active),
           React.createElement("span",{style:{fontSize:9,fontFamily:"'Inter',sans-serif",fontWeight:active?600:400,color:active?t.accent:t.subtle,letterSpacing:0.3}},tab[2]));})),
     // FAB — only on explore
-    view==="explore"&&React.createElement("button",{"data-coach":"fab",onClick:()=>sSE(true),style:{position:"fixed",bottom:"calc(84px + env(safe-area-inset-bottom, 0px))",right:24,width:isStudio?56:52,height:isStudio?56:52,borderRadius:isStudio?18:16,background:t.playBg||t.accent,border:"none",cursor:"pointer",zIndex:500,boxShadow:isStudio?"0 6px 28px "+t.accentGlow+", 0 2px 8px rgba(0,0,0,0.3)":"0 4px 20px "+t.accentGlow,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,color:"#fff",fontWeight:300}},"+"),
+    view==="explore"&&React.createElement("button",{"data-coach":"fab",onClick:function(){requireAuth(function(){sSE(true);});},style:{position:"fixed",bottom:"calc(84px + env(safe-area-inset-bottom, 0px))",right:24,width:isStudio?56:52,height:isStudio?56:52,borderRadius:isStudio?18:16,background:t.playBg||t.accent,border:"none",cursor:"pointer",zIndex:500,boxShadow:isStudio?"0 6px 28px "+t.accentGlow+", 0 2px 8px rgba(0,0,0,0.3)":"0 4px 20px "+t.accentGlow,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,color:"#fff",fontWeight:300}},"+"),
     // Overlays
     feedShowTips&&view==="explore"&&!selectedLick&&!showEd&&React.createElement(CoachMarks,{tips:FEED_TIPS,onDone:markFeedTipped,th:t}),
     earShowTips&&view==="train"&&trainSub==="ear"&&!selectedLick&&React.createElement(CoachMarks,{tips:EAR_TIPS,onDone:markEarTipped,th:t}),
@@ -4709,6 +4995,10 @@ export default function Etudy(){
     selectedLick&&React.createElement(LickDetail,{key:selectedLick.id,lick:selectedLick,onBack:closeLick,th:t,liked:likedSet.has(selectedLick.id),saved:savedSet.has(selectedLick.id),onLike:toggleLike,onSave:toggleSave,showTips:detailShowTips,onTipsDone:markDetailTipped,onReShowTips:detailTipped?function(){setDetailShowTips(true);}:null,defaultInst:userInst,onDeletePrivate:deletePrivateLick,onReport:handleReport}),
     showEd&&React.createElement(Editor,{onClose:()=>sSE(false),onSubmit:addLick,onSubmitPrivate:addPrivateLick,th:t}),
     runningPlan&&React.createElement(PlanRunner,{plan:runningPlan,onClose:function(){setRunningPlan(null);},th:t,licks:allLicks,userInst:userInst,keyProgress:keyProgress,onUpdateKeyProgress:onUpdateKeyProgress,onSessionSaved:function(){setHistoryRefresh(function(k){return k+1;});var s=getStg();if(s)s.get("practice-log").then(function(r){if(r&&r.value){try{var sess=JSON.parse(r.value);calcStreak(sess);calcHours(sess);}catch(e){}}}).catch(function(){});}}),
+    // AUTH: Login Modal
+    showLogin&&React.createElement(LoginModal,{th:t,onClose:function(){setShowLogin(false);loginCallbackRef.current=null;},onSuccess:function(){setShowLogin(false);}}),
+    // AUTH: Onboarding Flow
+    showOnboarding&&React.createElement(OnboardingFlow,{th:t,profile:profile,userId:authUser&&authUser.id,onComplete:handleOnboardingComplete}),
     // Settings sheet
     showSettings&&React.createElement("div",{onClick:function(){setShowSettings(false);},style:{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:2000,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"fadeIn 0.15s ease"}},
       React.createElement("div",{onClick:function(e){e.stopPropagation();},style:{width:"100%",maxWidth:520,background:t.card,borderTopLeftRadius:20,borderTopRightRadius:20,padding:"0 20px 32px",maxHeight:"70vh",overflowY:"auto",boxShadow:"0 -8px 40px rgba(0,0,0,0.2)"}},
