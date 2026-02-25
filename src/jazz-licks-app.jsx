@@ -4317,6 +4317,181 @@ function Filters({instrument,setInstrument,category,setCategory,sq,setSq,th}){
 // APP — theme selector + main view
 // ============================================================
 // ============================================================
+// ONBOARDING — 3 screens after first login
+// ============================================================
+const ONBOARD_INSTRUMENTS = ["Alto Sax","Tenor Sax","Trumpet","Piano","Guitar","Trombone","Flute","Clarinet","Bass","Vibes","Drums","Vocals","Other"];
+const ONBOARD_LEVELS = [
+  {id:"beginner",label:"Beginner",sub:"Less than 2 years"},
+  {id:"intermediate",label:"Intermediate",sub:"2\u20135 years"},
+  {id:"advanced",label:"Advanced",sub:"5\u201310 years"},
+  {id:"pro",label:"Pro",sub:"10+ years"}
+];
+
+function Onboarding({onComplete, th}) {
+  var t = th || TH.studio;
+  var isStudio = t === TH.studio;
+  var _step = useState(0);
+  var step = _step[0], setStep = _step[1];
+  var _name = useState("");
+  var name = _name[0], setName = _name[1];
+  var _inst = useState(null);
+  var inst = _inst[0], setInst = _inst[1];
+  var _level = useState(null);
+  var level = _level[0], setLevel = _level[1];
+  var _saving = useState(false);
+  var saving = _saving[0], setSaving = _saving[1];
+
+  var canNext = step === 0 ? name.trim().length > 0 : step === 1 ? inst !== null : level !== null;
+
+  var handleNext = function() {
+    if (step < 2) { setStep(step + 1); return; }
+    setSaving(true);
+    onComplete({ display_name: name.trim(), instrument: inst, level: level });
+  };
+
+  var handleBack = function() {
+    if (step > 0) setStep(step - 1);
+  };
+
+  var dots = React.createElement("div", { style: { display: "flex", gap: 6, justifyContent: "center", marginBottom: 28 } },
+    [0,1,2].map(function(i) {
+      return React.createElement("div", { key: i, style: {
+        width: i === step ? 20 : 6, height: 6, borderRadius: 3,
+        background: i === step ? t.accent : (i < step ? t.accent + "60" : t.border),
+        transition: "all 0.2s"
+      }});
+    }));
+
+  return React.createElement("div", {
+    style: {
+      position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 3100,
+      background: t.bg, display: "flex", alignItems: "center", justifyContent: "center",
+      padding: 20
+    }
+  },
+    React.createElement("div", {
+      style: { width: "100%", maxWidth: 400 }
+    },
+      // Header
+      React.createElement("div", { style: { textAlign: "center", marginBottom: 8 } },
+        React.createElement("div", {
+          style: {
+            width: 48, height: 48, borderRadius: 12, margin: "0 auto 12px",
+            background: t.accentBg, border: "1px solid " + t.accentBorder,
+            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24
+          }
+        }, "\u266B"),
+        React.createElement("div", {
+          style: { fontSize: 14, color: t.muted, fontFamily: "'Inter',sans-serif", marginBottom: 4 }
+        }, "Welcome to \u00C9tudy")),
+
+      // Dots
+      dots,
+
+      // ─── Screen 0: Name ───
+      step === 0 && React.createElement("div", null,
+        React.createElement("div", {
+          style: { fontSize: 20, fontWeight: 700, color: t.text, fontFamily: "'Inter',sans-serif", textAlign: "center", marginBottom: 6 }
+        }, "What\u2019s your name?"),
+        React.createElement("div", {
+          style: { fontSize: 13, color: t.muted, fontFamily: "'Inter',sans-serif", textAlign: "center", marginBottom: 24 }
+        }, "This is how other musicians will see you"),
+        React.createElement("input", {
+          type: "text", placeholder: "Your name", value: name, autoFocus: true,
+          onChange: function(e) { setName(e.target.value); },
+          onKeyDown: function(e) { if (e.key === "Enter" && canNext) handleNext(); },
+          style: {
+            width: "100%", padding: "16px", borderRadius: 14, fontSize: 16, textAlign: "center",
+            border: "2px solid " + (name ? t.accent : t.border), background: t.inputBg || t.filterBg,
+            color: t.text, fontFamily: "'Inter',sans-serif", outline: "none",
+            boxSizing: "border-box", transition: "border-color 0.15s"
+          }
+        })),
+
+      // ─── Screen 1: Instrument ───
+      step === 1 && React.createElement("div", null,
+        React.createElement("div", {
+          style: { fontSize: 20, fontWeight: 700, color: t.text, fontFamily: "'Inter',sans-serif", textAlign: "center", marginBottom: 6 }
+        }, "What do you play?"),
+        React.createElement("div", {
+          style: { fontSize: 13, color: t.muted, fontFamily: "'Inter',sans-serif", textAlign: "center", marginBottom: 24 }
+        }, "We\u2019ll auto-transpose notation for you"),
+        React.createElement("div", {
+          style: { display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }
+        },
+          ONBOARD_INSTRUMENTS.map(function(name) {
+            var sel = inst === name;
+            var ic = INST_COL[name] || t.accent;
+            return React.createElement("button", {
+              key: name, onClick: function() { setInst(name); },
+              style: {
+                padding: "10px 16px", borderRadius: 12, fontSize: 13, fontWeight: sel ? 600 : 400,
+                fontFamily: "'Inter',sans-serif", cursor: "pointer", transition: "all 0.15s",
+                border: sel ? "2px solid " + ic : "1.5px solid " + t.border,
+                background: sel ? (isStudio ? ic + "18" : ic + "10") : "transparent",
+                color: sel ? t.text : t.muted
+              }
+            }, name);
+          }))),
+
+      // ─── Screen 2: Level ───
+      step === 2 && React.createElement("div", null,
+        React.createElement("div", {
+          style: { fontSize: 20, fontWeight: 700, color: t.text, fontFamily: "'Inter',sans-serif", textAlign: "center", marginBottom: 6 }
+        }, "Your experience level?"),
+        React.createElement("div", {
+          style: { fontSize: 13, color: t.muted, fontFamily: "'Inter',sans-serif", textAlign: "center", marginBottom: 24 }
+        }, "Helps us suggest the right licks for you"),
+        React.createElement("div", {
+          style: { display: "flex", flexDirection: "column", gap: 10 }
+        },
+          ONBOARD_LEVELS.map(function(lv) {
+            var sel = level === lv.id;
+            return React.createElement("button", {
+              key: lv.id, onClick: function() { setLevel(lv.id); },
+              style: {
+                padding: "16px 20px", borderRadius: 14, cursor: "pointer", textAlign: "left",
+                transition: "all 0.15s",
+                border: sel ? "2px solid " + t.accent : "1.5px solid " + t.border,
+                background: sel ? (isStudio ? t.accent + "15" : t.accent + "08") : "transparent"
+              }
+            },
+              React.createElement("div", {
+                style: { fontSize: 15, fontWeight: 600, color: sel ? t.text : t.muted, fontFamily: "'Inter',sans-serif", marginBottom: 2 }
+              }, lv.label),
+              React.createElement("div", {
+                style: { fontSize: 12, color: t.subtle, fontFamily: "'Inter',sans-serif" }
+              }, lv.sub));
+          }))),
+
+      // ─── Navigation ───
+      React.createElement("div", {
+        style: { display: "flex", gap: 10, marginTop: 28 }
+      },
+        step > 0 && React.createElement("button", {
+          onClick: handleBack,
+          style: {
+            padding: "14px 24px", borderRadius: 14, border: "1px solid " + t.border,
+            background: "transparent", color: t.muted, fontSize: 14, fontWeight: 600,
+            fontFamily: "'Inter',sans-serif", cursor: "pointer"
+          }
+        }, "\u2190 Back"),
+        React.createElement("button", {
+          onClick: handleNext, disabled: !canNext || saving,
+          style: {
+            flex: 1, padding: "14px", borderRadius: 14, border: "none",
+            background: canNext ? t.accent : t.border,
+            color: canNext ? (isStudio ? "#08080F" : "#fff") : t.subtle,
+            fontSize: 14, fontWeight: 700, fontFamily: "'Inter',sans-serif",
+            cursor: canNext ? "pointer" : "default", opacity: saving ? 0.7 : 1,
+            transition: "all 0.15s"
+          }
+        }, saving ? "Saving\u2026" : step === 2 ? "Let\u2019s go \u2192" : "Next \u2192"))
+    )
+  );
+}
+
+// ============================================================
 // LOGIN MODAL — OTP Code Flow (PWA-safe, no redirect needed)
 // ============================================================
 function LoginModal({onClose, onLogin, th}) {
@@ -4548,18 +4723,25 @@ export default function Etudy(){
   const[authProfile,setAuthProfile]=useState(null);
   const[authLoading,setAuthLoading]=useState(true);
   const[showLogin,setShowLogin]=useState(false);
+  const[showOnboarding,setShowOnboarding]=useState(false);
   useEffect(()=>{
     getSession().then(function(session){
       if(session&&session.user){
         setAuthUser(session.user);
-        fetchProfile(session.user.id).then(function(p){setAuthProfile(p);}).catch(function(){});
+        fetchProfile(session.user.id).then(function(p){
+          setAuthProfile(p);
+          if(p&&(!p.display_name||p.display_name==="Musician"))setShowOnboarding(true);
+        }).catch(function(){setShowOnboarding(true);});
       }
       setAuthLoading(false);
     }).catch(function(){setAuthLoading(false);});
     var sub=onAuthStateChange(function(event,session){
       if(session&&session.user){
         setAuthUser(session.user);
-        fetchProfile(session.user.id).then(function(p){setAuthProfile(p);}).catch(function(){});
+        fetchProfile(session.user.id).then(function(p){
+          setAuthProfile(p);
+          if(p&&(!p.display_name||p.display_name==="Musician"))setShowOnboarding(true);
+        }).catch(function(){setShowOnboarding(true);});
       } else {
         setAuthUser(null);setAuthProfile(null);
       }
@@ -4573,9 +4755,25 @@ export default function Etudy(){
   var handleLoginSuccess=function(session){
     if(session&&session.user){
       setAuthUser(session.user);
-      fetchProfile(session.user.id).then(function(p){setAuthProfile(p);}).catch(function(){});
+      fetchProfile(session.user.id).then(function(p){
+        setAuthProfile(p);
+        if(!p||!p.display_name||p.display_name==="Musician")setShowOnboarding(true);
+      }).catch(function(){setShowOnboarding(true);});
     }
     setShowLogin(false);
+  };
+  var handleOnboardingComplete=function(data){
+    if(!authUser)return;
+    updateProfile(authUser.id,data).then(function(p){
+      setAuthProfile(p);
+      setShowOnboarding(false);
+      // Auto-set transposition instrument if applicable
+      var transMap={"Alto Sax":"Alto Sax","Tenor Sax":"Tenor Sax","Trumpet":"Bb Trumpet","Clarinet":"Clarinet","Trombone":"Trombone","Flute":"Flute"};
+      if(transMap[data.instrument]){setUserInst(transMap[data.instrument]);var g=getStg();if(g)g.set("etudy:userInst",transMap[data.instrument]).catch(function(){});}
+    }).catch(function(e){
+      console.error("Profile update failed:",e);
+      setShowOnboarding(false);
+    });
   };
   var handleLogout=function(){
     signOut().then(function(){
@@ -5014,5 +5212,6 @@ export default function Etudy(){
         React.createElement("div",{style:{textAlign:"center",paddingTop:16,borderTop:"1px solid "+t.border}},
           React.createElement("span",{style:{fontSize:10,color:t.subtle,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1}},"\u00C9tudy \u00B7 Beta"))))
     ),
-    showLogin&&React.createElement(LoginModal,{th:t,onClose:function(){setShowLogin(false);},onLogin:handleLoginSuccess})
+    showLogin&&React.createElement(LoginModal,{th:t,onClose:function(){setShowLogin(false);},onLogin:handleLoginSuccess}),
+    showOnboarding&&authUser&&React.createElement(Onboarding,{th:t,onComplete:handleOnboardingComplete})
   );}
