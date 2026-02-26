@@ -2385,27 +2385,25 @@ function MiniMetronome({th,initBpm,syncPlaying,ctrlRef,onBpmChange,lickTempo,onS
   if(headless)return React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:0}},
     // Main metronome bar
     React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:t.settingsBg||t.filterBg,borderRadius:expandOpen?"10px 10px 0 0":10,border:"1px solid "+t.border,borderBottom:expandOpen?"1px dashed "+t.border:"1px solid "+t.border}},
-      // Left: BPM (tappable) + ±
-      React.createElement("button",{onClick:function(e){e.stopPropagation();if(onBpmChange)onBpmChange(bpmRef.current);},style:{background:"transparent",border:"none",padding:0,cursor:"pointer",flexShrink:0}},
+      // Left: Mute + beat dots
+      React.createElement("button",{onClick:function(e){e.stopPropagation();setMuted(!muted);},style:{width:28,height:28,borderRadius:7,border:muted?"1.5px dashed "+t.border:"1.5px solid "+t.accent,background:muted?t.filterBg:(isStudio?t.accent+"20":t.accent+"12"),color:muted?t.muted:t.accent,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.15s"}},muted?"\u2715":"\u266A"),
+      beatStates.map(function(bs,i){
+        var active=playing&&currentBeat===i;var isAcc=bs===1;var isMut=bs===2;
+        var bg=isMut?(isStudio?"rgba(255,255,255,0.05)":"#F3F3F3"):active?(isAcc?t.accent:"#F59E0B"):isAcc?(isStudio?t.accent+"40":t.accent+"25"):(isStudio?t.border+"60":t.border);
+        return React.createElement("button",{key:i,onClick:function(e){e.stopPropagation();cycleBeat(i);},style:{width:22,height:22,borderRadius:"50%",background:bg,border:isAcc?"2px solid "+t.accent:isMut?"2px dashed "+t.border:"2px solid "+(isStudio?t.border:t.borderSub||t.border),transform:active?"scale(1.2)":"scale(1)",transition:"all 0.06s",cursor:"pointer",padding:0,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:active&&!isMut?"0 0 8px "+(isAcc?t.accentGlow:"rgba(245,158,11,0.4)"):"none"}},
+          isMut&&React.createElement("span",{style:{fontSize:8,color:t.subtle,fontWeight:700}},"\u00D7"),
+          isAcc&&!active&&React.createElement("span",{style:{fontSize:6,color:t.accent,fontWeight:700}},"\u25B2"));
+      }),
+      // Divider
+      React.createElement("div",{style:{width:1,height:22,background:t.border,flexShrink:0,marginLeft:"auto"}}),
+      // Right: BPM (tappable) + ± + TAP
+      React.createElement("button",{onClick:function(e){e.stopPropagation();tapTempo();},style:{background:"transparent",border:"none",padding:0,cursor:"pointer",flexShrink:0}},
         React.createElement("span",{style:{fontSize:20,fontWeight:700,color:playing&&!muted?t.accent:t.text,fontFamily:"'JetBrains Mono',monospace",letterSpacing:-0.5}},bpm)),
       React.createElement("div",{style:{display:"flex",gap:2,flexShrink:0}},
         React.createElement("button",{onClick:function(e){e.stopPropagation();changeBpm(function(b){return b-5;});},style:{width:26,height:26,borderRadius:6,border:"1px solid "+t.border,background:t.card,color:t.text,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"\u2212"),
         React.createElement("button",{onClick:function(e){e.stopPropagation();changeBpm(function(b){return b+5;});},style:{width:26,height:26,borderRadius:6,border:"1px solid "+t.border,background:t.card,color:t.text,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"+")),
       React.createElement("button",{onClick:function(e){e.stopPropagation();tapTempo();},style:{padding:"4px 10px",borderRadius:7,border:"1.5px solid "+t.border,background:t.card,color:t.text,fontSize:10,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer",flexShrink:0}},"TAP"),
       lickTempo&&bpm!==lickTempo&&React.createElement("button",{onClick:function(e){e.stopPropagation();changeBpm(lickTempo);},style:{padding:"2px 6px",borderRadius:5,border:"none",background:"none",color:t.subtle,fontSize:9,cursor:"pointer",flexShrink:0}},"\u21A9"+lickTempo),
-      // Divider
-      React.createElement("div",{style:{width:1,height:22,background:t.border,flexShrink:0}}),
-      // Right: Mute + beat dots + expand
-      React.createElement("button",{onClick:function(e){e.stopPropagation();setMuted(!muted);},style:{width:28,height:28,borderRadius:7,border:muted?"1.5px dashed "+t.border:"1.5px solid "+t.accent,background:muted?t.filterBg:(isStudio?t.accent+"20":t.accent+"12"),color:muted?t.muted:t.accent,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.15s"}},muted?"\u2715":"\u266A"),
-      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4,flex:1,justifyContent:"center"}},
-        beatStates.map(function(bs,i){
-          var active=playing&&currentBeat===i;var isAcc=bs===1;var isMut=bs===2;
-          var bg=isMut?(isStudio?"rgba(255,255,255,0.05)":"#F3F3F3"):active?(isAcc?t.accent:"#F59E0B"):isAcc?(isStudio?t.accent+"40":t.accent+"25"):(isStudio?t.border+"60":t.border);
-          return React.createElement("button",{key:i,onClick:function(e){e.stopPropagation();cycleBeat(i);},style:{width:22,height:22,borderRadius:"50%",background:bg,border:isAcc?"2px solid "+t.accent:isMut?"2px dashed "+t.border:"2px solid "+(isStudio?t.border:t.borderSub||t.border),transform:active?"scale(1.2)":"scale(1)",transition:"all 0.06s",cursor:"pointer",padding:0,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:active&&!isMut?"0 0 8px "+(isAcc?t.accentGlow:"rgba(245,158,11,0.4)"):"none"}},
-            isMut&&React.createElement("span",{style:{fontSize:8,color:t.subtle,fontWeight:700}},"\u00D7"),
-            isAcc&&!active&&React.createElement("span",{style:{fontSize:6,color:t.accent,fontWeight:700}},"\u25B2"));
-        }),
-        React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace",marginLeft:2}},timeSig[0]+"/"+timeSig[1])),
       // Expand chevron
       onExpandToggle&&React.createElement("button",{onClick:function(e){e.stopPropagation();onExpandToggle();},style:{width:28,height:28,borderRadius:7,background:expandOpen?t.accentBg:t.filterBg,border:"1px solid "+(expandOpen?t.accent:t.border),color:expandOpen?t.accent:t.muted,fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginLeft:"auto",transition:"all 0.15s"}},expandOpen?"\u25B2":"\u25BC")),
     // Expand panel
