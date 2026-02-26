@@ -1044,13 +1044,13 @@ function ABRangeBar({abc,abA,abB,setAbA,setAbB,onReset,th}){
 // ============================================================
 function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,trInst,setTrInst,trMan,setTrMan,onCurNote,th,onLoopComplete,forceLoop,autoPlay,hideControls,ctrlRef,initFeel}){
   const t=th||TH.classic;
-  const[pl,sPl]=useState(false);const[lp,sLp]=useState(forceLoop||false);const[bk,sBk]=useState(false);const[ml,sMl]=useState(true);const[fl,sFl]=useState(initFeel||"straight");
+  const[pl,sPl]=useState(false);const[lp,sLp]=useState(forceLoop||false);const[bk,sBk]=useState(true);const[ml,sMl]=useState(true);const[fl,sFl]=useState(initFeel||"straight");
   const[backingStyle,setBackingStyle]=useState("piano");const[muteKeys,setMuteKeys]=useState(false);const[muteBass,setMuteBass]=useState(false);const[muteDrums,setMuteDrums]=useState(false);
   const[sound,setSound]=useState("piano");const[loading,setLoading]=useState(false);const[samplesOk,setSamplesOk]=useState(_samplerReady);
   const[ci,setCi]=useState(true);const lcDispRef=useRef(null);const[settingsOpen,setSettingsOpen]=useState(false);
   const prBarRef=useRef(null);
   const bagRef=useRef([]);const aR=useRef(null);const tR=useRef(0);const dR=useRef(0);const sT=useRef(true);
-  const lR=useRef(false);const mR=useRef(false);const bR=useRef(false);const mlR=useRef(true);const fR=useRef(initFeel||"straight");const soR=useRef("piano");const ciR=useRef(true);
+  const lR=useRef(false);const mR=useRef(false);const bR=useRef(true);const mlR=useRef(true);const fR=useRef(initFeel||"straight");const soR=useRef("piano");const ciR=useRef(true);
   const bStyleR=useRef("piano");const muteKeysR=useRef(false);const muteBassR=useRef(false);const muteDrumsR=useRef(false);
   const abOnR=useRef(false);const abAR=useRef(0);const abBR=useRef(1);const lcR=useRef(0);
   const noteFracsR=useRef(null);const curNoteR=useRef(-1);const onCurNoteR=useRef(null);const onLoopCompleteR=useRef(null);
@@ -1317,7 +1317,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
   const bb={border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.15s",fontFamily:"'Inter',sans-serif"};
   const pill=(a,ic,fn,label)=>React.createElement("button",{onClick:e=>{e.stopPropagation();fn();},style:{...bb,gap:4,padding:"5px 12px",fontSize:11,fontWeight:a?600:500,borderRadius:20,background:a?t.accentBg:t.pillBg,color:a?t.accent:t.subtle,border:a?"1.5px solid "+t.accentBorder:"1.5px solid "+t.pillBorder,boxShadow:a?"0 0 8px "+t.accentGlow:"none",letterSpacing:0.2}},ic,label?" "+label:"");
   const sBtn=(a,l,fn)=>React.createElement("button",{onClick:e=>{e.stopPropagation();fn();},style:{...bb,gap:4,padding:"6px 12px",fontSize:11,fontWeight:500,borderRadius:8,background:a?t.accentBg:t.filterBg,color:a?t.accent:t.muted}},l);
-  const nonDefaults=[!ml&&"mute",fl!=="straight"&&"feel",ci===false&&"no-ci",sound!=="piano"&&"sound",backingStyle!=="piano"&&"style",muteKeys&&"mute-k",muteBass&&"mute-b",muteDrums&&"mute-d"].filter(Boolean);
+  const nonDefaults=[!ml&&"mute",fl!=="straight"&&"feel",ci===false&&"no-ci",sound!=="piano"&&"sound",!bk&&"no-back",muteKeys&&"mute-k",muteBass&&"mute-b",muteDrums&&"mute-d"].filter(Boolean);
 
   if(hideControls)return React.createElement("div",{style:{marginTop:8}},
     // Progress bar only (thin)
@@ -1353,7 +1353,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
         sBtn(ci,"Count-in "+(ci?"\u2713":"\u2717"),()=>setCi(!ci)))));
 
   return React.createElement("div",{style:{marginTop:12}},
-    // ROW 1: Play button, progress bar, pills
+    // ROW 1: Play button + progress bar + Loop + A·B
     React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
       React.createElement("button",{onClick:e=>{e.stopPropagation();tg();},style:{...bb,width:t===TH.studio?48:42,height:t===TH.studio?48:42,borderRadius:"50%",flexShrink:0,background:pl?t.filterBg:loading?t.filterBg:t.playBg,boxShadow:pl||loading?"none":"0 4px 18px "+(t.accentGlow||"rgba(0,0,0,0.1)"),animation:!pl&&!loading&&t===TH.studio?"playPulse 2.5s ease-in-out infinite":"none"}},
         loading?React.createElement("div",{style:{width:16,height:16,border:"2px solid "+t.accentBg,borderTopColor:t.accent,borderRadius:"50%",animation:"spin 0.8s linear infinite"}}):
@@ -1362,15 +1362,18 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
       React.createElement("div",{style:{flex:1,height:4,background:t.progressBg,borderRadius:4,overflow:"hidden",position:"relative"}},
         abOn&&React.createElement("div",{style:{position:"absolute",left:((abA||0)*100)+"%",width:(((abB||1)-(abA||0))*100)+"%",height:"100%",background:t.accentBg}}),
         React.createElement("div",{ref:prBarRef,style:{position:"absolute",left:0,width:"0%",height:"100%",background:t.accent,borderRadius:4}})),
-      lp&&React.createElement("div",{style:{display:"none",alignItems:"center",gap:2,flexShrink:0,background:t.accent,borderRadius:10,padding:"2px 7px 2px 5px",animation:"loopPulse 1.2s ease-in-out infinite"}},t===TH.studio?IC.loop(10,"#fff"):React.createElement("span",{style:{fontSize:9,color:"#fff",fontWeight:600}},"\u00D7"),React.createElement("span",{ref:lcDispRef,style:{fontSize:9,color:"#fff",fontFamily:"'JetBrains Mono',monospace",fontWeight:600}})),
       pill(lp,"\u221E",()=>sLp(!lp),"Loop"),
       setAbOn&&React.createElement("span",{"data-coach":"ab-loop"},pill(abOn,"\u2759\u2759",()=>{setAbOn(!abOn);if(!abOn){setAbA(0);setAbB(1);}},"A\u2009\u00B7\u2009B"))),
 
-    // ROW 2: Melody + Backing toggles
+    // ROW 2: Melody + Backing + inline Metronome
     React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginTop:8}},
       pill(ml,ml?"\u266B":"\u2715",()=>sMl(!ml),ml?"Melody":"Melody off"),
-      pill(bk,bk?"\uD83C\uDFB9":"\uD83C\uDFB9",()=>sBk(!bk),bk?"Backing":"Backing off")),
-    // Backing style selector (only when backing on)
+      pill(bk,bk?"\uD83C\uDFB9":"\uD83C\uDFB9",()=>sBk(!bk),bk?"Backing":"Backing off"),
+      React.createElement("div",{style:{marginLeft:"auto"}}),
+      React.createElement("div",{"data-coach":"metro",style:{flex:"0 0 auto"}},
+        React.createElement(MiniMetronome,{th:t,initBpm:pT||tempo,syncPlaying:pl,ctrlRef:metroCtrlRef,onBpmChange:function(v){pTR.current=v;if(sPT)sPT(v);if(!sT.current)liveRestart(v);},lickTempo:lickTempo||tempo,onSetLoop:function(v){if(v)sLp(true);},lickTimeSig:lickTS}))),
+
+    // ROW 3: Backing style + mute (only when backing on)
     bk&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4,marginTop:6,flexWrap:"wrap"}},
       BACKING_STYLES.map(s=>React.createElement("button",{key:s.id,onClick:e=>{e.stopPropagation();setBackingStyle(s.id);},style:{...bb,gap:2,padding:"4px 8px",fontSize:10,borderRadius:6,whiteSpace:"nowrap",background:backingStyle===s.id?t.accentBg:t.filterBg,color:backingStyle===s.id?t.accent:t.muted}},s.emoji+" "+s.label)),
       backingStyle!=="piano"&&backingStyle!=="rhodes"&&React.createElement("span",{style:{display:"flex",gap:3,marginLeft:4}},
@@ -1378,19 +1381,17 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
         React.createElement("button",{onClick:e=>{e.stopPropagation();setMuteBass(!muteBass);},style:{...bb,padding:"4px 7px",fontSize:9,borderRadius:5,background:muteBass?t.filterBg:t.accentBg,color:muteBass?t.muted:t.accent,textDecoration:muteBass?"line-through":"none"}},"Bass"),
         (backingStyle==="jazz"||backingStyle==="bossa")&&React.createElement("button",{onClick:e=>{e.stopPropagation();setMuteDrums(!muteDrums);},style:{...bb,padding:"4px 7px",fontSize:9,borderRadius:5,background:muteDrums?t.filterBg:t.accentBg,color:muteDrums?t.muted:t.accent,textDecoration:muteDrums?"line-through":"none"}},"Drums"))),
 
-    // MINI METRONOME — single source of truth for tempo
-    React.createElement("div",{"data-coach":"metro",style:{marginTop:8,background:t.settingsBg||t.card,borderRadius:12,border:"1px solid "+t.border,padding:"4px 12px"}},
-      React.createElement(MiniMetronome,{th:t,initBpm:pT||tempo,syncPlaying:pl,ctrlRef:metroCtrlRef,onBpmChange:function(v){pTR.current=v;if(sPT)sPT(v);if(!sT.current)liveRestart(v);},lickTempo:lickTempo||tempo,onSetLoop:function(v){if(v)sLp(true);},lickTimeSig:lickTS})),
+    // ROW 4: Sound selector (always visible)
+    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4,marginTop:8,overflowX:"auto",scrollbarWidth:"none"}},
+      React.createElement("span",{style:{fontSize:10,color:t.subtle,fontFamily:"'Inter',sans-serif",fontWeight:500,flexShrink:0}},"Sound"),
+      SOUND_PRESETS.map(p=>React.createElement("button",{key:p.id,onClick:e=>{e.stopPropagation();setSound(p.id);},style:{...bb,gap:3,padding:"5px 10px",fontSize:10,borderRadius:6,whiteSpace:"nowrap",background:sound===p.id?t.accentBg:t.filterBg,color:sound===p.id?t.accent:t.muted}},p.label))),
 
-    // SETTINGS
+    // ROW 5: "More" toggle (Feel, Count-in, Transpose)
     React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginTop:8}},
-      React.createElement("button",{onClick:e=>{e.stopPropagation();setSettingsOpen(!settingsOpen);},style:{...bb,gap:4,padding:"5px 10px",fontSize:11,fontWeight:400,borderRadius:8,background:settingsOpen?t.filterBg:"transparent",color:settingsOpen?t.text:t.muted}},"Settings",settingsOpen?" \u25B4":" \u25BE"),
+      React.createElement("button",{onClick:e=>{e.stopPropagation();setSettingsOpen(!settingsOpen);},style:{...bb,gap:4,padding:"5px 10px",fontSize:11,fontWeight:400,borderRadius:8,background:settingsOpen?t.filterBg:"transparent",color:settingsOpen?t.text:t.muted}},settingsOpen?"More \u25B4":"More \u25BE"),
       nonDefaults.length>0&&!settingsOpen&&React.createElement("span",{style:{fontSize:10,color:t.accent,fontFamily:"'Inter',sans-serif",fontWeight:500}},nonDefaults.length+" changed")),
     settingsOpen&&React.createElement("div",{style:{marginTop:6,padding:"14px",background:t.settingsBg,borderRadius:12,border:"1px solid "+t.border,display:"flex",flexDirection:"column",gap:14}},
       setTrInst&&React.createElement(TransposeBar,{trInst,setTrInst,trMan,setTrMan,th:t}),
-      React.createElement("div",null,
-        React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,display:"block",marginBottom:6,letterSpacing:0.5}},"SOUND"),
-        React.createElement("div",{style:{display:"flex",gap:4,overflowX:"auto",scrollbarWidth:"none"}},SOUND_PRESETS.map(p=>React.createElement("button",{key:p.id,onClick:e=>{e.stopPropagation();setSound(p.id);},style:{...bb,gap:3,padding:"6px 10px",fontSize:11,borderRadius:8,whiteSpace:"nowrap",background:sound===p.id?t.accentBg:t.filterBg,color:sound===p.id?t.accent:t.muted}},p.label)))),
       React.createElement("div",null,
         React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,display:"block",marginBottom:6,letterSpacing:0.5}},"FEEL"),
         React.createElement("div",{style:{display:"flex",gap:4}},["straight","swing","hard-swing"].map(v=>sBtn(fl===v,v==="straight"?"Straight":v==="swing"?"Swing":"Hard Swing",()=>sFl(v))))),
