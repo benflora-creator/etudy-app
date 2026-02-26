@@ -1360,6 +1360,9 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
 
   // EDITOR MODE: minimal player — Play + progress + loop only
   if(editorMode)return React.createElement("div",{style:{marginTop:6}},
+    // Hidden metronome — provides click audio via metroCtrlRef
+    React.createElement("div",{style:{position:"absolute",width:0,height:0,overflow:"hidden",pointerEvents:"none"}},
+      React.createElement(MiniMetronome,{th:t,initBpm:pT||tempo,syncPlaying:pl,ctrlRef:metroCtrlRef,onBpmChange:function(v){pTR.current=v;},lickTempo:lickTempo||tempo,lickTimeSig:lickTS})),
     React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
       React.createElement("button",{onClick:e=>{e.stopPropagation();tg();},style:{...bb,width:36,height:36,borderRadius:"50%",flexShrink:0,background:pl?t.filterBg:loading?t.filterBg:t.playBg,boxShadow:pl||loading?"none":"0 4px 14px "+(t.accentGlow||"rgba(0,0,0,0.1)")}},
         loading?React.createElement("div",{style:{width:12,height:12,border:"2px solid "+t.accentBg,borderTopColor:t.accent,borderRadius:"50%",animation:"spin 0.8s linear infinite"}}):
