@@ -731,7 +731,7 @@ let _cPianoChordSampler=null,_cPianoChordReady=false,_cPianoChordPromise=null;
 function preloadCustomPianoChord(){if(_cPianoChordPromise)return _cPianoChordPromise;_cPianoChordPromise=new Promise(res=>{try{console.log("[etudy] Loading custom piano samples from:",CPIANO_BASE);_cPianoChordSampler=new Tone.Sampler({urls:CPIANO_MAP,baseUrl:CPIANO_BASE,release:2.0,volume:-4,onload:()=>{_cPianoChordReady=true;console.log("[etudy] Custom piano samples loaded OK");res(true);},onerror:(e)=>{console.warn("[etudy] Custom piano samples FAILED:",e);res(false);}});setTimeout(()=>{if(!_cPianoChordReady){console.warn("[etudy] Custom piano samples timeout");res(false);}},20000);}catch(e){res(false);}});return _cPianoChordPromise;}
 // Alto sax sampler — single C2 sample pitched across range
 const SAX_BASE="https://edhsqycbglkaqbzzhcmp.supabase.co/storage/v1/object/public/Samples/altosax/";
-const SAX_MAP={"C2":"C2.mp3"};
+const SAX_MAP={"C5":"C2.mp3"};
 let _saxSampler=null,_saxSamplerReady=false,_saxSamplerPromise=null;
 function preloadSaxSampler(){if(_saxSamplerPromise)return _saxSamplerPromise;_saxSamplerPromise=new Promise(res=>{try{console.log("[etudy] Loading alto sax sample from:",SAX_BASE);_saxSampler=new Tone.Sampler({urls:SAX_MAP,baseUrl:SAX_BASE,release:0.8,volume:-6,onload:()=>{_saxSamplerReady=true;console.log("[etudy] Alto sax sample loaded OK");res(true);},onerror:(e)=>{console.warn("[etudy] Alto sax sample FAILED:",e);res(false);}});setTimeout(()=>{if(!_saxSamplerReady){console.warn("[etudy] Alto sax sample timeout");res(false);}},15000);}catch(e){res(false);}});return _saxSamplerPromise;}
 function makeChordSynth(bag){
