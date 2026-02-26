@@ -714,12 +714,12 @@ function preloadBassSampler(){if(_bassSamplerPromise)return _bassSamplerPromise;
 const RHODES_BASE="https://edhsqycbglkaqbzzhcmp.supabase.co/storage/v1/object/public/Samples/rhodes/";
 const RHODES_MAP={"C1":"C1.mp3","F1":"F1.mp3","C2":"C2.mp3","F2":"F2.mp3","C3":"C3.mp3","F3":"F3.mp3","C4":"C4.mp3","F4":"F4.mp3","C5":"C5.mp3"};
 let _rhodesChordSampler=null,_rhodesChordReady=false,_rhodesChordPromise=null;
-function preloadRhodesChord(){if(_rhodesChordPromise)return _rhodesChordPromise;_rhodesChordPromise=new Promise(res=>{try{_rhodesChordSampler=new Tone.Sampler({urls:RHODES_MAP,baseUrl:RHODES_BASE,release:2.5,volume:-10,onload:()=>{_rhodesChordReady=true;res(true);},onerror:()=>{res(false);}});setTimeout(()=>{if(!_rhodesChordReady)res(false);},20000);}catch(e){res(false);}});return _rhodesChordPromise;}
+function preloadRhodesChord(){if(_rhodesChordPromise)return _rhodesChordPromise;_rhodesChordPromise=new Promise(res=>{try{console.log("[etudy] Loading Rhodes samples from:",RHODES_BASE);_rhodesChordSampler=new Tone.Sampler({urls:RHODES_MAP,baseUrl:RHODES_BASE,release:2.5,volume:-10,onload:()=>{_rhodesChordReady=true;console.log("[etudy] Rhodes samples loaded OK");res(true);},onerror:(e)=>{console.warn("[etudy] Rhodes samples FAILED:",e);res(false);}});setTimeout(()=>{if(!_rhodesChordReady){console.warn("[etudy] Rhodes samples timeout");res(false);}},20000);}catch(e){res(false);}});return _rhodesChordPromise;}
 // Custom piano sampler — real piano samples from Supabase
 const CPIANO_BASE="https://edhsqycbglkaqbzzhcmp.supabase.co/storage/v1/object/public/Samples/piano/";
 const CPIANO_MAP={"C1":"C1.mp3","F1":"F1.mp3","C2":"C2.mp3","F2":"F2.mp3","C3":"C3.mp3","F3":"F3.mp3","C4":"C4.mp3","F4":"F4.mp3"};
 let _cPianoChordSampler=null,_cPianoChordReady=false,_cPianoChordPromise=null;
-function preloadCustomPianoChord(){if(_cPianoChordPromise)return _cPianoChordPromise;_cPianoChordPromise=new Promise(res=>{try{_cPianoChordSampler=new Tone.Sampler({urls:CPIANO_MAP,baseUrl:CPIANO_BASE,release:2.0,volume:-12,onload:()=>{_cPianoChordReady=true;res(true);},onerror:()=>{res(false);}});setTimeout(()=>{if(!_cPianoChordReady)res(false);},20000);}catch(e){res(false);}});return _cPianoChordPromise;}
+function preloadCustomPianoChord(){if(_cPianoChordPromise)return _cPianoChordPromise;_cPianoChordPromise=new Promise(res=>{try{console.log("[etudy] Loading custom piano samples from:",CPIANO_BASE);_cPianoChordSampler=new Tone.Sampler({urls:CPIANO_MAP,baseUrl:CPIANO_BASE,release:2.0,volume:-12,onload:()=>{_cPianoChordReady=true;console.log("[etudy] Custom piano samples loaded OK");res(true);},onerror:(e)=>{console.warn("[etudy] Custom piano samples FAILED:",e);res(false);}});setTimeout(()=>{if(!_cPianoChordReady){console.warn("[etudy] Custom piano samples timeout");res(false);}},20000);}catch(e){res(false);}});return _cPianoChordPromise;}
 function makeChordSynth(bag){
   // Priority 1: Custom piano samples from Supabase
   if(_cPianoChordReady&&_cPianoChordSampler){
@@ -1055,7 +1055,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
   const sch=(parsed,doCi,refNow)=>{disposeBag();const bag=[];const sw=fR.current==="straight"?0:fR.current==="swing"?1:2;
     const{scheduled:notes,totalDur,chordTimes}=applyTiming(parsed,sw);dR.current=totalDur;
     const mel=makeMelSynth(soR.current,bag);const click=makeClick(bag);
-    const cs=(bR.current&&bStyleR.current==="rhodes")?makeRhodesChordSynth(bag):makeChordSynth(bag);bagRef.current=bag;const now=refNow||Tone.now();
+    const cs=(bR.current&&bStyleR.current==="rhodes")?makeRhodesChordSynth(bag):makeChordSynth(bag);console.log("[etudy] Chord synth:",bR.current?"backing="+bStyleR.current:"no-backing","rhodes?",_rhodesChordReady,"cpiano?",_cPianoChordReady);bagRef.current=bag;const now=refNow||Tone.now();
     let cOff=doCi?parsed.spb*parsed.tsNum:0;
     const abActive=abOnR.current;const abS=abActive?abAR.current*totalDur:0;const abE=abActive?abBR.current*totalDur:totalDur;
     const timers=[];const LA=0.04;
@@ -1077,7 +1077,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
         if(_bStyle==="piano"||_bStyle==="rhodes"||_bStyle==="ballad"){
           // Sustained chord — use attack/release separately for full sustain on Samplers
           const dur=Math.max(0.5,chordDur);const fireMs=Math.max(0,ct*1000-LA*1000);
-          const vel=_bStyle==="rhodes"?0.5:0.35;
+          const vel=_bStyle==="rhodes"?0.5:0.5;
           const releaseMs=Math.max(0,(ct+dur-0.05)*1000-LA*1000);
           for(let ni=0;ni<cn.length;ni++){const _note=cn[ni];
             // Attack
@@ -1214,7 +1214,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
     bk&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4,marginBottom:6,flexWrap:"wrap"}},
       BACKING_STYLES.map(s=>React.createElement("button",{key:s.id,onClick:e=>{e.stopPropagation();setBackingStyle(s.id);},style:{...bb,gap:2,padding:"4px 8px",fontSize:10,borderRadius:6,whiteSpace:"nowrap",background:backingStyle===s.id?t.accentBg:t.filterBg,color:backingStyle===s.id?t.accent:t.muted}},s.emoji+" "+s.label)),
       // Mute controls — only show for styles with bass/drums
-      backingStyle!=="piano"&&React.createElement("span",{style:{display:"flex",gap:3,marginLeft:4}},
+      backingStyle!=="piano"&&backingStyle!=="rhodes"&&React.createElement("span",{style:{display:"flex",gap:3,marginLeft:4}},
         React.createElement("button",{onClick:e=>{e.stopPropagation();setMuteKeys(!muteKeys);},style:{...bb,padding:"4px 7px",fontSize:9,borderRadius:5,background:muteKeys?t.filterBg:t.accentBg,color:muteKeys?t.muted:t.accent,textDecoration:muteKeys?"line-through":"none"}},"Keys"),
         React.createElement("button",{onClick:e=>{e.stopPropagation();setMuteBass(!muteBass);},style:{...bb,padding:"4px 7px",fontSize:9,borderRadius:5,background:muteBass?t.filterBg:t.accentBg,color:muteBass?t.muted:t.accent,textDecoration:muteBass?"line-through":"none"}},"Bass"),
         (backingStyle==="jazz"||backingStyle==="bossa")&&React.createElement("button",{onClick:e=>{e.stopPropagation();setMuteDrums(!muteDrums);},style:{...bb,padding:"4px 7px",fontSize:9,borderRadius:5,background:muteDrums?t.filterBg:t.accentBg,color:muteDrums?t.muted:t.accent,textDecoration:muteDrums?"line-through":"none"}},"Drums"))),
@@ -1256,7 +1256,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
     // Backing style selector (only when backing on)
     bk&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4,marginTop:6,flexWrap:"wrap"}},
       BACKING_STYLES.map(s=>React.createElement("button",{key:s.id,onClick:e=>{e.stopPropagation();setBackingStyle(s.id);},style:{...bb,gap:2,padding:"4px 8px",fontSize:10,borderRadius:6,whiteSpace:"nowrap",background:backingStyle===s.id?t.accentBg:t.filterBg,color:backingStyle===s.id?t.accent:t.muted}},s.emoji+" "+s.label)),
-      backingStyle!=="piano"&&React.createElement("span",{style:{display:"flex",gap:3,marginLeft:4}},
+      backingStyle!=="piano"&&backingStyle!=="rhodes"&&React.createElement("span",{style:{display:"flex",gap:3,marginLeft:4}},
         React.createElement("button",{onClick:e=>{e.stopPropagation();setMuteKeys(!muteKeys);},style:{...bb,padding:"4px 7px",fontSize:9,borderRadius:5,background:muteKeys?t.filterBg:t.accentBg,color:muteKeys?t.muted:t.accent,textDecoration:muteKeys?"line-through":"none"}},"Keys"),
         React.createElement("button",{onClick:e=>{e.stopPropagation();setMuteBass(!muteBass);},style:{...bb,padding:"4px 7px",fontSize:9,borderRadius:5,background:muteBass?t.filterBg:t.accentBg,color:muteBass?t.muted:t.accent,textDecoration:muteBass?"line-through":"none"}},"Bass"),
         (backingStyle==="jazz"||backingStyle==="bossa")&&React.createElement("button",{onClick:e=>{e.stopPropagation();setMuteDrums(!muteDrums);},style:{...bb,padding:"4px 7px",fontSize:9,borderRadius:5,background:muteDrums?t.filterBg:t.accentBg,color:muteDrums?t.muted:t.accent,textDecoration:muteDrums?"line-through":"none"}},"Drums"))),
