@@ -715,8 +715,23 @@ const RHODES_BASE="https://edhsqycbglkaqbzzhcmp.supabase.co/storage/v1/object/pu
 const RHODES_MAP={"C1":"C1.mp3","F1":"F1.mp3","C2":"C2.mp3","F2":"F2.mp3","C3":"C3.mp3","F3":"F3.mp3","C4":"C4.mp3","F4":"F4.mp3","C5":"C5.mp3"};
 let _rhodesChordSampler=null,_rhodesChordReady=false,_rhodesChordPromise=null;
 function preloadRhodesChord(){if(_rhodesChordPromise)return _rhodesChordPromise;_rhodesChordPromise=new Promise(res=>{try{_rhodesChordSampler=new Tone.Sampler({urls:RHODES_MAP,baseUrl:RHODES_BASE,release:2.5,volume:-10,onload:()=>{_rhodesChordReady=true;res(true);},onerror:()=>{res(false);}});setTimeout(()=>{if(!_rhodesChordReady)res(false);},20000);}catch(e){res(false);}});return _rhodesChordPromise;}
+// Custom piano sampler — real piano samples from Supabase
+const CPIANO_BASE="https://edhsqycbglkaqbzzhcmp.supabase.co/storage/v1/object/public/Samples/piano/";
+const CPIANO_MAP={"C1":"C1.mp3","F1":"F1.mp3","C2":"C2.mp3","F2":"F2.mp3","C3":"C3.mp3","F3":"F3.mp3","C4":"C4.mp3","F4":"F4.mp3"};
+let _cPianoChordSampler=null,_cPianoChordReady=false,_cPianoChordPromise=null;
+function preloadCustomPianoChord(){if(_cPianoChordPromise)return _cPianoChordPromise;_cPianoChordPromise=new Promise(res=>{try{_cPianoChordSampler=new Tone.Sampler({urls:CPIANO_MAP,baseUrl:CPIANO_BASE,release:2.0,volume:-12,onload:()=>{_cPianoChordReady=true;res(true);},onerror:()=>{res(false);}});setTimeout(()=>{if(!_cPianoChordReady)res(false);},20000);}catch(e){res(false);}});return _cPianoChordPromise;}
 function makeChordSynth(bag){
-  // Use pre-loaded piano sampler for warm comping sound
+  // Priority 1: Custom piano samples from Supabase
+  if(_cPianoChordReady&&_cPianoChordSampler){
+    const rev=new Tone.Reverb({decay:2.5,wet:0.18}).toDestination();
+    const comp=new Tone.Compressor({threshold:-22,ratio:3,attack:0.008,release:0.12}).connect(rev);
+    const flt=new Tone.Filter({frequency:2800,type:"lowpass",rolloff:-12}).connect(comp);
+    try{_cPianoChordSampler.disconnect();}catch(e){}
+    _cPianoChordSampler.connect(flt);
+    bag.push(flt,comp,rev);
+    return _cPianoChordSampler;
+  }
+  // Priority 2: Salamander piano sampler
   if(_chordSamplerReady&&_chordSampler){
     const rev=new Tone.Reverb({decay:2.5,wet:0.22}).toDestination();
     const comp=new Tone.Compressor({threshold:-24,ratio:4,attack:0.01,release:0.15}).connect(rev);
@@ -1005,7 +1020,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
   const setLc=v=>{if(lcDispRef.current){lcDispRef.current.textContent=v;lcDispRef.current.parentElement.style.display=v>1?"flex":"none";}};
   const scheduledTimers=useRef([]);
   const clearScheduled=()=>{for(const tid of scheduledTimers.current)clearTimeout(tid);scheduledTimers.current=[];};
-  const disposeBag=()=>{clearScheduled();if(_sampler&&_samplerReady)try{_sampler.releaseAll();_sampler.disconnect();}catch(e){}if(_chordSampler&&_chordSamplerReady)try{_chordSampler.releaseAll();_chordSampler.disconnect();}catch(e){}if(_bassSampler&&_bassSamplerReady)try{_bassSampler.releaseAll();_bassSampler.disconnect();}catch(e){}if(_rhodesChordSampler&&_rhodesChordReady)try{_rhodesChordSampler.releaseAll();_rhodesChordSampler.disconnect();}catch(e){}for(const n of bagRef.current){try{n.releaseAll&&n.releaseAll();}catch(e){}try{n.stop&&n.stop();}catch(e){}try{n.dispose();}catch(e){}}bagRef.current=[];};
+  const disposeBag=()=>{clearScheduled();if(_sampler&&_samplerReady)try{_sampler.releaseAll();_sampler.disconnect();}catch(e){}if(_chordSampler&&_chordSamplerReady)try{_chordSampler.releaseAll();_chordSampler.disconnect();}catch(e){}if(_bassSampler&&_bassSamplerReady)try{_bassSampler.releaseAll();_bassSampler.disconnect();}catch(e){}if(_rhodesChordSampler&&_rhodesChordReady)try{_rhodesChordSampler.releaseAll();_rhodesChordSampler.disconnect();}catch(e){}if(_cPianoChordSampler&&_cPianoChordReady)try{_cPianoChordSampler.releaseAll();_cPianoChordSampler.disconnect();}catch(e){}for(const n of bagRef.current){try{n.releaseAll&&n.releaseAll();}catch(e){}try{n.stop&&n.stop();}catch(e){}try{n.dispose();}catch(e){}}bagRef.current=[];};
   const metroCtrlRef=useRef({});// MiniMetronome writes start/stop here
   const clr=useCallback(()=>{sT.current=true;if(aR.current)cancelAnimationFrame(aR.current);disposeBag();sPl(false);setPr(0);setLc(0);setLoading(false);lcR.current=0;curNoteR.current=-1;if(onCurNoteR.current)onCurNoteR.current(-1);try{metroCtrlRef.current.stop&&metroCtrlRef.current.stop();}catch(e){}},[]);
   // Live restart at new BPM (called when user changes BPM during playback)
@@ -1144,6 +1159,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
     if(!_samplerReady&&!_samplerFailed){await preloadPiano();setSamplesOk(_samplerReady);}
     if(!_chordSamplerReady)await preloadChordPiano();
     if(!_rhodesChordReady)preloadRhodesChord(); // fire-and-forget, fallback to piano synth
+    if(!_cPianoChordReady)preloadCustomPianoChord(); // fire-and-forget, fallback to Salamander
     if(!_bassSamplerReady)preloadBassSampler(); // fire-and-forget, synth fallback works immediately
     const p=parseAbc(abcR.current,pTR.current);
     // Capture ONE time reference — shared by lick notes AND metronome
