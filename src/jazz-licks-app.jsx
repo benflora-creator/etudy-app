@@ -2426,6 +2426,7 @@ function MiniMetronome({th,initBpm,syncPlaying,ctrlRef,onBpmChange,lickTempo,onS
         progDone?"\u2713 Target reached! "+progTarget+" BPM":(isSynced?"Loop ":"Bar ")+(progBarInStep+1)+"/"+progBars+" \u00B7 "+progCurBpm+" BPM")));
 
   // Full-mode (non-headless) rendering below
+  return React.createElement("div",{style:{padding:"10px 0"}},
     // ROW 1: Mute/Play + BPM + controls
     React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:8}},
       // Synced: mute/unmute toggle. Standalone: play/stop
