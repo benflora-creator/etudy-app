@@ -1451,39 +1451,88 @@ const NOTE_NMS=["C","D","E","F","G","A","B"];const CHORD_PR=["maj7","m7","7","m7
 function e2s(e){if(e===1)return"";if(e===0.5)return"/2";if(e===0.75)return"3/4";if(e===1.5)return"3/2";if(e===3)return"3";if(e===6)return"6";if(e===12)return"12";if(Number.isInteger(e))return String(e);return String(Math.round(e*2))+"/2";}
 var KEY_SIG_ACC={"C":{},"G":{F:1},"D":{F:1,C:1},"A":{F:1,C:1,G:1},"E":{F:1,C:1,G:1,D:1},"B":{F:1,C:1,G:1,D:1,A:1},"F#":{F:1,C:1,G:1,D:1,A:1,E:1},"Gb":{B:-1,E:-1,A:-1,D:-1,G:-1,C:-1},"F":{B:-1},"Bb":{B:-1,E:-1},"Eb":{B:-1,E:-1,A:-1},"Ab":{B:-1,E:-1,A:-1,D:-1},"Db":{B:-1,E:-1,A:-1,D:-1,G:-1}};
 function buildAbc(items,keySig,timeSig,tempo,chords){const[tsN,tsD]=timeSig.split("/").map(Number);const bE=tsN*(8/tsD);const beatE=8/tsD;
-  // Beam groups: how many eighths per beam group
-  // 4/4: [2,2,2,2] with half-bar at 4  |  3/4: [2,2,2]  |  6/8: [3,3]  |  5/4: [2,2,2,2,2]  |  7/8: [2,2,3] or [3,2,2]
-  var beamBreaks=[];var p2=0;
-  if(tsD===8){
-    // Compound: group by 3 eighths
-    for(var g=0;g<tsN;g+=3){beamBreaks.push(p2+3);p2+=3;}
-  }else{
-    // Simple: group by beat (2 eighths per beat for x/4)
-    for(var g2=0;g2<tsN;g2++){beamBreaks.push(p2+beatE);p2+=beatE;}
-  }
-  // Half-bar break position (stronger grouping boundary)
-  var halfBar=tsN>=4&&tsD===4?Math.floor(tsN/2)*beatE:tsD===8&&tsN>=6?Math.floor(tsN/6)*3*Math.ceil(tsN/6):0;
-  let abc="X:1\nT:My Lick\nM:"+timeSig+"\nL:1/8\nQ:1/4="+tempo+"\nK:"+keySig+"\n";const ksMap=KEY_SIG_ACC[keySig]||{};let pos=0,nc=0;var barAlts={};var triCount=0;var chObj=chords||{};var emittedCh={};
+  // Beam break positions within a bar (in eighths)
+  // 4/4: break at half-bar (beat 3) = position 4
+  // 3/4: break at each beat = 2, 4
+  // 2/4: break at beat 2 = 2
+  // 6/8: break at dotted quarter = 3
+  // 5/4: break at 3+2 = 4 (or could be 2+3 = 6)
+  var beamBreaks=[];// positions where 8ths break beams (in eighths within bar)
+  var beamBreaks16=[];// additional positions where 16ths break (but 8ths don't)
+  if(tsD===8){for(var g=0;g<tsN;g+=3)if(g+3<tsN)beamBreaks.push(g+3);}
+  else if(tsN===4&&tsD===4){beamBreaks.push(4);beamBreaks16.push(2);beamBreaks16.push(4);beamBreaks16.push(6);}// 4/4: 8ths at half-bar, 16ths per beat
+  else if(tsN===2&&tsD===4){beamBreaks16.push(2);}// 2/4: 16ths per beat
+  else if(tsN===3&&tsD===4){beamBreaks.push(2);beamBreaks.push(4);beamBreaks16.push(2);beamBreaks16.push(4);}
+  else if(tsN===5&&tsD===4){beamBreaks.push(4);beamBreaks.push(6);beamBreaks16.push(2);beamBreaks16.push(4);beamBreaks16.push(6);beamBreaks16.push(8);}
+  else{for(var g2=1;g2<tsN;g2++){beamBreaks.push(g2*beatE);beamBreaks16.push(g2*beatE);}}
+
+  // Helper: emit note name in ABC
+  var ksMap=KEY_SIG_ACC[keySig]||{};
+  var emitNote=function(item,ei,barAlts,addTie){
+    var s="";
+    if(item.type==="rest")return "z"+e2s(ei);
+    var ksA=ksMap[item.note]||0;var prevA=barAlts.hasOwnProperty(item.note)?barAlts[item.note]:ksA;
+    var needsAcc=false;if(item.acc!==prevA)needsAcc=true;
+    else if(item.acc===ksA&&barAlts.hasOwnProperty(item.note)&&barAlts[item.note]!==ksA)needsAcc=true;
+    if(needsAcc){if(item.acc===1)s+="^";else if(item.acc===-1)s+="_";else s+="=";}
+    barAlts[item.note]=item.acc;
+    if(item.oct>=5){s+=item.note.toLowerCase();for(var o=6;o<=item.oct;o++)s+="'";}
+    else{s+=item.note.toUpperCase();for(var o2=3;o2>=item.oct;o2--)s+=",";}
+    s+=e2s(ei);
+    if(addTie)s+="-";
+    return s;
+  };
+
+  let abc="X:1\nT:My Lick\nM:"+timeSig+"\nL:1/8\nQ:1/4="+tempo+"\nK:"+keySig+"\n";
+  let pos=0,nc=0;var barAlts={};var triCount=0;var chObj=chords||{};var emittedCh={};
+
   for(var ii=0;ii<items.length;ii++){var item=items[ii];if(item.type==="chord")continue;
     const ei=DURS[item.dur].eighths*(item.dotted?1.5:1);var effEi=item.tri?ei*(2/3):ei;
-    // Bar line
-    if(pos>0){const bN=pos/bE;if(Math.abs(bN-Math.round(bN))<0.01&&Math.round(bN)>0){abc+=" | ";barAlts={};}}
-    // Beam break: insert space if we crossed a beam group boundary or note is quarter+
+    var hasTie=!!item.tie;
+
+    // Check if note crosses barline → split with tie
+    var posInBar=pos%bE;
+    if(Math.abs(posInBar)<0.01)posInBar=0;
+    var remaining=bE-posInBar;
+    if(remaining<bE&&effEi>remaining+0.01&&item.type==="note"){
+      // Split: first part fills the bar, second part goes into next bar
+      var firstEi=remaining;var secondEi=effEi-remaining;
+
+      // Emit first part
+      // Beam break check
+      if(nc>0){var ns=false;if(firstEi>=2)ns=true;else{var brks=firstEi<1?beamBreaks16:beamBreaks;for(var bb=0;bb<brks.length;bb++)if(Math.abs(posInBar-brks[bb])<0.05){ns=true;break;}}if(ns)abc+=" ";}
+      var beatIdx=Math.floor(pos/beatE+0.01);if(chObj[beatIdx]&&!emittedCh[beatIdx]){abc+='"'+chObj[beatIdx]+'"';emittedCh[beatIdx]=true;}
+      if(item.tri&&triCount%3===0)abc+="(3";if(item.tri)triCount++;else triCount=0;
+      abc+=emitNote(item,firstEi,barAlts,true);nc++;pos+=firstEi;
+
+      // Barline
+      abc+=" | ";barAlts={};
+
+      // Beam break for second part (start of bar = no break needed)
+      // Chord on beat 1 of new bar?
+      var newBarStart=pos;var beatIdx2=Math.floor(newBarStart/beatE+0.01);if(chObj[beatIdx2]&&!emittedCh[beatIdx2]){abc+='"'+chObj[beatIdx2]+'"';emittedCh[beatIdx2]=true;}
+      abc+=emitNote(item,secondEi,barAlts,hasTie);nc++;pos+=secondEi;
+      continue;
+    }
+
+    // Normal note (no barline crossing)
+    // Barline
+    if(pos>0){var bN=pos/bE;if(Math.abs(bN-Math.round(bN))<0.01&&Math.round(bN)>0){abc+=" | ";barAlts={};}}
+    // Beam break
     if(nc>0){
-      var posInBar=pos%bE;var needSpace=false;
-      // Quarter notes or longer always break
+      posInBar=pos%bE;if(Math.abs(posInBar)<0.01&&pos>0)posInBar=0;
+      var needSpace=false;
       if(effEi>=2)needSpace=true;
-      // Check if current position sits on a beam group boundary
-      else{for(var bb=0;bb<beamBreaks.length;bb++){var bp=beamBreaks[bb]%bE;if(bp>0&&Math.abs(posInBar-bp)<0.05){needSpace=true;break;}}}
+      else{var breaks=effEi<1?beamBreaks16:beamBreaks;for(var bb2=0;bb2<breaks.length;bb2++)if(Math.abs(posInBar-breaks[bb2])<0.05){needSpace=true;break;}}
       if(needSpace)abc+=" ";
     }
-    // Chord symbol
-    var beatIdx=Math.floor(pos/beatE+0.01);if(chObj[beatIdx]&&!emittedCh[beatIdx]){abc+='"'+chObj[beatIdx]+'"';emittedCh[beatIdx]=true;}
-    // Triplet marker
+    // Chord
+    var beatIdx3=Math.floor(pos/beatE+0.01);if(chObj[beatIdx3]&&!emittedCh[beatIdx3]){abc+='"'+chObj[beatIdx3]+'"';emittedCh[beatIdx3]=true;}
+    // Triplet
     if(item.tri&&triCount%3===0)abc+="(3";if(item.tri)triCount++;else triCount=0;
-    // Note/rest
+    // Note
     if(item.type==="rest")abc+="z"+e2s(ei);
-    else if(item.type==="note"){var ksA=ksMap[item.note]||0;var prevA=barAlts.hasOwnProperty(item.note)?barAlts[item.note]:ksA;var needsAcc=false;if(item.acc!==prevA){needsAcc=true;}else if(item.acc===ksA&&barAlts.hasOwnProperty(item.note)&&barAlts[item.note]!==ksA){needsAcc=true;}if(needsAcc){if(item.acc===1)abc+="^";else if(item.acc===-1)abc+="_";else abc+="=";}barAlts[item.note]=item.acc;if(item.oct>=5){abc+=item.note.toLowerCase();for(let o=6;o<=item.oct;o++)abc+="'";}else{abc+=item.note.toUpperCase();for(let o=3;o>=item.oct;o--)abc+=",";}abc+=e2s(ei);}
+    else abc+=emitNote(item,ei,barAlts,hasTie);
     pos+=effEi;nc++;}
   if(nc>0)abc+=" |";return abc;}
 function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl}){
@@ -1583,6 +1632,11 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl}){
       var ni=items.map(function(x){return Object.assign({},x);});ni[selIdx]=Object.assign({},ni[selIdx],{tri:nv});mutate(ni);
     }
   };
+  const toggleTie=function(){
+    if(selIdx!==null&&selIdx<items.length&&items[selIdx].type==="note"){
+      var ni=items.map(function(x){return Object.assign({},x);});ni[selIdx]=Object.assign({},ni[selIdx],{tie:!ni[selIdx].tie});mutate(ni);
+    }
+  };
   const changeOct=function(delta){
     var nv=Math.max(2,Math.min(7,(selIdx!==null&&items[selIdx]&&items[selIdx].type==="note"?items[selIdx].oct:cO)+delta));sCO(nv);
     if(selIdx!==null&&selIdx<items.length&&items[selIdx].type==="note"){
@@ -1605,6 +1659,7 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl}){
   var selItem=selIdx!==null&&items[selIdx]?items[selIdx]:null;
   var effDur=selItem?selItem.dur:cD;var effDot=selItem?!!selItem.dotted:dt;var effTri=selItem?!!selItem.tri:tri;
   var effOct=selItem&&selItem.type==="note"?selItem.oct:cO;
+  var effTie=selItem&&selItem.type==="note"?!!selItem.tie:false;
 
   const renderItem=function(item,idx){
     var pB=0;for(var j=0;j<idx;j++){var it3=items[j];if(it3.type==="note"||it3.type==="rest")pB+=DURS[it3.dur].eighths*(it3.dotted?1.5:1)*(it3.tri?2/3:1);}
@@ -1614,7 +1669,8 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl}){
     if(item.type==="note"){var aS=item.acc===1?"\u266F":item.acc===-1?"\u266D":"";
       ct=React.createElement("div",{style:{display:"flex",flexDirection:"column",alignItems:"center",gap:0}},
         React.createElement("span",{style:{fontSize:13,fontWeight:600,fontFamily:"'Instrument Serif',serif",lineHeight:1.1,color:isSel?ac:"#1A1A1A"}},aS+item.note+(item.dotted?".":" ")+(item.tri?"\u00B3":"")),
-        React.createElement("span",{style:{fontSize:8,color:isSel?ac:mu,lineHeight:1}},item.oct),noteIcon(item.dur,isSel?ac:"#666",16));
+        React.createElement("span",{style:{fontSize:8,color:isSel?ac:mu,lineHeight:1}},item.oct),
+        item.tie&&React.createElement("span",{style:{fontSize:9,color:ac,fontFamily:"'Inter',sans-serif",lineHeight:1,marginTop:-2}},"\u2040"),noteIcon(item.dur,isSel?ac:"#666",16));
       bg=isSel?"rgba(99,102,241,0.15)":"rgba(99,102,241,0.04)";
     }else if(item.type==="rest"){
       ct=React.createElement("div",{style:{display:"flex",flexDirection:"column",alignItems:"center"}},
@@ -1669,7 +1725,8 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl}){
       DURS.map(function(dd,i){return React.createElement("button",{key:i,onClick:function(){changeDur(i);},style:{padding:"4px 6px",borderRadius:8,border:"1px solid "+(effDur===i?"rgba(99,102,241,0.2)":"#E8E7E3"),cursor:"pointer",background:effDur===i?"rgba(99,102,241,0.04)":"#fff",color:effDur===i?ac:"#888",display:"flex",flexDirection:"column",alignItems:"center",gap:1,minWidth:36}},noteIcon(i,effDur===i?ac:"#888"),React.createElement("span",{style:{fontSize:7,letterSpacing:0.5,fontFamily:"monospace"}},dd.name));}),
       React.createElement("div",{style:{width:1,height:28,background:"#E8E7E3"}}),
       React.createElement("button",{onClick:toggleDot,style:{padding:"4px 10px",borderRadius:8,border:"1px solid "+(effDot?"rgba(99,102,241,0.2)":"#E8E7E3"),cursor:"pointer",background:effDot?"rgba(99,102,241,0.04)":"#fff",color:effDot?ac:"#888",fontSize:18,fontWeight:700}},"\u00B7"),
-      React.createElement("button",{onClick:toggleTri,style:{padding:"4px 8px",borderRadius:8,border:"1px solid "+(effTri?"rgba(99,102,241,0.2)":"#E8E7E3"),cursor:"pointer",background:effTri?"rgba(99,102,241,0.04)":"#fff",color:effTri?ac:"#888",fontSize:11,fontWeight:700,fontFamily:"'JetBrains Mono',monospace"}},"3")),
+      React.createElement("button",{onClick:toggleTri,style:{padding:"4px 8px",borderRadius:8,border:"1px solid "+(effTri?"rgba(99,102,241,0.2)":"#E8E7E3"),cursor:"pointer",background:effTri?"rgba(99,102,241,0.04)":"#fff",color:effTri?ac:"#888",fontSize:11,fontWeight:700,fontFamily:"'JetBrains Mono',monospace"}},"3"),
+      selIdx!==null&&items[selIdx]&&items[selIdx].type==="note"&&React.createElement("button",{onClick:toggleTie,style:{padding:"4px 8px",borderRadius:8,border:"1px solid "+(effTie?"rgba(99,102,241,0.2)":"#E8E7E3"),cursor:"pointer",background:effTie?"rgba(99,102,241,0.04)":"#fff",color:effTie?ac:"#888",fontSize:12,fontWeight:700,fontFamily:"'Instrument Serif',serif"}},"\u2040 tie")),
     // 6. Chord lane
     chordLaneEl,
     // 7. Octave + Rest
