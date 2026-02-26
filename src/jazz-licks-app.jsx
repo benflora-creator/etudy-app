@@ -1060,7 +1060,55 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
   const sch=(parsed,doCi,refNow)=>{disposeBag();const bag=[];const sw=fR.current==="straight"?0:fR.current==="swing"?1:2;
     const{scheduled:notes,totalDur,chordTimes}=applyTiming(parsed,sw);dR.current=totalDur;
     const mel=makeMelSynth(soR.current,bag);const click=makeClick(bag);
-    const cs=(bR.current&&bStyleR.current==="rhodes")?makeRhodesChordSynth(bag):makeChordSynth(bag);console.log("[etudy] Chord synth:",bR.current?"backing="+bStyleR.current:"no-backing","rhodes?",_rhodesChordReady,"cpiano?",_cPianoChordReady);bagRef.current=bag;const now=refNow||Tone.now();
+    // cs = Salamander-only fallback (for jazz/bossa or if custom samplers fail)
+    var cs;
+    if(_chordSamplerReady&&_chordSampler){
+      var _fRev=new Tone.Reverb({decay:2.5,wet:0.22}).toDestination();var _fComp=new Tone.Compressor({threshold:-24,ratio:4,attack:0.01,release:0.15}).connect(_fRev);var _fFlt=new Tone.Filter({frequency:2200,type:"lowpass",rolloff:-12}).connect(_fComp);
+      _chordSampler.disconnect();_chordSampler.connect(_fFlt);bag.push(_fFlt,_fComp,_fRev);cs=_chordSampler;
+    }else{
+      var _fRev2=new Tone.Reverb({decay:3,wet:0.22}).toDestination();var _fCh=new Tone.Chorus({frequency:0.4,delayTime:6,depth:0.22,wet:0.22}).connect(_fRev2);_fCh.start();var _fTr=new Tone.Tremolo({frequency:2.2,depth:0.12,wet:0.18}).connect(_fCh);_fTr.start();var _fFlt2=new Tone.Filter({frequency:1800,type:"lowpass",rolloff:-24}).connect(_fTr);var _fS=new Tone.PolySynth(Tone.FMSynth,{harmonicity:3,modulationIndex:0.6,oscillator:{type:"fatsine2",spread:15,count:3},modulation:{type:"sine"},envelope:{attack:0.015,decay:1.0,sustain:0.3,release:1.5},modulationEnvelope:{attack:0.008,decay:0.6,sustain:0,release:0.6},volume:-18}).connect(_fFlt2);bag.push(_fS,_fFlt2,_fTr,_fCh,_fRev2);cs=_fS;
+    }
+    // For backing, create a SECOND chord synth if needed (so piano backing and rhodes backing don't share)
+    var backingCs=null;
+    if(bR.current){
+      var _bs=bStyleR.current;
+      if(_bs==="rhodes"){
+        if(_rhodesChordReady&&_rhodesChordSampler){
+          // Connect rhodes directly — fresh effect chain
+          var rRev=new Tone.Reverb({decay:2.2,wet:0.18}).toDestination();
+          var rCh=new Tone.Chorus({frequency:0.6,delayTime:4,depth:0.18,wet:0.15}).connect(rRev);rCh.start();
+          var rTr=new Tone.Tremolo({frequency:2.8,depth:0.15,wet:0.2}).connect(rCh);rTr.start();
+          var rComp=new Tone.Compressor({threshold:-22,ratio:3,attack:0.008,release:0.12}).connect(rTr);
+          var rFlt=new Tone.Filter({frequency:3500,type:"lowpass",rolloff:-12}).connect(rComp);
+          try{_rhodesChordSampler.disconnect();}catch(e){}
+          _rhodesChordSampler.connect(rFlt);
+          bag.push(rFlt,rComp,rTr,rCh,rRev);
+          backingCs=_rhodesChordSampler;
+          console.log("[etudy] Backing: RHODES sampler ✓");
+        }else{
+          console.warn("[etudy] Backing: Rhodes NOT loaded! ready=",_rhodesChordReady);
+          backingCs=cs; // fallback
+        }
+      }else if(_bs==="piano"||_bs==="ballad"){
+        if(_cPianoChordReady&&_cPianoChordSampler){
+          var pRev=new Tone.Reverb({decay:2.5,wet:0.18}).toDestination();
+          var pComp=new Tone.Compressor({threshold:-22,ratio:3,attack:0.008,release:0.12}).connect(pRev);
+          var pFlt=new Tone.Filter({frequency:2800,type:"lowpass",rolloff:-12}).connect(pComp);
+          try{_cPianoChordSampler.disconnect();}catch(e){}
+          _cPianoChordSampler.connect(pFlt);
+          bag.push(pFlt,pComp,pRev);
+          backingCs=_cPianoChordSampler;
+          console.log("[etudy] Backing: CUSTOM PIANO sampler ✓");
+        }else{
+          console.log("[etudy] Backing: Custom piano not loaded, using Salamander. ready=",_cPianoChordReady);
+          backingCs=cs; // Salamander fallback
+        }
+      }else{
+        backingCs=cs; // jazz/bossa use whatever cs is
+        console.log("[etudy] Backing: using default chord synth for style",_bs);
+      }
+    }
+    bagRef.current=bag;const now=refNow||Tone.now();
     let cOff=doCi?parsed.spb*parsed.tsNum:0;
     const abActive=abOnR.current;const abS=abActive?abAR.current*totalDur:0;const abE=abActive?abBR.current*totalDur:totalDur;
     const timers=[];const LA=0.04;
@@ -1086,9 +1134,9 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
           const releaseMs=Math.max(0,(ct+dur-0.05)*1000-LA*1000);
           for(let ni=0;ni<cn.length;ni++){const _note=cn[ni];
             // Attack
-            timers.push(setTimeout(()=>{if(sT.current)return;try{cs.triggerAttack(_note,baseTime+ct,vel);}catch(e){}},fireMs));
+            timers.push(setTimeout(()=>{if(sT.current)return;try{backingCs.triggerAttack(_note,baseTime+ct,vel);}catch(e){}},fireMs));
             // Release just before next chord
-            timers.push(setTimeout(()=>{if(sT.current)return;try{cs.triggerRelease(_note,baseTime+ct+dur-0.05);}catch(e){}},releaseMs));
+            timers.push(setTimeout(()=>{if(sT.current)return;try{backingCs.triggerRelease(_note,baseTime+ct+dur-0.05);}catch(e){}},releaseMs));
           }
         }else if(_bStyle==="jazz"){
           // Rhythmic comping — hits on beat 2 and beat 4 (classic Freddie Green)
@@ -1099,13 +1147,13 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
           }
           for(var cbi=0;cbi<compBeats.length;cbi++){const _ct=ct+compBeats[cbi];const _cn=cn;const hum=(Math.random()-0.5)*0.012;
             const fireMs=Math.max(0,_ct*1000-LA*1000);
-            timers.push(setTimeout(()=>{if(sT.current)return;cs.triggerAttackRelease(_cn,spb*1.5,baseTime+_ct+hum,0.3);},fireMs));}
+            timers.push(setTimeout(()=>{if(sT.current)return;backingCs.triggerAttackRelease(_cn,spb*1.5,baseTime+_ct+hum,0.3);},fireMs));}
         }else if(_bStyle==="bossa"){
           // Bossa comping — anticipation on "and of 2", "and of 4"
           var bossaHits=[0,spb*1.5,spb*3,spb*3.5];
           for(var bhi=0;bhi<bossaHits.length;bhi++){var bht=bossaHits[bhi];if(bht>=chordDur)break;const _ct=ct+bht;const _cn=cn;const hum=(Math.random()-0.5)*0.008;
             const fireMs=Math.max(0,_ct*1000-LA*1000);
-            timers.push(setTimeout(()=>{if(sT.current)return;cs.triggerAttackRelease(_cn,spb*0.8,baseTime+_ct+hum,0.28);},fireMs));}
+            timers.push(setTimeout(()=>{if(sT.current)return;backingCs.triggerAttackRelease(_cn,spb*0.8,baseTime+_ct+hum,0.28);},fireMs));}
         }
       }}
       // --- BASS ---
@@ -1170,9 +1218,16 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
     if(!_chordSamplerReady)await preloadChordPiano();
     // Only preload the sampler we actually need for current backing style
     var _curStyle=bR.current?bStyleR.current:"piano";
-    if(_curStyle==="rhodes"&&!_rhodesChordReady)await preloadRhodesChord();
-    if(_curStyle==="piano"&&!_cPianoChordReady)await preloadCustomPianoChord();
-    if(_curStyle==="ballad"&&!_cPianoChordReady)await preloadCustomPianoChord();
+    console.log("[etudy] Preloading for style:",_curStyle);
+    if(_curStyle==="rhodes"&&!_rhodesChordReady){
+      // Test if URL is accessible
+      try{var testUrl=RHODES_BASE+"C3.mp3";var r=await fetch(testUrl,{method:"HEAD"});console.log("[etudy] Rhodes URL test:",testUrl,"→",r.status,r.ok?"OK":"FAIL");}catch(e){console.warn("[etudy] Rhodes URL unreachable:",e.message);}
+      await preloadRhodesChord();
+    }
+    if((_curStyle==="piano"||_curStyle==="ballad")&&!_cPianoChordReady){
+      try{var testUrl2=CPIANO_BASE+"C3.mp3";var r2=await fetch(testUrl2,{method:"HEAD"});console.log("[etudy] Piano URL test:",testUrl2,"→",r2.status,r2.ok?"OK":"FAIL");}catch(e){console.warn("[etudy] Piano URL unreachable:",e.message);}
+      await preloadCustomPianoChord();
+    }
     if(!_bassSamplerReady)preloadBassSampler();
     const p=parseAbc(abcR.current,pTR.current);
     // Capture ONE time reference — shared by lick notes AND metronome
