@@ -1541,6 +1541,7 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl}){
   const[selIdx,setSelIdx]=useState(null);
   const histRef=useRef([{items:[],chords:{}}]);const histIdxRef=useRef(0);
   const sR=useRef(null);
+  const pianoRef=useRef(null);
   const ac="#6366F1",mu="#8E8E93";
 
   // Push history snapshot
@@ -1584,19 +1585,24 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl}){
   useEffect(function(){if(sR.current&&selIdx===null)sR.current.scrollLeft=sR.current.scrollWidth;},[items]);
   // Scroll to selected note
   useEffect(function(){if(sR.current&&selIdx!==null){var el=sR.current.querySelector("[data-nidx='"+selIdx+"']");if(el)el.scrollIntoView({block:"nearest",inline:"center",behavior:"smooth"});}},[selIdx]);
+  // Auto-scroll piano to current octave
+  useEffect(function(){if(pianoRef.current){var el=pianoRef.current.querySelector("[data-oct='"+effOct+"']");if(el){var container=pianoRef.current;var scrollTo=el.offsetLeft-container.clientWidth/2+el.clientWidth*3.5;container.scrollTo({left:Math.max(0,scrollTo),behavior:"smooth"});}}},[effOct]);
+  // Initial piano scroll (no animation)
+  useEffect(function(){if(pianoRef.current){var el=pianoRef.current.querySelector("[data-oct='5']");if(el){var container=pianoRef.current;var scrollTo=el.offsetLeft-container.clientWidth/2+el.clientWidth*3.5;container.scrollLeft=Math.max(0,scrollTo);}}},[]);
 
   const[tsN,tsD]=timeSig.split("/").map(Number);const bE=tsN*(8/tsD);const beatE=8/tsD;
   var tE=0;for(var ii=0;ii<items.length;ii++){var it=items[ii];if(it.type==="note"||it.type==="rest")tE+=DURS[it.dur].eighths*(it.dotted?1.5:1)*(it.tri?2/3:1);}
   const totalBeats=Math.max(tsN,Math.ceil(tE/beatE));
 
   // Add note (append or edit selected)
-  const addNote=function(n,acc){
+  const addNote=function(n,acc,explOct){
     if(selIdx!==null&&selIdx<items.length){
       var ni=items.map(function(x){return Object.assign({},x);});
-      ni[selIdx]=Object.assign({},ni[selIdx],{type:"note",note:n,acc:acc,oct:items[selIdx].type==="note"?items[selIdx].oct:cO});
-      prevNote(n,ni[selIdx].oct,acc);mutate(ni);
+      var newOct=explOct!==undefined?explOct:(items[selIdx].type==="note"?items[selIdx].oct:cO);
+      ni[selIdx]=Object.assign({},ni[selIdx],{type:"note",note:n,acc:acc,oct:newOct});
+      sCO(newOct);prevNote(n,newOct,acc);mutate(ni);
     }else{
-      var oct=smartOct(n,items);sCO(oct);
+      var oct=explOct!==undefined?explOct:smartOct(n,items);sCO(oct);
       prevNote(n,oct,acc);
       var newItems=items.concat([{type:"note",note:n,acc:acc,oct:oct,dur:cD,dotted:dt,tri:tri}]);
       mutate(newItems);
@@ -1694,11 +1700,6 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl}){
         chords[chEd]&&React.createElement("button",{onClick:function(){var nc=Object.assign({},chords);delete nc[chEd];mutate(items,nc);sChEd(null);},style:{padding:"4px 10px",borderRadius:7,border:"1px solid #E0DFD8",background:"#F5F4F0",color:"#E53935",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},"\u2715"),
         React.createElement("button",{onClick:function(){sChEd(null);},style:{padding:"4px 10px",borderRadius:7,border:"1px solid #E0DFD8",background:"#F5F4F0",color:mu,fontSize:10,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},"Cancel"))));
 
-  var flatKeys=["F","Bb","Eb","Ab","Db","Gb"];var useFlats=flatKeys.indexOf(keySig)>=0||keySig==="C";
-  var blacks=useFlats?
-    [{n:"D",a:-1,l:"D\u266D",x:"11.5%"},{n:"E",a:-1,l:"E\u266D",x:"25%"},{n:"G",a:-1,l:"G\u266D",x:"53.5%"},{n:"A",a:-1,l:"A\u266D",x:"67.5%"},{n:"B",a:-1,l:"B\u266D",x:"81.5%"}]:
-    [{n:"C",a:1,l:"C\u266F",x:"11.5%"},{n:"D",a:1,l:"D\u266F",x:"25%"},{n:"F",a:1,l:"F\u266F",x:"53.5%"},{n:"G",a:1,l:"G\u266F",x:"67.5%"},{n:"A",a:1,l:"A\u266F",x:"81.5%"}];
-
   return React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:8}},
     // 1. Notation preview (always visible, on top)
     previewEl,
@@ -1729,19 +1730,38 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl}){
       selIdx!==null&&items[selIdx]&&items[selIdx].type==="note"&&React.createElement("button",{onClick:toggleTie,style:{padding:"4px 8px",borderRadius:8,border:"1px solid "+(effTie?"rgba(99,102,241,0.2)":"#E8E7E3"),cursor:"pointer",background:effTie?"rgba(99,102,241,0.04)":"#fff",color:effTie?ac:"#888",fontSize:12,fontWeight:700,fontFamily:"'Instrument Serif',serif"}},"\u2040 tie")),
     // 6. Chord lane
     chordLaneEl,
-    // 7. Octave + Rest
+    // 7. Rest button
     React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4}},
-      React.createElement("span",{style:{fontSize:9,color:mu,fontFamily:"monospace"}},"OCT"),
-      React.createElement("button",{onClick:function(){changeOct(-1);},style:{width:26,height:26,borderRadius:6,border:"1px solid #E8E7E3",background:"#fff",color:"#444",fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"\u2212"),
-      React.createElement("span",{style:{fontSize:16,color:ac,fontFamily:"'Instrument Serif',serif",minWidth:20,textAlign:"center"}},effOct),
-      React.createElement("button",{onClick:function(){changeOct(1);},style:{width:26,height:26,borderRadius:6,border:"1px solid #E8E7E3",background:"#fff",color:"#444",fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"+"),
-      React.createElement("div",{style:{width:1,height:20,background:"#E8E7E3",marginLeft:4,marginRight:4}}),
-      React.createElement("button",{onClick:addRest,style:{padding:"4px 10px",borderRadius:8,border:"1px solid #E0DFD8",background:"#F5F4F0",color:mu,fontSize:10,cursor:"pointer",fontFamily:"monospace"}},selIdx!==null?"Set Rest":"Rest")),
-    // 8. Piano keyboard
-    React.createElement("div",{style:{position:"relative",height:110,userSelect:"none"}},
-      React.createElement("div",{style:{display:"flex",height:"100%",gap:2}},
-        ["C","D","E","F","G","A","B"].map(function(n){return React.createElement("button",{key:n,onClick:function(){addNote(n,0);},style:{flex:1,height:"100%",borderRadius:8,border:"1px solid #D5D4CE",cursor:"pointer",background:"#fff",color:"#1A1A1A",fontSize:15,fontWeight:600,fontFamily:"'Instrument Serif',Georgia,serif",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",paddingBottom:8,position:"relative",zIndex:1}},n);})),
-      blacks.map(function(k){return React.createElement("button",{key:k.l,onClick:function(e){e.stopPropagation();addNote(k.n,k.a);},style:{position:"absolute",top:0,left:k.x,width:"10%",height:"62%",borderRadius:"0 0 6px 6px",border:"1px solid #333",cursor:"pointer",background:"linear-gradient(180deg,#2A2A2A,#111)",color:"#ccc",fontSize:9,fontWeight:600,fontFamily:"'Inter',sans-serif",display:"flex",alignItems:"flex-end",justifyContent:"center",paddingBottom:5,zIndex:2,boxShadow:"0 2px 4px rgba(0,0,0,0.3)"}},k.l);})));}
+      React.createElement("button",{onClick:addRest,style:{padding:"5px 12px",borderRadius:8,border:"1px solid #E0DFD8",background:"#F5F4F0",color:mu,fontSize:11,cursor:"pointer",fontFamily:"monospace"}},selIdx!==null?"Set Rest":"+ Rest"),
+      React.createElement("div",{style:{flex:1}}),
+      React.createElement("span",{style:{fontSize:10,color:mu,fontFamily:"'JetBrains Mono',monospace"}},"scroll \u2194 for octaves")),
+    // 8. Scrollable multi-octave piano keyboard
+    (function(){
+      var octLo=2,octHi=7,wkW=46,bkW=30,bkH=68,octW=wkW*7;
+      var flatKs=["F","Bb","Eb","Ab","Db","Gb"];var useFlats=flatKs.indexOf(keySig)>=0||keySig==="C";
+      var bks=useFlats?
+        [{n:"D",a:-1,l:"D\u266D",off:1},{n:"E",a:-1,l:"E\u266D",off:2},{n:"G",a:-1,l:"G\u266D",off:4},{n:"A",a:-1,l:"A\u266D",off:5},{n:"B",a:-1,l:"B\u266D",off:6}]:
+        [{n:"C",a:1,l:"C\u266F",off:1},{n:"D",a:1,l:"D\u266F",off:2},{n:"F",a:1,l:"F\u266F",off:4},{n:"G",a:1,l:"G\u266F",off:5},{n:"A",a:1,l:"A\u266F",off:6}];
+      var totalW=(octHi-octLo+1)*octW;
+      var octaves=[];
+      for(var o=octLo;o<=octHi;o++){
+        var isCur=o===effOct;
+        // White keys
+        var whites=["C","D","E","F","G","A","B"].map(function(n,ki){
+          return React.createElement("button",{key:o+"-"+n,onClick:function(){addNote(n,0,o);},style:{width:wkW,height:"100%",borderRadius:ki===0?"6px 0 0 6px":ki===6?"0 6px 6px 0":"0",border:"1px solid "+(isCur?"#C5C4BE":"#D5D4CE"),borderRight:ki<6?"none":undefined,cursor:"pointer",background:isCur?"#FFFFF8":"#fff",color:"#1A1A1A",fontSize:14,fontWeight:600,fontFamily:"'Instrument Serif',Georgia,serif",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",paddingBottom:6,position:"relative",zIndex:1,flexShrink:0,boxSizing:"border-box"}},
+            n==="C"?React.createElement("span",{style:{fontSize:8,color:isCur?ac:mu,fontFamily:"'JetBrains Mono',monospace",marginBottom:2}},o):null,
+            React.createElement("span",null,n));
+        });
+        // Black keys
+        var blackKeys=bks.map(function(k){
+          var leftPos=k.off*wkW-bkW/2;
+          return React.createElement("button",{key:o+"-"+k.l,onClick:function(e){e.stopPropagation();addNote(k.n,k.a,o);},style:{position:"absolute",top:0,left:leftPos,width:bkW,height:bkH,borderRadius:"0 0 5px 5px",border:"1px solid #333",cursor:"pointer",background:"linear-gradient(180deg,#2A2A2A,#111)",color:"#ccc",fontSize:8,fontWeight:600,fontFamily:"'Inter',sans-serif",display:"flex",alignItems:"flex-end",justifyContent:"center",paddingBottom:4,zIndex:2,boxShadow:"0 2px 4px rgba(0,0,0,0.3)",boxSizing:"border-box"}},k.l);
+        });
+        octaves.push(React.createElement("div",{key:o,"data-oct":o,style:{position:"relative",display:"flex",height:"100%",flexShrink:0,width:octW,borderRight:o<octHi?"2px solid "+(isCur?"rgba(99,102,241,0.3)":"#E0DFD8"):"none"}},whites,blackKeys));
+      }
+      return React.createElement("div",{ref:pianoRef,style:{overflowX:"auto",overflowY:"hidden",WebkitOverflowScrolling:"touch",scrollbarWidth:"none",borderRadius:10,border:"1px solid #D5D4CE",height:112}},
+        React.createElement("div",{style:{display:"flex",height:"100%",width:totalW}},octaves));
+    })());}
 
 // ============================================================
 // SHEET FOCUS — fullscreen notation overlay
