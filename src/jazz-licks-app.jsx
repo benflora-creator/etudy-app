@@ -582,7 +582,7 @@ function makeCustomPianoMel(bag){
   try{_pianoMelSampler.disconnect();}catch(e){}
   _pianoMelSampler.connect(comp);
   bag.push(comp,rev);
-  return{play:(n,d,t,v)=>{try{_pianoMelSampler.triggerAttackRelease(n,d,t,v);}catch(e){}}};
+  return{play:(n,d,t,v)=>{try{var o=parseInt(n.slice(-1));var nn=n.slice(0,-1)+(o-1);_pianoMelSampler.triggerAttackRelease(nn,d,t,v);}catch(e){}}};
 }
 function makeCustomRhodesMel(bag){
   const rev=new Tone.Reverb({decay:2.0,wet:0.16}).toDestination();
@@ -592,7 +592,7 @@ function makeCustomRhodesMel(bag){
   try{_rhodesMelSampler.disconnect();}catch(e){}
   _rhodesMelSampler.connect(flt);
   bag.push(flt,tr,ch,rev);
-  return{play:(n,d,t,v)=>{try{_rhodesMelSampler.triggerAttackRelease(n,d,t,v);}catch(e){}}};
+  return{play:(n,d,t,v)=>{try{var o=parseInt(n.slice(-1));var nn=n.slice(0,-1)+(o-1);_rhodesMelSampler.triggerAttackRelease(nn,d,t,v);}catch(e){}}};
 }function makeSynthPiano(bag){
   // Rich piano: layered AMSynth + harmonic partials + reverb + compression
   const rev=new Tone.Reverb({decay:2.8,wet:0.2}).toDestination();
