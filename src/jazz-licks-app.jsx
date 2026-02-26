@@ -1744,21 +1744,21 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl}){
         [{n:"C",a:1,l:"C\u266F",off:1},{n:"D",a:1,l:"D\u266F",off:2},{n:"F",a:1,l:"F\u266F",off:4},{n:"G",a:1,l:"G\u266F",off:5},{n:"A",a:1,l:"A\u266F",off:6}];
       var totalW=(octHi-octLo+1)*octW;
       var octaves=[];
-      for(var o=octLo;o<=octHi;o++){
-        var isCur=o===effOct;
+      for(var o=octLo;o<=octHi;o++)(function(oct){
+        var isCur=oct===effOct;
         // White keys
         var whites=["C","D","E","F","G","A","B"].map(function(n,ki){
-          return React.createElement("button",{key:o+"-"+n,onClick:function(){addNote(n,0,o);},style:{width:wkW,height:"100%",borderRadius:ki===0?"6px 0 0 6px":ki===6?"0 6px 6px 0":"0",border:"1px solid "+(isCur?"#C5C4BE":"#D5D4CE"),borderRight:ki<6?"none":undefined,cursor:"pointer",background:isCur?"#FFFFF8":"#fff",color:"#1A1A1A",fontSize:14,fontWeight:600,fontFamily:"'Instrument Serif',Georgia,serif",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",paddingBottom:6,position:"relative",zIndex:1,flexShrink:0,boxSizing:"border-box"}},
-            n==="C"?React.createElement("span",{style:{fontSize:8,color:isCur?ac:mu,fontFamily:"'JetBrains Mono',monospace",marginBottom:2}},o):null,
+          return React.createElement("button",{key:oct+"-"+n,onClick:function(){addNote(n,0,oct);},style:{width:wkW,height:"100%",borderRadius:ki===0?"6px 0 0 6px":ki===6?"0 6px 6px 0":"0",border:"1px solid "+(isCur?"#C5C4BE":"#D5D4CE"),borderRight:ki<6?"none":undefined,cursor:"pointer",background:isCur?"#FFFFF8":"#fff",color:"#1A1A1A",fontSize:14,fontWeight:600,fontFamily:"'Instrument Serif',Georgia,serif",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",paddingBottom:6,position:"relative",zIndex:1,flexShrink:0,boxSizing:"border-box"}},
+            n==="C"?React.createElement("span",{style:{fontSize:8,color:isCur?ac:mu,fontFamily:"'JetBrains Mono',monospace",marginBottom:2}},oct):null,
             React.createElement("span",null,n));
         });
         // Black keys
         var blackKeys=bks.map(function(k){
           var leftPos=k.off*wkW-bkW/2;
-          return React.createElement("button",{key:o+"-"+k.l,onClick:function(e){e.stopPropagation();addNote(k.n,k.a,o);},style:{position:"absolute",top:0,left:leftPos,width:bkW,height:bkH,borderRadius:"0 0 5px 5px",border:"1px solid #333",cursor:"pointer",background:"linear-gradient(180deg,#2A2A2A,#111)",color:"#ccc",fontSize:8,fontWeight:600,fontFamily:"'Inter',sans-serif",display:"flex",alignItems:"flex-end",justifyContent:"center",paddingBottom:4,zIndex:2,boxShadow:"0 2px 4px rgba(0,0,0,0.3)",boxSizing:"border-box"}},k.l);
+          return React.createElement("button",{key:oct+"-"+k.l,onClick:function(e){e.stopPropagation();addNote(k.n,k.a,oct);},style:{position:"absolute",top:0,left:leftPos,width:bkW,height:bkH,borderRadius:"0 0 5px 5px",border:"1px solid #333",cursor:"pointer",background:"linear-gradient(180deg,#2A2A2A,#111)",color:"#ccc",fontSize:8,fontWeight:600,fontFamily:"'Inter',sans-serif",display:"flex",alignItems:"flex-end",justifyContent:"center",paddingBottom:4,zIndex:2,boxShadow:"0 2px 4px rgba(0,0,0,0.3)",boxSizing:"border-box"}},k.l);
         });
-        octaves.push(React.createElement("div",{key:o,"data-oct":o,style:{position:"relative",display:"flex",height:"100%",flexShrink:0,width:octW,borderRight:o<octHi?"2px solid "+(isCur?"rgba(99,102,241,0.3)":"#E0DFD8"):"none"}},whites,blackKeys));
-      }
+        octaves.push(React.createElement("div",{key:oct,"data-oct":oct,style:{position:"relative",display:"flex",height:"100%",flexShrink:0,width:octW,borderRight:oct<octHi?"2px solid "+(isCur?"rgba(99,102,241,0.3)":"#E0DFD8"):"none"}},whites,blackKeys));
+      })(o);
       return React.createElement("div",{ref:pianoRef,style:{overflowX:"auto",overflowY:"hidden",WebkitOverflowScrolling:"touch",scrollbarWidth:"none",borderRadius:10,border:"1px solid #D5D4CE",height:112}},
         React.createElement("div",{style:{display:"flex",height:"100%",width:totalW}},octaves));
     })());}
