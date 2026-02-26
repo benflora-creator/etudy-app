@@ -1048,6 +1048,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
   const[backingStyle,setBackingStyle]=useState("piano");const[muteKeys,setMuteKeys]=useState(false);const[muteBass,setMuteBass]=useState(false);const[muteDrums,setMuteDrums]=useState(false);
   const[sound,setSound]=useState("piano");const[loading,setLoading]=useState(false);const[samplesOk,setSamplesOk]=useState(_samplerReady);
   const[ci,setCi]=useState(true);const lcDispRef=useRef(null);const[settingsOpen,setSettingsOpen]=useState(false);
+  const[soundDdOpen,setSoundDdOpen]=useState(false);const[backDdOpen,setBackDdOpen]=useState(false);const[metroExpand,setMetroExpand]=useState(false);
   const prBarRef=useRef(null);
   const bagRef=useRef([]);const aR=useRef(null);const tR=useRef(0);const dR=useRef(0);const sT=useRef(true);
   const lR=useRef(false);const mR=useRef(false);const bR=useRef(true);const mlR=useRef(true);const fR=useRef(initFeel||"straight");const soR=useRef("piano");const ciR=useRef(true);
@@ -1356,8 +1357,10 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
         sBtn(ci,"Count-in "+(ci?"\u2713":"\u2717"),()=>setCi(!ci)))));
 
   const dispBpm=pT||tempo;
+  const curSoundLabel=(SOUND_PRESETS.find(p=>p.id===sound)||{}).label||"Piano";
+  const curBackObj=BACKING_STYLES.find(s=>s.id===backingStyle)||BACKING_STYLES[0];
   return React.createElement("div",{style:{marginTop:12}},
-    // ROW 1: Play + progress + BPM(tap) + ± + Loop + AB
+    // ROW 1: Play + progress + Loop + AB
     React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
       React.createElement("button",{onClick:e=>{e.stopPropagation();tg();},style:{...bb,width:t===TH.studio?44:40,height:t===TH.studio?44:40,borderRadius:"50%",flexShrink:0,background:pl?t.filterBg:loading?t.filterBg:t.playBg,boxShadow:pl||loading?"none":"0 4px 18px "+(t.accentGlow||"rgba(0,0,0,0.1)"),animation:!pl&&!loading&&t===TH.studio?"playPulse 2.5s ease-in-out infinite":"none"}},
         loading?React.createElement("div",{style:{width:14,height:14,border:"2px solid "+t.accentBg,borderTopColor:t.accent,borderRadius:"50%",animation:"spin 0.8s linear infinite"}}):
@@ -1366,48 +1369,48 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
       React.createElement("div",{style:{flex:1,height:4,background:t.progressBg,borderRadius:4,overflow:"hidden",position:"relative",minWidth:30}},
         abOn&&React.createElement("div",{style:{position:"absolute",left:((abA||0)*100)+"%",width:(((abB||1)-(abA||0))*100)+"%",height:"100%",background:t.accentBg}}),
         React.createElement("div",{ref:prBarRef,style:{position:"absolute",left:0,width:"0%",height:"100%",background:t.accent,borderRadius:4}})),
-      // BPM: tap number for tap tempo
+      pill(lp,"\u221E",()=>sLp(!lp),"Loop"),
+      setAbOn&&React.createElement("span",{"data-coach":"ab-loop"},pill(abOn,"\u2759\u2759",()=>{setAbOn(!abOn);if(!abOn){setAbA(0);setAbB(1);}},"A\u2009\u00B7\u2009B"))),
+
+    // ROW 2: Metronome — BPM(tap) + +/- + TAP + More
+    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginTop:8}},
       React.createElement("button",{onClick:e=>{e.stopPropagation();parentTapTempo();},style:{...bb,padding:"2px 4px",borderRadius:6,background:"transparent",flexShrink:0}},
         React.createElement("span",{style:{fontSize:18,fontWeight:700,color:pl?t.accent:t.text,fontFamily:"'JetBrains Mono',monospace",letterSpacing:-0.5}},dispBpm)),
       React.createElement("div",{style:{display:"flex",gap:2,flexShrink:0}},
         React.createElement("button",{onClick:e=>{e.stopPropagation();parentChangeBpm(-5);},style:{...bb,width:22,height:22,borderRadius:5,border:"1px solid "+t.border,background:t.filterBg,color:t.text,fontSize:11}},"\u2212"),
         React.createElement("button",{onClick:e=>{e.stopPropagation();parentChangeBpm(5);},style:{...bb,width:22,height:22,borderRadius:5,border:"1px solid "+t.border,background:t.filterBg,color:t.text,fontSize:11}},"+"),
         lickTempo&&dispBpm!==lickTempo&&React.createElement("button",{onClick:e=>{e.stopPropagation();parentChangeBpm(lickTempo-dispBpm);},style:{...bb,padding:"2px 5px",borderRadius:5,background:"none",color:t.subtle,fontSize:8}},"\u21A9")),
-      pill(lp,"\u221E",()=>sLp(!lp),"Loop"),
-      setAbOn&&React.createElement("span",{"data-coach":"ab-loop"},pill(abOn,"\u2759\u2759",()=>{setAbOn(!abOn);if(!abOn){setAbA(0);setAbB(1);}},"A\u2009\u00B7\u2009B"))),
+      React.createElement("button",{onClick:e=>{e.stopPropagation();parentTapTempo();},style:{...bb,padding:"3px 8px",borderRadius:6,border:"1.5px solid "+t.border,background:t.card,color:t.text,fontSize:9,fontWeight:600,flexShrink:0}},"TAP"),
+      React.createElement("div",{style:{marginLeft:"auto",flexShrink:0}},
+        React.createElement("button",{onClick:e=>{e.stopPropagation();setMetroExpand(!metroExpand);},style:{...bb,padding:"3px 8px",borderRadius:6,background:metroExpand?t.filterBg:"transparent",color:metroExpand?t.text:t.subtle,fontSize:9}},metroExpand?"\u25B4 Less":"\u25BE More"))),
+    // Metronome expand: beat dots, click mute/sound, count-in, progressive
+    metroExpand&&React.createElement("div",{style:{marginTop:4,padding:"8px 10px",background:t.settingsBg,borderRadius:10,border:"1px solid "+t.border}},
+      React.createElement(MiniMetronome,{th:t,initBpm:pT||tempo,syncPlaying:pl,ctrlRef:metroCtrlRef,onBpmChange:function(v){pTR.current=v;if(sPT)sPT(v);if(!sT.current)liveRestart(v);},lickTempo:lickTempo||tempo,onSetLoop:function(v){if(v)sLp(true);},lickTimeSig:lickTS,headless:true}),
+      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginTop:6}},
+        sBtn(ci,"Count-in "+(ci?"\u2713":"\u2717"),()=>setCi(!ci)))),
 
-    // ROW 2: Toggles + Sound (single scrollable row)
-    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:5,marginTop:8,overflowX:"auto",scrollbarWidth:"none",WebkitOverflowScrolling:"touch"}},
+    // ROW 3: Melody [Sound dropdown] | Backing [Style dropdown]
+    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginTop:8,position:"relative"}},
       pill(ml,ml?"\u266B":"\u2715",()=>sMl(!ml),ml?"Mel":"Mel off"),
+      ml&&React.createElement("div",{style:{position:"relative"}},
+        React.createElement("button",{onClick:e=>{e.stopPropagation();setSoundDdOpen(!soundDdOpen);setBackDdOpen(false);},style:{...bb,padding:"4px 8px",fontSize:10,borderRadius:6,background:soundDdOpen?t.accentBg:t.filterBg,color:soundDdOpen?t.accent:t.muted,gap:3}},curSoundLabel," ",soundDdOpen?"\u25B4":"\u25BE"),
+        soundDdOpen&&React.createElement("div",{style:{position:"absolute",top:"100%",left:0,marginTop:4,background:t.card,border:"1px solid "+t.border,borderRadius:8,boxShadow:"0 4px 16px rgba(0,0,0,0.12)",zIndex:50,minWidth:110,padding:4,display:"flex",flexDirection:"column",gap:2}},
+          SOUND_PRESETS.map(p=>React.createElement("button",{key:p.id,onClick:e=>{e.stopPropagation();setSound(p.id);setSoundDdOpen(false);},style:{...bb,padding:"6px 10px",fontSize:11,borderRadius:6,background:sound===p.id?t.accentBg:"transparent",color:sound===p.id?t.accent:t.text,justifyContent:"flex-start",width:"100%"}},p.label)))),
+      React.createElement("div",{style:{width:1,height:20,background:t.border,flexShrink:0}}),
       pill(bk,bk?"\uD83C\uDFB9":"\uD83C\uDFB9",()=>sBk(!bk),bk?"Back":"Back off"),
-      React.createElement("div",{style:{width:1,height:18,background:t.border,flexShrink:0,margin:"0 2px"}}),
-      SOUND_PRESETS.map(p=>React.createElement("button",{key:p.id,onClick:e=>{e.stopPropagation();setSound(p.id);},style:{...bb,padding:"4px 8px",fontSize:10,borderRadius:6,whiteSpace:"nowrap",flexShrink:0,background:sound===p.id?t.accentBg:t.filterBg,color:sound===p.id?t.accent:t.muted}},p.label))),
+      bk&&React.createElement("div",{style:{position:"relative"}},
+        React.createElement("button",{onClick:e=>{e.stopPropagation();setBackDdOpen(!backDdOpen);setSoundDdOpen(false);},style:{...bb,padding:"4px 8px",fontSize:10,borderRadius:6,background:backDdOpen?t.accentBg:t.filterBg,color:backDdOpen?t.accent:t.muted,gap:3}},curBackObj.emoji+" "+curBackObj.label," ",backDdOpen?"\u25B4":"\u25BE"),
+        backDdOpen&&React.createElement("div",{style:{position:"absolute",top:"100%",left:0,marginTop:4,background:t.card,border:"1px solid "+t.border,borderRadius:8,boxShadow:"0 4px 16px rgba(0,0,0,0.12)",zIndex:50,minWidth:140,padding:4,display:"flex",flexDirection:"column",gap:2}},
+          BACKING_STYLES.map(s=>React.createElement("button",{key:s.id,onClick:e=>{e.stopPropagation();setBackingStyle(s.id);},style:{...bb,padding:"6px 10px",fontSize:11,borderRadius:6,background:backingStyle===s.id?t.accentBg:"transparent",color:backingStyle===s.id?t.accent:t.text,justifyContent:"flex-start",width:"100%"}},s.emoji+" "+s.label)),
+          backingStyle!=="piano"&&backingStyle!=="rhodes"&&React.createElement("div",{style:{borderTop:"1px solid "+t.border,marginTop:2,paddingTop:4,display:"flex",gap:4,padding:"4px 6px"}},
+            React.createElement("button",{onClick:e=>{e.stopPropagation();setMuteKeys(!muteKeys);},style:{...bb,padding:"4px 7px",fontSize:9,borderRadius:5,background:muteKeys?t.filterBg:t.accentBg,color:muteKeys?t.muted:t.accent,textDecoration:muteKeys?"line-through":"none"}},"Keys"),
+            React.createElement("button",{onClick:e=>{e.stopPropagation();setMuteBass(!muteBass);},style:{...bb,padding:"4px 7px",fontSize:9,borderRadius:5,background:muteBass?t.filterBg:t.accentBg,color:muteBass?t.muted:t.accent,textDecoration:muteBass?"line-through":"none"}},"Bass"),
+            (backingStyle==="jazz"||backingStyle==="bossa")&&React.createElement("button",{onClick:e=>{e.stopPropagation();setMuteDrums(!muteDrums);},style:{...bb,padding:"4px 7px",fontSize:9,borderRadius:5,background:muteDrums?t.filterBg:t.accentBg,color:muteDrums?t.muted:t.accent,textDecoration:muteDrums?"line-through":"none"}},"Drums"))))),
 
-    // ROW 3: Backing styles + mute (only when backing on)
-    bk&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4,marginTop:6,flexWrap:"wrap"}},
-      BACKING_STYLES.map(s=>React.createElement("button",{key:s.id,onClick:e=>{e.stopPropagation();setBackingStyle(s.id);},style:{...bb,gap:2,padding:"4px 8px",fontSize:10,borderRadius:6,whiteSpace:"nowrap",background:backingStyle===s.id?t.accentBg:t.filterBg,color:backingStyle===s.id?t.accent:t.muted}},s.emoji+" "+s.label)),
-      backingStyle!=="piano"&&backingStyle!=="rhodes"&&React.createElement("span",{style:{display:"flex",gap:3,marginLeft:4}},
-        React.createElement("button",{onClick:e=>{e.stopPropagation();setMuteKeys(!muteKeys);},style:{...bb,padding:"4px 7px",fontSize:9,borderRadius:5,background:muteKeys?t.filterBg:t.accentBg,color:muteKeys?t.muted:t.accent,textDecoration:muteKeys?"line-through":"none"}},"Keys"),
-        React.createElement("button",{onClick:e=>{e.stopPropagation();setMuteBass(!muteBass);},style:{...bb,padding:"4px 7px",fontSize:9,borderRadius:5,background:muteBass?t.filterBg:t.accentBg,color:muteBass?t.muted:t.accent,textDecoration:muteBass?"line-through":"none"}},"Bass"),
-        (backingStyle==="jazz"||backingStyle==="bossa")&&React.createElement("button",{onClick:e=>{e.stopPropagation();setMuteDrums(!muteDrums);},style:{...bb,padding:"4px 7px",fontSize:9,borderRadius:5,background:muteDrums?t.filterBg:t.accentBg,color:muteDrums?t.muted:t.accent,textDecoration:muteDrums?"line-through":"none"}},"Drums"))),
-
-    // ROW 4: "More" — single flat panel for ALL rare settings
-    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginTop:8}},
-      React.createElement("button",{onClick:e=>{e.stopPropagation();setSettingsOpen(!settingsOpen);},style:{...bb,gap:4,padding:"5px 10px",fontSize:11,fontWeight:400,borderRadius:8,background:settingsOpen?t.filterBg:"transparent",color:settingsOpen?t.text:t.muted}},settingsOpen?"More \u25B4":"More \u25BE"),
-      nonDefaults.length>0&&!settingsOpen&&React.createElement("span",{style:{fontSize:10,color:t.accent,fontFamily:"'Inter',sans-serif",fontWeight:500}},nonDefaults.length+" changed")),
-    settingsOpen&&React.createElement("div",{style:{marginTop:6,padding:"12px",background:t.settingsBg,borderRadius:12,border:"1px solid "+t.border,display:"flex",flexDirection:"column",gap:12}},
-      // Feel + Count-in (same row)
-      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}},
-        React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5,flexShrink:0}},"FEEL"),
-        ["straight","swing","hard-swing"].map(v=>sBtn(fl===v,v==="straight"?"Straight":v==="swing"?"Swing":"Hard Swing",()=>sFl(v))),
-        React.createElement("div",{style:{width:1,height:16,background:t.border,flexShrink:0,margin:"0 2px"}}),
-        sBtn(ci,"Count-in "+(ci?"\u2713":"\u2717"),()=>setCi(!ci))),
-      // Transpose
-      setTrInst&&React.createElement(TransposeBar,{trInst,setTrInst,trMan,setTrMan,th:t}),
-      // Metronome settings (headless)
-      React.createElement("div",null,
-        React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,display:"block",marginBottom:6,letterSpacing:0.5}},"METRONOME"),
-        React.createElement(MiniMetronome,{th:t,initBpm:pT||tempo,syncPlaying:pl,ctrlRef:metroCtrlRef,onBpmChange:function(v){pTR.current=v;if(sPT)sPT(v);if(!sT.current)liveRestart(v);},lickTempo:lickTempo||tempo,onSetLoop:function(v){if(v)sLp(true);},lickTimeSig:lickTS,headless:true}))));
+    // ROW 4: Feel (always visible, inline)
+    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4,marginTop:8}},
+      React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5,flexShrink:0}},"Feel"),
+      ["straight","swing","hard-swing"].map(v=>sBtn(fl===v,v==="straight"?"Straight":v==="swing"?"Swing":"Hard Swing",()=>sFl(v)))));
 }
 
 // ============================================================
