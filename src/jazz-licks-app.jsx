@@ -754,7 +754,7 @@ let _rhodesChordSampler=null,_rhodesChordReady=false,_rhodesChordPromise=null;
 function preloadRhodesChord(){if(_rhodesChordPromise)return _rhodesChordPromise;_rhodesChordPromise=new Promise(res=>{try{console.log("[etudy] Loading Rhodes samples from:",RHODES_BASE);_rhodesChordSampler=new Tone.Sampler({urls:RHODES_MAP,baseUrl:RHODES_BASE,release:2.5,volume:-4,onload:()=>{_rhodesChordReady=true;console.log("[etudy] Rhodes samples loaded OK");res(true);},onerror:(e)=>{console.warn("[etudy] Rhodes samples FAILED:",e);res(false);}});setTimeout(()=>{if(!_rhodesChordReady){console.warn("[etudy] Rhodes samples timeout");res(false);}},20000);}catch(e){res(false);}});return _rhodesChordPromise;}
 // Custom piano sampler — real piano samples from Supabase
 const CPIANO_BASE="https://edhsqycbglkaqbzzhcmp.supabase.co/storage/v1/object/public/Samples/piano/";
-const CPIANO_MAP={"C1":"C1.mp3","F1":"F1.mp3","C2":"C2.mp3","F2":"F2.mp3","C3":"C3.mp3","F3":"F3.mp3","C4":"C4.mp3","F4":"F4.mp3"};
+const CPIANO_MAP={"C1":"C1.mp3","F1":"F1.mp3","C2":"C2.mp3","F2":"F2.mp3","C3":"C3.mp3","F3":"F3.mp3","C4":"C4.mp3","F4":"F4.mp3","C5":"C5.mp3"};
 let _cPianoChordSampler=null,_cPianoChordReady=false,_cPianoChordPromise=null;
 function preloadCustomPianoChord(){if(_cPianoChordPromise)return _cPianoChordPromise;_cPianoChordPromise=new Promise(res=>{try{console.log("[etudy] Loading custom piano samples from:",CPIANO_BASE);_cPianoChordSampler=new Tone.Sampler({urls:CPIANO_MAP,baseUrl:CPIANO_BASE,release:2.0,volume:-4,onload:()=>{_cPianoChordReady=true;console.log("[etudy] Custom piano samples loaded OK");res(true);},onerror:(e)=>{console.warn("[etudy] Custom piano samples FAILED:",e);res(false);}});setTimeout(()=>{if(!_cPianoChordReady){console.warn("[etudy] Custom piano samples timeout");res(false);}},20000);}catch(e){res(false);}});return _cPianoChordPromise;}
 // Alto sax sampler — single C2 sample pitched across range
@@ -1174,7 +1174,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
       if(hasDrums){try{drumsInst=makeDrums(bag);}catch(e){console.warn("Drums init:",e);}}
       var spb=parsed.spb;var tsN=parsed.tsNum;
       // --- PIANO COMPING ---
-      if(hasKeys){var _chordOct=(_bStyle==="jazz"||_bStyle==="bossa")?4:3;for(let ci=0;ci<chordTimes.length;ci++){const c=chordTimes[ci];if(abActive&&(c.time<abS-0.001||c.time>=abE-0.001))continue;const cn=chordToNotes(c.name,_chordOct);if(!cn.length)continue;const ct=abActive?c.time-abS:c.time;const nextTime=ci<chordTimes.length-1?chordTimes[ci+1].time:totalDur;const chordDur=abActive?Math.min(nextTime,abE)-c.time:nextTime-c.time;
+      if(hasKeys){var _chordOct=(_bStyle==="jazz"||_bStyle==="bossa")?4:2;for(let ci=0;ci<chordTimes.length;ci++){const c=chordTimes[ci];if(abActive&&(c.time<abS-0.001||c.time>=abE-0.001))continue;const cn=chordToNotes(c.name,_chordOct);if(!cn.length)continue;const ct=abActive?c.time-abS:c.time;const nextTime=ci<chordTimes.length-1?chordTimes[ci+1].time:totalDur;const chordDur=abActive?Math.min(nextTime,abE)-c.time:nextTime-c.time;
         if(_bStyle==="piano"||_bStyle==="rhodes"||_bStyle==="ballad"){
           // Sustained chord — use attack/release separately for full sustain on Samplers
           // SAMPLE_PRE: compensate for attack latency in samples (schedule slightly early)
