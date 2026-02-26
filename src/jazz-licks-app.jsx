@@ -575,6 +575,24 @@ function makeSamplerSax(bag){
   _saxSampler.connect(flt);
   bag.push(flt,comp,vib,rev);
   return{play:(n,d,t,v)=>{try{_saxSampler.triggerAttackRelease(n,d,t,v);}catch(e){}}};
+}
+function makeCustomPianoMel(bag){
+  const rev=new Tone.Reverb({decay:2.5,wet:0.16}).toDestination();
+  const comp=new Tone.Compressor({threshold:-22,ratio:3,attack:0.005,release:0.12}).connect(rev);
+  try{_pianoMelSampler.disconnect();}catch(e){}
+  _pianoMelSampler.connect(comp);
+  bag.push(comp,rev);
+  return{play:(n,d,t,v)=>{try{_pianoMelSampler.triggerAttackRelease(n,d,t,v);}catch(e){}}};
+}
+function makeCustomRhodesMel(bag){
+  const rev=new Tone.Reverb({decay:2.0,wet:0.16}).toDestination();
+  const ch=new Tone.Chorus({frequency:0.7,delayTime:4,depth:0.2,wet:0.18}).connect(rev);ch.start();
+  const tr=new Tone.Tremolo({frequency:3,depth:0.2,wet:0.25}).connect(ch);tr.start();
+  const flt=new Tone.Filter({frequency:3500,type:"lowpass",rolloff:-12}).connect(tr);
+  try{_rhodesMelSampler.disconnect();}catch(e){}
+  _rhodesMelSampler.connect(flt);
+  bag.push(flt,tr,ch,rev);
+  return{play:(n,d,t,v)=>{try{_rhodesMelSampler.triggerAttackRelease(n,d,t,v);}catch(e){}}};
 }function makeSynthPiano(bag){
   // Rich piano: layered AMSynth + harmonic partials + reverb + compression
   const rev=new Tone.Reverb({decay:2.8,wet:0.2}).toDestination();
@@ -713,7 +731,17 @@ function makeVibes(bag){
   bag.push(s,atk,tr,rev);
   return{play:(n,d,t,v)=>{s.triggerAttackRelease(n,d,t,v);atk.triggerAttackRelease(n,"64n",t,v);}};
 }
-function makeMelSynth(id,bag){if((id==="piano"||id==="rhodes")&&_samplerReady&&_sampler)return id==="piano"?makeSamplerPiano(bag):makeSamplerRhodes(bag);if(id==="sax"&&_saxSamplerReady&&_saxSampler)return makeSamplerSax(bag);switch(id){case"piano":case"rhodes":return makeSynthPiano(bag);case"sax":return makeSax(bag);case"trumpet":return makeTrumpet(bag);case"guitar":return makeGuitar(bag);case"flute":return makeFlute(bag);case"vibes":return makeVibes(bag);default:return makeSynthPiano(bag);}}
+function makeMelSynth(id,bag){
+  // Custom samplers first (from Supabase)
+  if(id==="piano"&&_pianoMelReady&&_pianoMelSampler)return makeCustomPianoMel(bag);
+  if(id==="rhodes"&&_rhodesMelReady&&_rhodesMelSampler)return makeCustomRhodesMel(bag);
+  // Salamander fallback for piano/rhodes
+  if((id==="piano"||id==="rhodes")&&_samplerReady&&_sampler)return id==="piano"?makeSamplerPiano(bag):makeSamplerRhodes(bag);
+  // Sax sampler
+  if(id==="sax"&&_saxSamplerReady&&_saxSampler)return makeSamplerSax(bag);
+  // Synth fallbacks
+  switch(id){case"piano":case"rhodes":return makeSynthPiano(bag);case"sax":return makeSax(bag);case"trumpet":return makeTrumpet(bag);case"guitar":return makeGuitar(bag);case"flute":return makeFlute(bag);case"vibes":return makeVibes(bag);default:return makeSynthPiano(bag);}
+}
 let _chordSampler=null,_chordSamplerReady=false,_chordSamplerPromise=null;
 function preloadChordPiano(){if(_chordSamplerPromise)return _chordSamplerPromise;_chordSamplerPromise=new Promise(res=>{try{_chordSampler=new Tone.Sampler({urls:SAL_MAP,baseUrl:SAL_BASE,release:1.2,volume:-14,onload:()=>{_chordSamplerReady=true;res(true);},onerror:()=>{res(false);}});setTimeout(()=>{if(!_chordSamplerReady)res(false);},15000);}catch(e){res(false);}});return _chordSamplerPromise;}
 // Bass sampler — Salamander piano pitched low + heavy filtering = upright bass
@@ -734,6 +762,11 @@ const SAX_BASE="https://edhsqycbglkaqbzzhcmp.supabase.co/storage/v1/object/publi
 const SAX_MAP={"C5":"C2.mp3"};
 let _saxSampler=null,_saxSamplerReady=false,_saxSamplerPromise=null;
 function preloadSaxSampler(){if(_saxSamplerPromise)return _saxSamplerPromise;_saxSamplerPromise=new Promise(res=>{try{console.log("[etudy] Loading alto sax sample from:",SAX_BASE);_saxSampler=new Tone.Sampler({urls:SAX_MAP,baseUrl:SAX_BASE,release:0.8,volume:-6,onload:()=>{_saxSamplerReady=true;console.log("[etudy] Alto sax sample loaded OK");res(true);},onerror:(e)=>{console.warn("[etudy] Alto sax sample FAILED:",e);res(false);}});setTimeout(()=>{if(!_saxSamplerReady){console.warn("[etudy] Alto sax sample timeout");res(false);}},15000);}catch(e){res(false);}});return _saxSamplerPromise;}
+// Melody-specific samplers (separate instances from backing to avoid connection conflicts)
+let _pianoMelSampler=null,_pianoMelReady=false,_pianoMelPromise=null;
+function preloadPianoMel(){if(_pianoMelPromise)return _pianoMelPromise;_pianoMelPromise=new Promise(res=>{try{_pianoMelSampler=new Tone.Sampler({urls:CPIANO_MAP,baseUrl:CPIANO_BASE,release:1.5,volume:-4,onload:()=>{_pianoMelReady=true;console.log("[etudy] Piano melody sampler loaded OK");res(true);},onerror:()=>{res(false);}});setTimeout(()=>{if(!_pianoMelReady)res(false);},20000);}catch(e){res(false);}});return _pianoMelPromise;}
+let _rhodesMelSampler=null,_rhodesMelReady=false,_rhodesMelPromise=null;
+function preloadRhodesMel(){if(_rhodesMelPromise)return _rhodesMelPromise;_rhodesMelPromise=new Promise(res=>{try{_rhodesMelSampler=new Tone.Sampler({urls:RHODES_MAP,baseUrl:RHODES_BASE,release:1.5,volume:-4,onload:()=>{_rhodesMelReady=true;console.log("[etudy] Rhodes melody sampler loaded OK");res(true);},onerror:()=>{res(false);}});setTimeout(()=>{if(!_rhodesMelReady)res(false);},20000);}catch(e){res(false);}});return _rhodesMelPromise;}
 function makeChordSynth(bag){
   // Priority 1: Custom piano samples from Supabase
   if(_cPianoChordReady&&_cPianoChordSampler){
@@ -1039,7 +1072,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
   const setLc=v=>{if(lcDispRef.current){lcDispRef.current.textContent=v;lcDispRef.current.parentElement.style.display=v>1?"flex":"none";}};
   const scheduledTimers=useRef([]);
   const clearScheduled=()=>{for(const tid of scheduledTimers.current)clearTimeout(tid);scheduledTimers.current=[];};
-  const disposeBag=()=>{clearScheduled();if(_sampler&&_samplerReady)try{_sampler.releaseAll();_sampler.disconnect();}catch(e){}if(_chordSampler&&_chordSamplerReady)try{_chordSampler.releaseAll();_chordSampler.disconnect();}catch(e){}if(_bassSampler&&_bassSamplerReady)try{_bassSampler.releaseAll();_bassSampler.disconnect();}catch(e){}if(_rhodesChordSampler&&_rhodesChordReady)try{_rhodesChordSampler.releaseAll();_rhodesChordSampler.disconnect();}catch(e){}if(_cPianoChordSampler&&_cPianoChordReady)try{_cPianoChordSampler.releaseAll();_cPianoChordSampler.disconnect();}catch(e){}if(_saxSampler&&_saxSamplerReady)try{_saxSampler.releaseAll();_saxSampler.disconnect();}catch(e){}for(const n of bagRef.current){try{n.releaseAll&&n.releaseAll();}catch(e){}try{n.stop&&n.stop();}catch(e){}try{n.dispose();}catch(e){}}bagRef.current=[];};
+  const disposeBag=()=>{clearScheduled();if(_sampler&&_samplerReady)try{_sampler.releaseAll();_sampler.disconnect();}catch(e){}if(_chordSampler&&_chordSamplerReady)try{_chordSampler.releaseAll();_chordSampler.disconnect();}catch(e){}if(_bassSampler&&_bassSamplerReady)try{_bassSampler.releaseAll();_bassSampler.disconnect();}catch(e){}if(_rhodesChordSampler&&_rhodesChordReady)try{_rhodesChordSampler.releaseAll();_rhodesChordSampler.disconnect();}catch(e){}if(_cPianoChordSampler&&_cPianoChordReady)try{_cPianoChordSampler.releaseAll();_cPianoChordSampler.disconnect();}catch(e){}if(_saxSampler&&_saxSamplerReady)try{_saxSampler.releaseAll();_saxSampler.disconnect();}catch(e){}if(_pianoMelSampler&&_pianoMelReady)try{_pianoMelSampler.releaseAll();_pianoMelSampler.disconnect();}catch(e){}if(_rhodesMelSampler&&_rhodesMelReady)try{_rhodesMelSampler.releaseAll();_rhodesMelSampler.disconnect();}catch(e){}for(const n of bagRef.current){try{n.releaseAll&&n.releaseAll();}catch(e){}try{n.stop&&n.stop();}catch(e){}try{n.dispose();}catch(e){}}bagRef.current=[];};
   const metroCtrlRef=useRef({});// MiniMetronome writes start/stop here
   const clr=useCallback(()=>{sT.current=true;if(aR.current)cancelAnimationFrame(aR.current);disposeBag();sPl(false);setPr(0);setLc(0);setLoading(false);lcR.current=0;curNoteR.current=-1;if(onCurNoteR.current)onCurNoteR.current(-1);try{metroCtrlRef.current.stop&&metroCtrlRef.current.stop();}catch(e){}},[]);
   // Live restart at new BPM (called when user changes BPM during playback)
@@ -1247,6 +1280,8 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
     if(!_bassSamplerReady)preloadBassSampler();
     // Preload sax sampler if sax sound is selected
     if(soR.current==="sax"&&!_saxSamplerReady)await preloadSaxSampler();
+    if(soR.current==="piano"&&!_pianoMelReady)await preloadPianoMel();
+    if(soR.current==="rhodes"&&!_rhodesMelReady)await preloadRhodesMel();
     const p=parseAbc(abcR.current,pTR.current);
     // Capture ONE time reference — shared by lick notes AND metronome
     var t0=Tone.now();toneStartR.current=t0;
