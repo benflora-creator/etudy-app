@@ -761,7 +761,7 @@ function makeBass(bag){
     noise:{type:"pink"},envelope:{attack:0.001,decay:0.02,sustain:0,release:0.015},volume:-28
   }).connect(buzzFlt);
   bag.push(s,atk,buzz,flt,atkFlt,buzzFlt,comp,rev);
-  return{play:(n,d,t,v)=>{s.triggerAttackRelease(n,d,t,v);atk.triggerAttackRelease(n,"64n",t,v*0.8);buzz.triggerAttackRelease("64n",t,v*0.5);}};
+  return{play:(n,d,t,v)=>{try{s.triggerAttackRelease(n,d,t,v);atk.triggerAttackRelease(n,"64n",t,v*0.8);buzz.triggerAttackRelease("64n",t,v*0.5);}catch(e){}}};
 }
 function makeDrums(bag){
   const master=new Tone.Gain(0.9).toDestination();
@@ -779,37 +779,36 @@ function makeDrums(bag){
   // Hi-hat closed: tight filtered noise
   const hhFlt=new Tone.Filter({frequency:10000,type:"highpass",rolloff:-12}).connect(master);
   const hh=new Tone.NoiseSynth({noise:{type:"white"},envelope:{attack:0.001,decay:0.035,sustain:0,release:0.015},volume:-15}).connect(hhFlt);
-  // Ride: complex metallic with sustain
+  // Ride: FM-based metallic shimmer (safer than MetalSynth)
   const rideFlt=new Tone.Filter({frequency:6000,type:"highpass",rolloff:-6}).connect(master);
   const rideRev=new Tone.Reverb({decay:2.0,wet:0.25}).connect(rideFlt);
-  const ride=new Tone.MetalSynth({frequency:350,envelope:{attack:0.001,decay:0.5,release:0.4},harmonicity:5.1,modulationIndex:14,resonance:3500,octaves:0.8,volume:-21}).connect(rideRev);
-  // Ride bell (for accents)
-  const rideBell=new Tone.MetalSynth({frequency:800,envelope:{attack:0.001,decay:0.3,release:0.2},harmonicity:3.5,modulationIndex:8,resonance:5000,octaves:0.5,volume:-24}).connect(rideRev);
+  const ride=new Tone.FMSynth({harmonicity:12,modulationIndex:20,oscillator:{type:"sine"},modulation:{type:"square"},envelope:{attack:0.001,decay:0.45,sustain:0.01,release:0.35},modulationEnvelope:{attack:0.001,decay:0.2,sustain:0,release:0.1},volume:-22}).connect(rideRev);
+  // Ride bell — higher, brighter
+  const rideBell=new Tone.FMSynth({harmonicity:8,modulationIndex:15,oscillator:{type:"sine"},modulation:{type:"sine"},envelope:{attack:0.001,decay:0.3,sustain:0.01,release:0.2},modulationEnvelope:{attack:0.001,decay:0.15,sustain:0,release:0.08},volume:-24}).connect(rideRev);
   // Rim click / cross-stick: tight, woody
   const rimFlt=new Tone.Filter({frequency:4000,type:"bandpass",Q:4}).connect(roomRev);
   const rim=new Tone.NoiseSynth({noise:{type:"pink"},envelope:{attack:0.001,decay:0.018,sustain:0,release:0.012},volume:-12}).connect(rimFlt);
   const rimBody=new Tone.Synth({oscillator:{type:"sine"},envelope:{attack:0.001,decay:0.015,sustain:0,release:0.01},volume:-20}).connect(roomRev);
   // Brush: soft swish
   const brushFlt=new Tone.Filter({frequency:3000,type:"bandpass",Q:0.5}).connect(roomRev);
-  const brushRev=new Tone.Reverb({decay:0.4,wet:0.2}).connect(brushFlt);
-  const brushNoise=new Tone.NoiseSynth({noise:{type:"pink"},envelope:{attack:0.01,decay:0.12,sustain:0.02,release:0.08},volume:-16}).connect(brushRev);
-  // Crash (for fills)
+  const brushNoise=new Tone.NoiseSynth({noise:{type:"pink"},envelope:{attack:0.01,decay:0.12,sustain:0.02,release:0.08},volume:-16}).connect(brushFlt);
+  // Crash
   const crashFlt=new Tone.Filter({frequency:4000,type:"highpass",rolloff:-6}).connect(master);
   const crashRev=new Tone.Reverb({decay:2.5,wet:0.3}).connect(crashFlt);
-  const crash=new Tone.MetalSynth({frequency:250,envelope:{attack:0.001,decay:1.2,release:0.8},harmonicity:5.5,modulationIndex:20,resonance:4000,octaves:1.2,volume:-22}).connect(crashRev);
+  const crash=new Tone.NoiseSynth({noise:{type:"white"},envelope:{attack:0.001,decay:0.8,sustain:0.02,release:0.5},volume:-18}).connect(crashRev);
   bag.push(kick,snrNoise,snrBody,wireNoise,hh,ride,rideBell,rim,rimBody,brushNoise,crash,
-           kickFlt,snrFlt,wireFlt,hhFlt,rideFlt,rideRev,rimFlt,brushFlt,brushRev,crashFlt,crashRev,roomRev,master);
+           kickFlt,snrFlt,wireFlt,hhFlt,rideFlt,rideRev,rimFlt,brushFlt,crashFlt,crashRev,roomRev,master);
   return{
-    kick:(t,v)=>{kick.triggerAttackRelease("C1","8n",t,v);},
-    snare:(t,v,ghost)=>{
+    kick:(t,v)=>{try{kick.triggerAttackRelease("C1","8n",t,v);}catch(e){}},
+    snare:(t,v,ghost)=>{try{
       if(ghost){wireNoise.triggerAttackRelease("32n",t,v*0.6);snrBody.triggerAttackRelease("D3","32n",t,v*0.3);}
-      else{snrNoise.triggerAttackRelease("16n",t,v);snrBody.triggerAttackRelease("E2","16n",t,v*0.45);wireNoise.triggerAttackRelease("16n",t,v*0.3);}},
-    hh:(t,v)=>{hh.triggerAttackRelease("32n",t,v);},
-    ride:(t,v)=>{ride.triggerAttackRelease("32n",t,v);},
-    rideBell:(t,v)=>{rideBell.triggerAttackRelease("32n",t,v);},
-    rim:(t,v)=>{rim.triggerAttackRelease("32n",t,v);rimBody.triggerAttackRelease("A4","64n",t,v*0.4);},
-    brush:(t,v)=>{brushNoise.triggerAttackRelease("8n",t,v);},
-    crash:(t,v)=>{crash.triggerAttackRelease("8n",t,v);}
+      else{snrNoise.triggerAttackRelease("16n",t,v);snrBody.triggerAttackRelease("E2","16n",t,v*0.45);wireNoise.triggerAttackRelease("16n",t,v*0.3);}}catch(e){}},
+    hh:(t,v)=>{try{hh.triggerAttackRelease("32n",t,v);}catch(e){}},
+    ride:(t,v)=>{try{ride.triggerAttackRelease("C6","32n",t,v);}catch(e){}},
+    rideBell:(t,v)=>{try{rideBell.triggerAttackRelease("C7","32n",t,v);}catch(e){}},
+    rim:(t,v)=>{try{rim.triggerAttackRelease("32n",t,v);rimBody.triggerAttackRelease("A4","64n",t,v*0.4);}catch(e){}},
+    brush:(t,v)=>{try{brushNoise.triggerAttackRelease("8n",t,v);}catch(e){}},
+    crash:(t,v)=>{try{crash.triggerAttackRelease("8n",t,v);}catch(e){}}
   };
 }
 // Bass note from chord root + degree offset
@@ -1129,7 +1128,9 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
     const{scheduled:notes,totalDur,chordTimes}=applyTiming(parsed,sw);dR.current=totalDur;
     const mel=makeMelSynth(soR.current,bag);const click=makeClick(bag);
     const cs=makeChordSynth(bag);
-    const bassInst=makeBass(bag);const drumsInst=makeDrums(bag);
+    // Only create bass & drums when backing is actually enabled
+    let bassInst=null,drumsInst=null;
+    if(bR.current){try{bassInst=makeBass(bag);drumsInst=makeDrums(bag);}catch(e){console.warn("Backing synth init error:",e);}}
     bagRef.current=bag;const now=refNow||Tone.now();
     let cOff=doCi?parsed.spb*parsed.tsNum:0;
     const abActive=abOnR.current;const abS=abActive?abAR.current*totalDur:0;const abE=abActive?abBR.current*totalDur:totalDur;
@@ -1175,7 +1176,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
           }
         }}
         // Bass pattern
-        if(!muBassR.current&&pat.bass){for(const b of pat.bass){
+        if(!muBassR.current&&bassInst&&pat.bass){for(const b of pat.bass){
           const evTime=barStart+b.t*spb;
           if(evTime>=totalDur)continue;if(abActive&&(evTime<abS-0.001||evTime>=abE-0.001))continue;
           const ct=abActive?evTime-abS:evTime;const ch=chordAt(evTime);
@@ -1193,7 +1194,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
           timers.push(setTimeout(()=>{if(sT.current)return;bassInst.play(bn,_dur,baseTime+hu.t,_vel);},fireMs));
         }}
         // Drums pattern
-        if(!muDrumsR.current&&pat.drums){for(const d of pat.drums){
+        if(!muDrumsR.current&&drumsInst&&pat.drums){for(const d of pat.drums){
           const evTime=barStart+d.t*spb;
           if(evTime>=totalDur)continue;if(abActive&&(evTime<abS-0.001||evTime>=abE-0.001))continue;
           const ct=abActive?evTime-abS:evTime;
