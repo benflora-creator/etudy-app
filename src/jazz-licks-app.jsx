@@ -723,6 +723,7 @@ function preloadCustomPianoChord(){if(_cPianoChordPromise)return _cPianoChordPro
 function makeChordSynth(bag){
   // Priority 1: Custom piano samples from Supabase
   if(_cPianoChordReady&&_cPianoChordSampler){
+    console.log("[etudy] makeChordSynth → Using CUSTOM PIANO sampler");
     const rev=new Tone.Reverb({decay:2.5,wet:0.18}).toDestination();
     const comp=new Tone.Compressor({threshold:-22,ratio:3,attack:0.008,release:0.12}).connect(rev);
     const flt=new Tone.Filter({frequency:2800,type:"lowpass",rolloff:-12}).connect(comp);
@@ -733,6 +734,7 @@ function makeChordSynth(bag){
   }
   // Priority 2: Salamander piano sampler
   if(_chordSamplerReady&&_chordSampler){
+    console.log("[etudy] makeChordSynth → Using SALAMANDER sampler");
     const rev=new Tone.Reverb({decay:2.5,wet:0.22}).toDestination();
     const comp=new Tone.Compressor({threshold:-24,ratio:4,attack:0.01,release:0.15}).connect(rev);
     const flt=new Tone.Filter({frequency:2200,type:"lowpass",rolloff:-12}).connect(comp);
@@ -741,11 +743,13 @@ function makeChordSynth(bag){
     return _chordSampler;
   }
   // Fallback: FM synth comping
+  console.log("[etudy] makeChordSynth → Using FM SYNTH fallback");
   const rev=new Tone.Reverb({decay:3,wet:0.22}).toDestination();const ch=new Tone.Chorus({frequency:0.4,delayTime:6,depth:0.22,wet:0.22}).connect(rev);ch.start();const tr=new Tone.Tremolo({frequency:2.2,depth:0.12,wet:0.18}).connect(ch);tr.start();const flt=new Tone.Filter({frequency:1800,type:"lowpass",rolloff:-24}).connect(tr);const s=new Tone.PolySynth(Tone.FMSynth,{harmonicity:3,modulationIndex:0.6,oscillator:{type:"fatsine2",spread:15,count:3},modulation:{type:"sine"},envelope:{attack:0.015,decay:1.0,sustain:0.3,release:1.5},modulationEnvelope:{attack:0.008,decay:0.6,sustain:0,release:0.6},volume:-18}).connect(flt);bag.push(s,flt,tr,ch,rev);return s;
 }
 function makeClick(bag){const rev=new Tone.Reverb({decay:0.2,wet:0.06}).toDestination();const flt=new Tone.Filter({frequency:7000,type:"bandpass",Q:2}).connect(rev);const hi=new Tone.NoiseSynth({noise:{type:"white"},envelope:{attack:0.001,decay:0.035,sustain:0,release:0.015},volume:-10}).connect(flt);const lo=new Tone.NoiseSynth({noise:{type:"pink"},envelope:{attack:0.001,decay:0.02,sustain:0,release:0.01},volume:-16}).connect(flt);bag.push(hi,lo,flt,rev);return{hi,lo};}
 // Rhodes chord synth — uses real Rhodes samples with warm processing
 function makeRhodesChordSynth(bag){
+  console.log("[etudy] makeRhodesChordSynth called, ready?",_rhodesChordReady,"sampler?",!!_rhodesChordSampler);
   if(_rhodesChordReady&&_rhodesChordSampler){
     const rev=new Tone.Reverb({decay:2.2,wet:0.18}).toDestination();
     const ch=new Tone.Chorus({frequency:0.6,delayTime:4,depth:0.18,wet:0.15}).connect(rev);ch.start();
@@ -755,9 +759,10 @@ function makeRhodesChordSynth(bag){
     try{_rhodesChordSampler.disconnect();}catch(e){}
     _rhodesChordSampler.connect(flt);
     bag.push(flt,comp,tr,ch,rev);
+    console.log("[etudy] → Using RHODES sampler");
     return _rhodesChordSampler;
   }
-  // Fallback: reuse piano chord synth
+  console.warn("[etudy] → Rhodes NOT ready, falling back to piano");
   return makeChordSynth(bag);
 }
 let _pS=null,_pR=null,_pReady=false;
@@ -1163,9 +1168,12 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
     setLoading(true);
     if(!_samplerReady&&!_samplerFailed){await preloadPiano();setSamplesOk(_samplerReady);}
     if(!_chordSamplerReady)await preloadChordPiano();
-    if(!_rhodesChordReady)await preloadRhodesChord();
-    if(!_cPianoChordReady)await preloadCustomPianoChord();
-    if(!_bassSamplerReady)preloadBassSampler(); // fire-and-forget, synth fallback works immediately
+    // Only preload the sampler we actually need for current backing style
+    var _curStyle=bR.current?bStyleR.current:"piano";
+    if(_curStyle==="rhodes"&&!_rhodesChordReady)await preloadRhodesChord();
+    if(_curStyle==="piano"&&!_cPianoChordReady)await preloadCustomPianoChord();
+    if(_curStyle==="ballad"&&!_cPianoChordReady)await preloadCustomPianoChord();
+    if(!_bassSamplerReady)preloadBassSampler();
     const p=parseAbc(abcR.current,pTR.current);
     // Capture ONE time reference — shared by lick notes AND metronome
     var t0=Tone.now();toneStartR.current=t0;
