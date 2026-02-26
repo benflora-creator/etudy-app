@@ -1160,9 +1160,10 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
     const abActive=abOnR.current;const abS=abActive?abAR.current*totalDur:0;const abE=abActive?abBR.current*totalDur:totalDur;
     const timers=[];const LA=0.04;
     const baseTime=now+cOff;
-    // Schedule melody
+    // Schedule melody — pre-fire compensation for sampler-based sounds
+    var _melPre=(soR.current==="piano"||soR.current==="rhodes"||soR.current==="sax")?0.04:0;
     for(const n of notes){if(!n.tones)continue;if(abActive&&(n.startTime<abS-0.001||n.startTime>=abE-0.001))continue;const noteTime=abActive?n.startTime-abS:n.startTime;
-      if(mlR.current){const _n=n;const fireMs=Math.max(0,noteTime*1000-LA*1000);timers.push(setTimeout(()=>{if(sT.current)return;const t=baseTime+noteTime;_n.tones.forEach(tn=>mel.play(tn,Math.min(_n.dur*0.9,2),t,_n.vel));},fireMs));}}
+      if(mlR.current){const _n=n;const fireMs=Math.max(0,(noteTime-_melPre)*1000-LA*1000);timers.push(setTimeout(()=>{if(sT.current)return;const t=baseTime+noteTime-_melPre;_n.tones.forEach(tn=>mel.play(tn,Math.min(_n.dur*0.9,2),t,_n.vel));},fireMs));}}
     // Schedule backing — style-aware: piano comping + bass + drums
     if(bR.current){
       var _bStyle=bStyleR.current;var _muteK=muteKeysR.current;var _muteB=muteBassR.current;var _muteD=muteDrumsR.current;
