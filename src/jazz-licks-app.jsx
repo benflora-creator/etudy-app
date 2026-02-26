@@ -391,156 +391,124 @@ function humanize(baseTime,baseVel,amount){
 }
 const BACKING_STYLES = [
   // ─── JAZZ SWING ───
-  // Ride: spang-a-lang (1 trip-let 2 trip-let …), comping: Charleston + anticipations, walking bass
-  {id:"jazz-swing",label:"Jazz Swing",emoji:"\uD83C\uDFB7",feel:"swing",h:0.6,
+  // Ride: spang-a-lang, comping: sparse on 2+4, walking bass
+  {id:"jazz-swing",label:"Jazz Swing",emoji:"\uD83C\uDFB7",feel:"swing",h:0.5,
     bars:[
-      {keys:[{t:0,dur:0.6,vel:0.3},{t:1.67,dur:0.8,vel:0.38},{t:3,dur:0.5,vel:0.32}],
-       bass:[{t:0,deg:0,dur:0.9,vel:0.65},{t:1,deg:4,dur:0.9,vel:0.58},{t:2,deg:7,dur:0.9,vel:0.6},{t:3,deg:5,dur:0.85,vel:0.55}],
-       drums:[{t:0,inst:"ride",vel:0.48},{t:0.667,inst:"ride",vel:0.25},{t:1,inst:"ride",vel:0.42},{t:1.667,inst:"ride",vel:0.25},{t:2,inst:"ride",vel:0.48},{t:2.667,inst:"ride",vel:0.25},{t:3,inst:"ride",vel:0.42},{t:3.667,inst:"ride",vel:0.25},
-              {t:1,inst:"hh",vel:0.32},{t:3,inst:"hh",vel:0.32},{t:0,inst:"kick",vel:0.35},{t:2.667,inst:"kick",vel:0.22}]},
-      {keys:[{t:0.667,dur:0.9,vel:0.35},{t:2,dur:0.4,vel:0.28},{t:3.667,dur:0.6,vel:0.33}],
-       bass:[{t:0,deg:0,dur:0.9,vel:0.65},{t:1,deg:7,dur:0.9,vel:0.55},{t:2,deg:5,dur:0.9,vel:0.58},{t:3,deg:11,dur:0.85,vel:0.5,ap:true}],
-       drums:[{t:0,inst:"ride",vel:0.48},{t:0.667,inst:"ride",vel:0.25},{t:1,inst:"ride",vel:0.42},{t:1.667,inst:"ride",vel:0.25},{t:2,inst:"ride",vel:0.48},{t:2.667,inst:"ride",vel:0.25},{t:3,inst:"ride",vel:0.42},{t:3.667,inst:"ride",vel:0.25},
-              {t:1,inst:"hh",vel:0.32},{t:3,inst:"hh",vel:0.32},{t:1.667,inst:"kick",vel:0.25},{t:3.5,inst:"kick",vel:0.18}]}
+      {keys:[{t:1,dur:0.5,vel:0.3},{t:3.67,dur:0.6,vel:0.28}],
+       bass:[{t:0,deg:0,dur:0.9,vel:0.6},{t:1,deg:4,dur:0.9,vel:0.5},{t:2,deg:7,dur:0.9,vel:0.55},{t:3,deg:5,dur:0.85,vel:0.48}],
+       drums:[{t:0,inst:"ride",vel:0.45},{t:0.67,inst:"ride",vel:0.2},{t:1,inst:"ride",vel:0.38},{t:1.67,inst:"ride",vel:0.2},{t:2,inst:"ride",vel:0.45},{t:2.67,inst:"ride",vel:0.2},{t:3,inst:"ride",vel:0.38},{t:3.67,inst:"ride",vel:0.2},
+              {t:1,inst:"hh",vel:0.25},{t:3,inst:"hh",vel:0.25},{t:0,inst:"kick",vel:0.28}]},
+      {keys:[{t:0.67,dur:0.8,vel:0.28},{t:3,dur:0.4,vel:0.25}],
+       bass:[{t:0,deg:0,dur:0.9,vel:0.58},{t:1,deg:7,dur:0.9,vel:0.48},{t:2,deg:5,dur:0.9,vel:0.5},{t:3,deg:11,dur:0.85,vel:0.42,ap:true}],
+       drums:[{t:0,inst:"ride",vel:0.45},{t:0.67,inst:"ride",vel:0.2},{t:1,inst:"ride",vel:0.38},{t:1.67,inst:"ride",vel:0.2},{t:2,inst:"ride",vel:0.45},{t:2.67,inst:"ride",vel:0.2},{t:3,inst:"ride",vel:0.38},{t:3.67,inst:"ride",vel:0.2},
+              {t:1,inst:"hh",vel:0.25},{t:3,inst:"hh",vel:0.25},{t:2.67,inst:"kick",vel:0.2}]}
     ]},
-  // ─── MEDIUM SWING ───
-  // Lighter comping, 2-feel bass (root on 1 & 3), brushes
+  // ─── MEDIUM SWING (Brushes) ───
   {id:"med-swing",label:"Medium Swing",emoji:"\uD83C\uDFB6",feel:"swing",h:0.5,
     bars:[
-      {keys:[{t:0,dur:1.5,vel:0.28},{t:2.667,dur:0.8,vel:0.32}],
-       bass:[{t:0,deg:0,dur:1.8,vel:0.6},{t:2,deg:7,dur:1.8,vel:0.55}],
-       drums:[{t:0,inst:"brush",vel:0.35},{t:0.667,inst:"brush",vel:0.18},{t:1,inst:"brush",vel:0.3},{t:1.667,inst:"brush",vel:0.18},{t:2,inst:"brush",vel:0.35},{t:2.667,inst:"brush",vel:0.18},{t:3,inst:"brush",vel:0.3},{t:3.667,inst:"brush",vel:0.18},
-              {t:1,inst:"hh",vel:0.2},{t:3,inst:"hh",vel:0.2}]},
-      {keys:[{t:1,dur:0.5,vel:0.3},{t:3,dur:1.0,vel:0.28}],
-       bass:[{t:0,deg:0,dur:1.8,vel:0.58},{t:2,deg:5,dur:1.8,vel:0.55}],
-       drums:[{t:0,inst:"brush",vel:0.35},{t:0.667,inst:"brush",vel:0.18},{t:1,inst:"brush",vel:0.3},{t:1.667,inst:"brush",vel:0.18},{t:2,inst:"brush",vel:0.35},{t:2.667,inst:"brush",vel:0.18},{t:3,inst:"brush",vel:0.3},{t:3.667,inst:"brush",vel:0.18},
-              {t:1,inst:"hh",vel:0.2},{t:3,inst:"hh",vel:0.2},{t:2.667,inst:"kick",vel:0.2}]}
+      {keys:[{t:0,dur:1.5,vel:0.25},{t:2.67,dur:0.8,vel:0.28}],
+       bass:[{t:0,deg:0,dur:1.8,vel:0.55},{t:2,deg:7,dur:1.8,vel:0.48}],
+       drums:[{t:0,inst:"brush",vel:0.3},{t:1,inst:"brush",vel:0.2},{t:2,inst:"brush",vel:0.3},{t:3,inst:"brush",vel:0.2},
+              {t:1,inst:"hh",vel:0.15},{t:3,inst:"hh",vel:0.15}]},
+      {keys:[{t:1,dur:0.5,vel:0.25},{t:3,dur:1.0,vel:0.22}],
+       bass:[{t:0,deg:0,dur:1.8,vel:0.52},{t:2,deg:5,dur:1.8,vel:0.48}],
+       drums:[{t:0,inst:"brush",vel:0.3},{t:1,inst:"brush",vel:0.2},{t:2,inst:"brush",vel:0.3},{t:3,inst:"brush",vel:0.2},
+              {t:1,inst:"hh",vel:0.15},{t:3,inst:"hh",vel:0.15},{t:2.67,inst:"kick",vel:0.15}]}
     ]},
-  // ─── EVEN 8THS (Herbie, Wayne Shorter, modern jazz) ───
-  {id:"even8",label:"Even 8ths",emoji:"\uD83C\uDF1F",feel:"straight",h:0.4,
+  // ─── EVEN 8THS (Modern Jazz) ───
+  {id:"even8",label:"Even 8ths",emoji:"\uD83C\uDF1F",feel:"straight",h:0.35,
     bars:[
-      {keys:[{t:0,dur:0.2,vel:0.3},{t:0.5,dur:0.2,vel:0.25},{t:1.5,dur:0.2,vel:0.3},{t:2.5,dur:0.2,vel:0.28},{t:3,dur:0.2,vel:0.32},{t:3.5,dur:0.2,vel:0.25}],
-       bass:[{t:0,deg:0,dur:1.4,vel:0.6},{t:1.5,deg:7,dur:0.9,vel:0.5},{t:2.5,deg:5,dur:0.9,vel:0.52},{t:3.5,deg:0,dur:0.4,vel:0.45}],
-       drums:[{t:0,inst:"ride",vel:0.38},{t:0.5,inst:"ride",vel:0.22},{t:1,inst:"ride",vel:0.35},{t:1.5,inst:"ride",vel:0.22},{t:2,inst:"ride",vel:0.38},{t:2.5,inst:"ride",vel:0.22},{t:3,inst:"ride",vel:0.35},{t:3.5,inst:"ride",vel:0.22},
-              {t:1,inst:"hh",vel:0.22},{t:3,inst:"hh",vel:0.22},{t:0,inst:"kick",vel:0.28},{t:2.5,inst:"kick",vel:0.2}]},
-      {keys:[{t:0.5,dur:0.2,vel:0.28},{t:1,dur:0.2,vel:0.3},{t:2,dur:0.2,vel:0.25},{t:3.5,dur:0.6,vel:0.3}],
-       bass:[{t:0,deg:0,dur:0.9,vel:0.58},{t:1,deg:10,dur:0.9,vel:0.5},{t:2,deg:7,dur:0.9,vel:0.52},{t:3,deg:5,dur:0.9,vel:0.48}],
-       drums:[{t:0,inst:"ride",vel:0.38},{t:0.5,inst:"ride",vel:0.22},{t:1,inst:"ride",vel:0.35},{t:1.5,inst:"ride",vel:0.22},{t:2,inst:"ride",vel:0.38},{t:2.5,inst:"ride",vel:0.22},{t:3,inst:"ride",vel:0.35},{t:3.5,inst:"ride",vel:0.22},
-              {t:1,inst:"hh",vel:0.22},{t:3,inst:"hh",vel:0.22},{t:1.5,inst:"kick",vel:0.22}]}
+      {keys:[{t:0.5,dur:0.2,vel:0.25},{t:1.5,dur:0.2,vel:0.28},{t:3,dur:0.3,vel:0.25}],
+       bass:[{t:0,deg:0,dur:1.4,vel:0.55},{t:1.5,deg:7,dur:0.9,vel:0.45},{t:3,deg:5,dur:0.9,vel:0.48}],
+       drums:[{t:0,inst:"ride",vel:0.35},{t:0.5,inst:"ride",vel:0.18},{t:1,inst:"ride",vel:0.3},{t:1.5,inst:"ride",vel:0.18},{t:2,inst:"ride",vel:0.35},{t:2.5,inst:"ride",vel:0.18},{t:3,inst:"ride",vel:0.3},{t:3.5,inst:"ride",vel:0.18},
+              {t:0,inst:"kick",vel:0.22},{t:2.5,inst:"kick",vel:0.18}]}
     ]},
   // ─── BOSSA NOVA ───
-  // Authentic partido alto guitar rhythm, bass: root→5th anticipation
-  {id:"bossa",label:"Bossa Nova",emoji:"\uD83C\uDDE7\uD83C\uDDF7",feel:"straight",h:0.35,
+  {id:"bossa",label:"Bossa Nova",emoji:"\uD83C\uDDE7\uD83C\uDDF7",feel:"straight",h:0.3,
     bars:[
-      // Bar 1: classic João Gilberto pattern — bass on 1, thumb on &-of-2, chord on &-of-3
-      {keys:[{t:0,dur:0.25,vel:0.3},{t:1.5,dur:0.25,vel:0.35},{t:2.5,dur:0.25,vel:0.3},{t:3,dur:0.2,vel:0.32},{t:3.5,dur:0.25,vel:0.28}],
-       bass:[{t:0,deg:0,dur:1.4,vel:0.6},{t:2,deg:7,dur:1.4,vel:0.52}],
-       drums:[{t:0,inst:"rim",vel:0.28},{t:0.5,inst:"rim",vel:0.15},{t:1,inst:"hh",vel:0.12},{t:1.5,inst:"rim",vel:0.28},{t:2,inst:"hh",vel:0.12},{t:2.5,inst:"rim",vel:0.15},{t:3,inst:"rim",vel:0.28},{t:3.5,inst:"rim",vel:0.15},
-              {t:0,inst:"kick",vel:0.3},{t:2,inst:"kick",vel:0.22}]},
-      // Bar 2: slight variation
-      {keys:[{t:0,dur:0.25,vel:0.28},{t:0.5,dur:0.25,vel:0.32},{t:1.5,dur:0.25,vel:0.3},{t:3,dur:0.3,vel:0.33},{t:3.5,dur:0.25,vel:0.28}],
-       bass:[{t:0,deg:0,dur:1.4,vel:0.58},{t:2,deg:5,dur:1.4,vel:0.5}],
-       drums:[{t:0,inst:"rim",vel:0.28},{t:0.5,inst:"hh",vel:0.12},{t:1,inst:"rim",vel:0.15},{t:1.5,inst:"rim",vel:0.28},{t:2,inst:"rim",vel:0.15},{t:2.5,inst:"hh",vel:0.12},{t:3,inst:"rim",vel:0.28},{t:3.5,inst:"rim",vel:0.15},
-              {t:0,inst:"kick",vel:0.28},{t:2,inst:"kick",vel:0.2}]}
+      {keys:[{t:0,dur:0.2,vel:0.28},{t:1.5,dur:0.2,vel:0.3},{t:3,dur:0.2,vel:0.28},{t:3.5,dur:0.2,vel:0.22}],
+       bass:[{t:0,deg:0,dur:1.4,vel:0.55},{t:2,deg:7,dur:1.4,vel:0.48}],
+       drums:[{t:0,inst:"rim",vel:0.28},{t:1.5,inst:"rim",vel:0.25},{t:3,inst:"rim",vel:0.28},
+              {t:0,inst:"kick",vel:0.25},{t:2,inst:"kick",vel:0.18}]},
+      {keys:[{t:0.5,dur:0.2,vel:0.25},{t:1.5,dur:0.2,vel:0.28},{t:3,dur:0.25,vel:0.3}],
+       bass:[{t:0,deg:0,dur:1.4,vel:0.52},{t:2,deg:5,dur:1.4,vel:0.45}],
+       drums:[{t:0,inst:"rim",vel:0.25},{t:0.5,inst:"hh",vel:0.12},{t:1.5,inst:"rim",vel:0.28},{t:3,inst:"rim",vel:0.25},
+              {t:0,inst:"kick",vel:0.22},{t:2,inst:"kick",vel:0.18}]}
     ]},
   // ─── SAMBA ───
-  // Faster, more drive than Bossa — surdo pattern, agogô
-  {id:"samba",label:"Samba",emoji:"\uD83C\uDDE7\uD83C\uDDF7",feel:"straight",h:0.4,
+  {id:"samba",label:"Samba",emoji:"\uD83E\uDD41",feel:"straight",h:0.35,
     bars:[
-      {keys:[{t:0,dur:0.15,vel:0.35},{t:0.5,dur:0.15,vel:0.3},{t:1,dur:0.15,vel:0.35},{t:1.5,dur:0.15,vel:0.32},{t:2,dur:0.15,vel:0.35},{t:2.5,dur:0.15,vel:0.3},{t:3,dur:0.15,vel:0.35},{t:3.5,dur:0.15,vel:0.32}],
-       bass:[{t:0,deg:0,dur:0.4,vel:0.65},{t:1,deg:7,dur:0.4,vel:0.5},{t:1.5,deg:0,dur:0.4,vel:0.55},{t:2.5,deg:5,dur:0.4,vel:0.5},{t:3,deg:7,dur:0.4,vel:0.52},{t:3.5,deg:0,dur:0.4,vel:0.48}],
-       drums:[{t:0,inst:"kick",vel:0.45},{t:1,inst:"kick",vel:0.25},{t:2,inst:"kick",vel:0.45},{t:3,inst:"kick",vel:0.25},
-              {t:0,inst:"hh",vel:0.28},{t:0.25,inst:"hh",vel:0.15},{t:0.5,inst:"hh",vel:0.22},{t:0.75,inst:"hh",vel:0.15},{t:1,inst:"hh",vel:0.28},{t:1.25,inst:"hh",vel:0.15},{t:1.5,inst:"hh",vel:0.22},{t:1.75,inst:"hh",vel:0.15},{t:2,inst:"hh",vel:0.28},{t:2.25,inst:"hh",vel:0.15},{t:2.5,inst:"hh",vel:0.22},{t:2.75,inst:"hh",vel:0.15},{t:3,inst:"hh",vel:0.28},{t:3.25,inst:"hh",vel:0.15},{t:3.5,inst:"hh",vel:0.22},{t:3.75,inst:"hh",vel:0.15},
-              {t:0.5,inst:"rim",vel:0.22},{t:1.5,inst:"rim",vel:0.22},{t:2.5,inst:"rim",vel:0.22},{t:3.5,inst:"rim",vel:0.22},
-              {t:1,inst:"snare",vel:0.3,ghost:true},{t:3,inst:"snare",vel:0.3,ghost:true}]}
+      {keys:[{t:0,dur:0.12,vel:0.3},{t:0.5,dur:0.12,vel:0.25},{t:1.5,dur:0.12,vel:0.3},{t:2,dur:0.12,vel:0.25},{t:3,dur:0.12,vel:0.3},{t:3.5,dur:0.12,vel:0.25}],
+       bass:[{t:0,deg:0,dur:0.4,vel:0.58},{t:1,deg:7,dur:0.4,vel:0.45},{t:2,deg:5,dur:0.4,vel:0.48},{t:3,deg:7,dur:0.4,vel:0.45}],
+       drums:[{t:0,inst:"kick",vel:0.38},{t:2,inst:"kick",vel:0.38},
+              {t:0,inst:"hh",vel:0.22},{t:0.5,inst:"hh",vel:0.12},{t:1,inst:"hh",vel:0.22},{t:1.5,inst:"hh",vel:0.12},{t:2,inst:"hh",vel:0.22},{t:2.5,inst:"hh",vel:0.12},{t:3,inst:"hh",vel:0.22},{t:3.5,inst:"hh",vel:0.12},
+              {t:1,inst:"rim",vel:0.2},{t:3,inst:"rim",vel:0.2}]}
     ]},
-  // ─── AFRO-CUBAN (Son Clave 3-2 based) ───
-  {id:"afrocuban",label:"Afro-Cuban",emoji:"\uD83C\uDDF3\u200D",feel:"straight",h:0.35,
+  // ─── AFRO-CUBAN (3-2 Clave) ───
+  {id:"afrocuban",label:"Afro-Cuban",emoji:"\uD83C\uDDF3",feel:"straight",h:0.3,
     bars:[
-      // Bar 1 (3-side of clave): hits on 1, &-of-2, 4
-      {keys:[{t:0,dur:0.2,vel:0.38},{t:1.5,dur:0.2,vel:0.35},{t:3,dur:0.3,vel:0.38}],
-       bass:[{t:0,deg:0,dur:0.9,vel:0.7},{t:1.5,deg:0,dur:0.4,vel:0.5},{t:2,deg:5,dur:0.9,vel:0.6},{t:3.5,deg:7,dur:0.4,vel:0.5}],
-       drums:[{t:0,inst:"rim",vel:0.4},{t:1.5,inst:"rim",vel:0.38},{t:3,inst:"rim",vel:0.35},
-              {t:0,inst:"kick",vel:0.42},{t:1.5,inst:"kick",vel:0.28},{t:3.5,inst:"kick",vel:0.25},
-              {t:0,inst:"hh",vel:0.25},{t:0.5,inst:"hh",vel:0.18},{t:1,inst:"hh",vel:0.25},{t:1.5,inst:"hh",vel:0.18},{t:2,inst:"hh",vel:0.25},{t:2.5,inst:"hh",vel:0.18},{t:3,inst:"hh",vel:0.25},{t:3.5,inst:"hh",vel:0.18}]},
-      // Bar 2 (2-side of clave): hits on &-of-1, 3
-      {keys:[{t:0.5,dur:0.2,vel:0.35},{t:2,dur:0.3,vel:0.38},{t:3.5,dur:0.2,vel:0.3}],
-       bass:[{t:0,deg:0,dur:0.9,vel:0.65},{t:1,deg:4,dur:0.4,vel:0.48},{t:2,deg:5,dur:0.9,vel:0.58},{t:3,deg:7,dur:0.9,vel:0.55}],
-       drums:[{t:0.5,inst:"rim",vel:0.38},{t:2,inst:"rim",vel:0.4},
-              {t:0,inst:"kick",vel:0.3},{t:2,inst:"kick",vel:0.42},{t:3,inst:"kick",vel:0.22},
-              {t:0,inst:"hh",vel:0.25},{t:0.5,inst:"hh",vel:0.18},{t:1,inst:"hh",vel:0.25},{t:1.5,inst:"hh",vel:0.18},{t:2,inst:"hh",vel:0.25},{t:2.5,inst:"hh",vel:0.18},{t:3,inst:"hh",vel:0.25},{t:3.5,inst:"hh",vel:0.18}]}
+      {keys:[{t:0,dur:0.2,vel:0.32},{t:1.5,dur:0.2,vel:0.3},{t:3,dur:0.25,vel:0.32}],
+       bass:[{t:0,deg:0,dur:0.9,vel:0.6},{t:2,deg:5,dur:0.9,vel:0.5},{t:3.5,deg:7,dur:0.4,vel:0.42}],
+       drums:[{t:0,inst:"rim",vel:0.35},{t:1.5,inst:"rim",vel:0.32},{t:3,inst:"rim",vel:0.3},
+              {t:0,inst:"kick",vel:0.35},{t:1.5,inst:"kick",vel:0.22},
+              {t:0,inst:"hh",vel:0.2},{t:0.5,inst:"hh",vel:0.12},{t:1,inst:"hh",vel:0.2},{t:1.5,inst:"hh",vel:0.12},{t:2,inst:"hh",vel:0.2},{t:2.5,inst:"hh",vel:0.12},{t:3,inst:"hh",vel:0.2},{t:3.5,inst:"hh",vel:0.12}]},
+      {keys:[{t:0.5,dur:0.2,vel:0.28},{t:2,dur:0.25,vel:0.32}],
+       bass:[{t:0,deg:0,dur:0.9,vel:0.58},{t:1,deg:4,dur:0.4,vel:0.42},{t:2,deg:5,dur:0.9,vel:0.5},{t:3,deg:7,dur:0.9,vel:0.48}],
+       drums:[{t:0.5,inst:"rim",vel:0.32},{t:2,inst:"rim",vel:0.35},
+              {t:0,inst:"kick",vel:0.25},{t:2,inst:"kick",vel:0.35},
+              {t:0,inst:"hh",vel:0.2},{t:0.5,inst:"hh",vel:0.12},{t:1,inst:"hh",vel:0.2},{t:1.5,inst:"hh",vel:0.12},{t:2,inst:"hh",vel:0.2},{t:2.5,inst:"hh",vel:0.12},{t:3,inst:"hh",vel:0.2},{t:3.5,inst:"hh",vel:0.12}]}
     ]},
   // ─── FUNK ───
-  // 16th-note hats, ghost notes, syncopated everything
-  {id:"funk",label:"Funk",emoji:"\uD83D\uDD7A",feel:"straight",h:0.3,
+  {id:"funk",label:"Funk",emoji:"\uD83D\uDD7A",feel:"straight",h:0.25,
     bars:[
-      {keys:[{t:0,dur:0.12,vel:0.42},{t:0.75,dur:0.12,vel:0.3},{t:1.5,dur:0.12,vel:0.35},{t:2.25,dur:0.12,vel:0.38},{t:3,dur:0.12,vel:0.4},{t:3.5,dur:0.12,vel:0.3}],
-       bass:[{t:0,deg:0,dur:0.35,vel:0.72},{t:0.75,deg:0,dur:0.15,vel:0.42},{t:1.5,deg:10,dur:0.35,vel:0.55},{t:2,deg:0,dur:0.35,vel:0.68},{t:2.75,deg:3,dur:0.15,vel:0.42},{t:3,deg:5,dur:0.35,vel:0.58},{t:3.75,deg:7,dur:0.15,vel:0.4}],
-       drums:[{t:0,inst:"kick",vel:0.55},{t:0.75,inst:"kick",vel:0.28},{t:2.5,inst:"kick",vel:0.45},{t:3.75,inst:"kick",vel:0.25},
-              {t:1,inst:"snare",vel:0.5},{t:3,inst:"snare",vel:0.5},
-              {t:0.5,inst:"snare",vel:0.12,ghost:true},{t:1.5,inst:"snare",vel:0.1,ghost:true},{t:2.25,inst:"snare",vel:0.12,ghost:true},{t:3.5,inst:"snare",vel:0.1,ghost:true},
-              {t:0,inst:"hh",vel:0.28},{t:0.25,inst:"hh",vel:0.12},{t:0.5,inst:"hh",vel:0.22},{t:0.75,inst:"hh",vel:0.12},{t:1,inst:"hh",vel:0.28},{t:1.25,inst:"hh",vel:0.12},{t:1.5,inst:"hh",vel:0.22},{t:1.75,inst:"hh",vel:0.12},{t:2,inst:"hh",vel:0.28},{t:2.25,inst:"hh",vel:0.12},{t:2.5,inst:"hh",vel:0.22},{t:2.75,inst:"hh",vel:0.12},{t:3,inst:"hh",vel:0.28},{t:3.25,inst:"hh",vel:0.12},{t:3.5,inst:"hh",vel:0.22},{t:3.75,inst:"hh",vel:0.12}]},
-      {keys:[{t:0.5,dur:0.12,vel:0.35},{t:1,dur:0.12,vel:0.4},{t:2,dur:0.12,vel:0.42},{t:2.5,dur:0.12,vel:0.32},{t:3.25,dur:0.12,vel:0.36},{t:3.75,dur:0.12,vel:0.3}],
-       bass:[{t:0,deg:0,dur:0.35,vel:0.7},{t:0.5,deg:3,dur:0.15,vel:0.4},{t:1,deg:5,dur:0.35,vel:0.58},{t:2,deg:0,dur:0.35,vel:0.68},{t:2.5,deg:0,dur:0.15,vel:0.4},{t:3,deg:10,dur:0.35,vel:0.55},{t:3.5,deg:7,dur:0.35,vel:0.5}],
-       drums:[{t:0,inst:"kick",vel:0.52},{t:1.5,inst:"kick",vel:0.4},{t:2.5,inst:"kick",vel:0.42},{t:3.5,inst:"kick",vel:0.22},
-              {t:1,inst:"snare",vel:0.5},{t:3,inst:"snare",vel:0.5},
-              {t:0.25,inst:"snare",vel:0.1,ghost:true},{t:1.75,inst:"snare",vel:0.12,ghost:true},{t:2.75,inst:"snare",vel:0.1,ghost:true},{t:3.5,inst:"snare",vel:0.12,ghost:true},
-              {t:0,inst:"hh",vel:0.28},{t:0.25,inst:"hh",vel:0.12},{t:0.5,inst:"hh",vel:0.22},{t:0.75,inst:"hh",vel:0.12},{t:1,inst:"hh",vel:0.28},{t:1.25,inst:"hh",vel:0.12},{t:1.5,inst:"hh",vel:0.22},{t:1.75,inst:"hh",vel:0.12},{t:2,inst:"hh",vel:0.28},{t:2.25,inst:"hh",vel:0.12},{t:2.5,inst:"hh",vel:0.22},{t:2.75,inst:"hh",vel:0.12},{t:3,inst:"hh",vel:0.28},{t:3.25,inst:"hh",vel:0.12},{t:3.5,inst:"hh",vel:0.22},{t:3.75,inst:"hh",vel:0.12}]}
-    ]},
-  // ─── POP / ROCK ───
-  {id:"pop",label:"Pop / Rock",emoji:"\uD83C\uDFB8",feel:"straight",h:0.25,
-    bars:[
-      {keys:[{t:0,dur:1.8,vel:0.28},{t:2,dur:1.8,vel:0.28}],
-       bass:[{t:0,deg:0,dur:0.9,vel:0.62},{t:1,deg:0,dur:0.9,vel:0.5},{t:2,deg:7,dur:0.9,vel:0.55},{t:3,deg:5,dur:0.9,vel:0.5}],
-       drums:[{t:0,inst:"kick",vel:0.52},{t:2,inst:"kick",vel:0.52},{t:1,inst:"snare",vel:0.48},{t:3,inst:"snare",vel:0.48},
-              {t:0,inst:"hh",vel:0.28},{t:0.5,inst:"hh",vel:0.18},{t:1,inst:"hh",vel:0.28},{t:1.5,inst:"hh",vel:0.18},{t:2,inst:"hh",vel:0.28},{t:2.5,inst:"hh",vel:0.18},{t:3,inst:"hh",vel:0.28},{t:3.5,inst:"hh",vel:0.18}]},
-      {keys:[{t:0,dur:1.8,vel:0.28},{t:2,dur:0.8,vel:0.25},{t:3,dur:0.9,vel:0.28}],
-       bass:[{t:0,deg:0,dur:0.9,vel:0.6},{t:1,deg:5,dur:0.9,vel:0.48},{t:2,deg:7,dur:0.9,vel:0.55},{t:3,deg:0,dur:0.9,vel:0.52}],
-       drums:[{t:0,inst:"kick",vel:0.52},{t:1.5,inst:"kick",vel:0.3},{t:2,inst:"kick",vel:0.52},{t:3.5,inst:"kick",vel:0.25},{t:1,inst:"snare",vel:0.48},{t:3,inst:"snare",vel:0.48},
-              {t:0,inst:"hh",vel:0.28},{t:0.5,inst:"hh",vel:0.18},{t:1,inst:"hh",vel:0.28},{t:1.5,inst:"hh",vel:0.18},{t:2,inst:"hh",vel:0.28},{t:2.5,inst:"hh",vel:0.18},{t:3,inst:"hh",vel:0.28},{t:3.5,inst:"hh",vel:0.18}]}
-    ]},
-  // ─── R&B / NEO-SOUL ───
-  {id:"rnb",label:"R&B / Soul",emoji:"\uD83D\uDC9C",feel:"straight",h:0.35,
-    bars:[
-      {keys:[{t:0,dur:0.3,vel:0.25,style:"arp"},{t:0.75,dur:0.3,vel:0.2,style:"arp"},{t:1.5,dur:0.3,vel:0.28,style:"arp"},{t:2.25,dur:0.3,vel:0.22,style:"arp"},{t:3,dur:0.3,vel:0.25,style:"arp"},{t:3.5,dur:0.3,vel:0.2,style:"arp"}],
-       bass:[{t:0,deg:0,dur:0.8,vel:0.6},{t:1,deg:0,dur:0.3,vel:0.35},{t:1.5,deg:10,dur:0.4,vel:0.48},{t:2,deg:0,dur:0.8,vel:0.58},{t:3,deg:7,dur:0.4,vel:0.48},{t:3.5,deg:5,dur:0.4,vel:0.42}],
-       drums:[{t:0,inst:"kick",vel:0.45},{t:1.75,inst:"kick",vel:0.32},{t:2.5,inst:"kick",vel:0.4},
-              {t:1,inst:"snare",vel:0.42},{t:3,inst:"snare",vel:0.42},
-              {t:0.5,inst:"snare",vel:0.08,ghost:true},{t:2.25,inst:"snare",vel:0.1,ghost:true},{t:3.5,inst:"snare",vel:0.08,ghost:true},
+      {keys:[{t:0,dur:0.1,vel:0.35},{t:0.75,dur:0.1,vel:0.25},{t:2,dur:0.1,vel:0.35},{t:3.25,dur:0.1,vel:0.28}],
+       bass:[{t:0,deg:0,dur:0.35,vel:0.65},{t:0.75,deg:0,dur:0.15,vel:0.38},{t:2,deg:0,dur:0.35,vel:0.6},{t:3,deg:5,dur:0.35,vel:0.5}],
+       drums:[{t:0,inst:"kick",vel:0.48},{t:0.75,inst:"kick",vel:0.22},{t:2.5,inst:"kick",vel:0.38},
+              {t:1,inst:"snare",vel:0.45},{t:3,inst:"snare",vel:0.45},
+              {t:0.5,inst:"snare",vel:0.08,ghost:true},{t:2.25,inst:"snare",vel:0.08,ghost:true},
               {t:0,inst:"hh",vel:0.22},{t:0.25,inst:"hh",vel:0.1},{t:0.5,inst:"hh",vel:0.18},{t:0.75,inst:"hh",vel:0.1},{t:1,inst:"hh",vel:0.22},{t:1.25,inst:"hh",vel:0.1},{t:1.5,inst:"hh",vel:0.18},{t:1.75,inst:"hh",vel:0.1},{t:2,inst:"hh",vel:0.22},{t:2.25,inst:"hh",vel:0.1},{t:2.5,inst:"hh",vel:0.18},{t:2.75,inst:"hh",vel:0.1},{t:3,inst:"hh",vel:0.22},{t:3.25,inst:"hh",vel:0.1},{t:3.5,inst:"hh",vel:0.18},{t:3.75,inst:"hh",vel:0.1}]}
     ]},
-  // ─── BALLAD ───
-  // Rubato feel, arpeggiated piano, whole-note bass, brushes
-  {id:"ballad",label:"Ballad",emoji:"\uD83C\uDF19",feel:"straight",h:0.5,
+  // ─── POP / ROCK ───
+  {id:"pop",label:"Pop / Rock",emoji:"\uD83C\uDFB8",feel:"straight",h:0.2,
     bars:[
-      {keys:[{t:0,dur:0.6,vel:0.22,style:"arp"},{t:0.75,dur:0.6,vel:0.18,style:"arp"},{t:1.5,dur:0.6,vel:0.22,style:"arp"},{t:2.25,dur:0.6,vel:0.18,style:"arp"},{t:3,dur:0.6,vel:0.2,style:"arp"},{t:3.5,dur:0.6,vel:0.16,style:"arp"}],
-       bass:[{t:0,deg:0,dur:3.8,vel:0.45}],
-       drums:[{t:0,inst:"brush",vel:0.2},{t:1,inst:"brush",vel:0.15},{t:2,inst:"brush",vel:0.2},{t:3,inst:"brush",vel:0.15},{t:2,inst:"kick",vel:0.18}]},
-      {keys:[{t:0,dur:0.6,vel:0.2,style:"arp"},{t:0.5,dur:0.6,vel:0.18,style:"arp"},{t:1.25,dur:0.6,vel:0.22,style:"arp"},{t:2,dur:0.6,vel:0.2,style:"arp"},{t:2.75,dur:0.6,vel:0.18,style:"arp"},{t:3.5,dur:0.6,vel:0.2,style:"arp"}],
-       bass:[{t:0,deg:0,dur:1.8,vel:0.45},{t:2,deg:7,dur:1.8,vel:0.4}],
-       drums:[{t:0,inst:"brush",vel:0.2},{t:1,inst:"brush",vel:0.15},{t:2,inst:"brush",vel:0.2},{t:3,inst:"brush",vel:0.15},{t:0,inst:"kick",vel:0.15},{t:3,inst:"kick",vel:0.12}]}
+      {keys:[{t:0,dur:1.8,vel:0.25},{t:2,dur:1.8,vel:0.25}],
+       bass:[{t:0,deg:0,dur:0.9,vel:0.55},{t:1,deg:0,dur:0.9,vel:0.42},{t:2,deg:7,dur:0.9,vel:0.48},{t:3,deg:5,dur:0.9,vel:0.42}],
+       drums:[{t:0,inst:"kick",vel:0.45},{t:2,inst:"kick",vel:0.45},{t:1,inst:"snare",vel:0.42},{t:3,inst:"snare",vel:0.42},
+              {t:0,inst:"hh",vel:0.22},{t:0.5,inst:"hh",vel:0.14},{t:1,inst:"hh",vel:0.22},{t:1.5,inst:"hh",vel:0.14},{t:2,inst:"hh",vel:0.22},{t:2.5,inst:"hh",vel:0.14},{t:3,inst:"hh",vel:0.22},{t:3.5,inst:"hh",vel:0.14}]}
+    ]},
+  // ─── R&B / NEO-SOUL ───
+  {id:"rnb",label:"R&B / Soul",emoji:"\uD83D\uDC9C",feel:"straight",h:0.3,
+    bars:[
+      {keys:[{t:0,dur:0.4,vel:0.2,style:"arp"},{t:1,dur:0.4,vel:0.18,style:"arp"},{t:2,dur:0.4,vel:0.2,style:"arp"},{t:3,dur:0.4,vel:0.18,style:"arp"}],
+       bass:[{t:0,deg:0,dur:0.8,vel:0.52},{t:1.5,deg:10,dur:0.4,vel:0.38},{t:2,deg:0,dur:0.8,vel:0.5},{t:3.5,deg:5,dur:0.4,vel:0.35}],
+       drums:[{t:0,inst:"kick",vel:0.38},{t:1.75,inst:"kick",vel:0.25},{t:2.5,inst:"kick",vel:0.32},
+              {t:1,inst:"snare",vel:0.38},{t:3,inst:"snare",vel:0.38},
+              {t:0,inst:"hh",vel:0.18},{t:0.5,inst:"hh",vel:0.1},{t:1,inst:"hh",vel:0.18},{t:1.5,inst:"hh",vel:0.1},{t:2,inst:"hh",vel:0.18},{t:2.5,inst:"hh",vel:0.1},{t:3,inst:"hh",vel:0.18},{t:3.5,inst:"hh",vel:0.1}]}
+    ]},
+  // ─── BALLAD ───
+  {id:"ballad",label:"Ballad",emoji:"\uD83C\uDF19",feel:"straight",h:0.45,
+    bars:[
+      {keys:[{t:0,dur:0.6,vel:0.18,style:"arp"},{t:1,dur:0.6,vel:0.15,style:"arp"},{t:2,dur:0.6,vel:0.18,style:"arp"},{t:3,dur:0.6,vel:0.15,style:"arp"}],
+       bass:[{t:0,deg:0,dur:3.8,vel:0.4}],
+       drums:[{t:0,inst:"brush",vel:0.18},{t:1,inst:"brush",vel:0.12},{t:2,inst:"brush",vel:0.18},{t:3,inst:"brush",vel:0.12}]},
+      {keys:[{t:0,dur:0.6,vel:0.16,style:"arp"},{t:0.75,dur:0.6,vel:0.15,style:"arp"},{t:1.5,dur:0.6,vel:0.18,style:"arp"},{t:2.5,dur:0.6,vel:0.16,style:"arp"},{t:3.25,dur:0.6,vel:0.15,style:"arp"}],
+       bass:[{t:0,deg:0,dur:1.8,vel:0.4},{t:2,deg:7,dur:1.8,vel:0.35}],
+       drums:[{t:0,inst:"brush",vel:0.18},{t:1,inst:"brush",vel:0.12},{t:2,inst:"brush",vel:0.18},{t:3,inst:"brush",vel:0.12},{t:2,inst:"kick",vel:0.12}]}
     ]},
   // ─── JAZZ WALTZ ───
-  {id:"waltz",label:"Jazz Waltz",emoji:"\uD83D\uDC83",feel:"straight",h:0.45,ts:"3/4",
+  {id:"waltz",label:"Jazz Waltz",emoji:"\uD83D\uDC83",feel:"straight",h:0.4,ts:"3/4",
     bars:[
-      {keys:[{t:0,dur:0.6,vel:0.32},{t:2,dur:0.5,vel:0.28}],
-       bass:[{t:0,deg:0,dur:0.9,vel:0.58},{t:1,deg:4,dur:0.9,vel:0.48},{t:2,deg:7,dur:0.85,vel:0.5}],
-       drums:[{t:0,inst:"ride",vel:0.38},{t:1,inst:"ride",vel:0.3},{t:2,inst:"ride",vel:0.32},{t:0,inst:"kick",vel:0.3},{t:1,inst:"hh",vel:0.18}]},
-      {keys:[{t:0.5,dur:0.5,vel:0.3},{t:1.5,dur:0.8,vel:0.28}],
-       bass:[{t:0,deg:0,dur:0.9,vel:0.58},{t:1,deg:7,dur:0.9,vel:0.48},{t:2,deg:5,dur:0.85,vel:0.45,ap:true}],
-       drums:[{t:0,inst:"ride",vel:0.38},{t:1,inst:"ride",vel:0.3},{t:2,inst:"ride",vel:0.32},{t:2,inst:"kick",vel:0.22},{t:1,inst:"hh",vel:0.18}]}
+      {keys:[{t:0,dur:0.5,vel:0.28},{t:2,dur:0.4,vel:0.22}],
+       bass:[{t:0,deg:0,dur:0.9,vel:0.52},{t:1,deg:4,dur:0.9,vel:0.42},{t:2,deg:7,dur:0.85,vel:0.45}],
+       drums:[{t:0,inst:"ride",vel:0.32},{t:1,inst:"ride",vel:0.25},{t:2,inst:"ride",vel:0.28},{t:0,inst:"kick",vel:0.25}]}
     ]},
-  // ─── SHUFFLE (12/8 Blues) ───
-  {id:"shuffle",label:"Shuffle",emoji:"\uD83C\uDFB5",feel:"hard-swing",h:0.4,
+  // ─── SHUFFLE ───
+  {id:"shuffle",label:"Shuffle",emoji:"\uD83C\uDFB5",feel:"hard-swing",h:0.35,
     bars:[
-      {keys:[{t:0,dur:0.25,vel:0.38},{t:1,dur:0.25,vel:0.42},{t:2,dur:0.25,vel:0.38},{t:3,dur:0.25,vel:0.42}],
-       bass:[{t:0,deg:0,dur:0.55,vel:0.68},{t:0.667,deg:7,dur:0.25,vel:0.42},{t:1,deg:0,dur:0.55,vel:0.6},{t:1.667,deg:4,dur:0.25,vel:0.42},{t:2,deg:5,dur:0.55,vel:0.62},{t:2.667,deg:7,dur:0.25,vel:0.42},{t:3,deg:5,dur:0.55,vel:0.58},{t:3.667,deg:4,dur:0.25,vel:0.4}],
-       drums:[{t:0,inst:"kick",vel:0.48},{t:2,inst:"kick",vel:0.42},{t:1,inst:"snare",vel:0.42},{t:3,inst:"snare",vel:0.42},
-              {t:0,inst:"hh",vel:0.3},{t:0.667,inst:"hh",vel:0.18},{t:1,inst:"hh",vel:0.3},{t:1.667,inst:"hh",vel:0.18},{t:2,inst:"hh",vel:0.3},{t:2.667,inst:"hh",vel:0.18},{t:3,inst:"hh",vel:0.3},{t:3.667,inst:"hh",vel:0.18}]},
-      {keys:[{t:0.667,dur:0.3,vel:0.35},{t:1.667,dur:0.8,vel:0.4},{t:3,dur:0.3,vel:0.38},{t:3.667,dur:0.5,vel:0.35}],
-       bass:[{t:0,deg:0,dur:0.55,vel:0.65},{t:0.667,deg:4,dur:0.25,vel:0.42},{t:1,deg:5,dur:0.55,vel:0.58},{t:1.667,deg:7,dur:0.25,vel:0.4},{t:2,deg:0,dur:0.55,vel:0.62},{t:2.667,deg:10,dur:0.25,vel:0.4},{t:3,deg:7,dur:0.55,vel:0.58},{t:3.667,deg:11,dur:0.25,vel:0.38,ap:true}],
-       drums:[{t:0,inst:"kick",vel:0.48},{t:2.667,inst:"kick",vel:0.3},{t:1,inst:"snare",vel:0.42},{t:3,inst:"snare",vel:0.42},
-              {t:0,inst:"hh",vel:0.3},{t:0.667,inst:"hh",vel:0.18},{t:1,inst:"hh",vel:0.3},{t:1.667,inst:"hh",vel:0.18},{t:2,inst:"hh",vel:0.3},{t:2.667,inst:"hh",vel:0.18},{t:3,inst:"hh",vel:0.3},{t:3.667,inst:"hh",vel:0.18}]}
+      {keys:[{t:0,dur:0.2,vel:0.32},{t:2,dur:0.2,vel:0.32}],
+       bass:[{t:0,deg:0,dur:0.55,vel:0.6},{t:0.67,deg:7,dur:0.25,vel:0.35},{t:1,deg:0,dur:0.55,vel:0.52},{t:2,deg:5,dur:0.55,vel:0.55},{t:2.67,deg:7,dur:0.25,vel:0.35},{t:3,deg:5,dur:0.55,vel:0.48}],
+       drums:[{t:0,inst:"kick",vel:0.42},{t:2,inst:"kick",vel:0.38},{t:1,inst:"snare",vel:0.38},{t:3,inst:"snare",vel:0.38},
+              {t:0,inst:"hh",vel:0.25},{t:0.67,inst:"hh",vel:0.15},{t:1,inst:"hh",vel:0.25},{t:1.67,inst:"hh",vel:0.15},{t:2,inst:"hh",vel:0.25},{t:2.67,inst:"hh",vel:0.15},{t:3,inst:"hh",vel:0.25},{t:3.67,inst:"hh",vel:0.15}]}
     ]},
   // ─── NO BACKING ───
   {id:"none",label:"No Backing",emoji:"\u2014",feel:null,keys:[],bass:[],drums:[]},
@@ -736,79 +704,96 @@ function makeChordSynth(bag){
   // Fallback: FM synth comping
   const rev=new Tone.Reverb({decay:3,wet:0.22}).toDestination();const ch=new Tone.Chorus({frequency:0.4,delayTime:6,depth:0.22,wet:0.22}).connect(rev);ch.start();const tr=new Tone.Tremolo({frequency:2.2,depth:0.12,wet:0.18}).connect(ch);tr.start();const flt=new Tone.Filter({frequency:1800,type:"lowpass",rolloff:-24}).connect(tr);const s=new Tone.PolySynth(Tone.FMSynth,{harmonicity:3,modulationIndex:0.6,oscillator:{type:"fatsine2",spread:15,count:3},modulation:{type:"sine"},envelope:{attack:0.015,decay:1.0,sustain:0.3,release:1.5},modulationEnvelope:{attack:0.008,decay:0.6,sustain:0,release:0.6},volume:-18}).connect(flt);bag.push(s,flt,tr,ch,rev);return s;
 }
-function makeBass(bag){
-  // Upright/electric bass hybrid — warm fundamental, finger pluck, subtle chorus for width
-  const rev=new Tone.Reverb({decay:0.8,wet:0.1}).toDestination();
-  const comp=new Tone.Compressor({threshold:-20,ratio:5,attack:0.003,release:0.1}).connect(rev);
-  const flt=new Tone.Filter({frequency:900,type:"lowpass",rolloff:-24}).connect(comp);
-  // Warm body: layered triangle + sine harmonics
-  const s=new Tone.PolySynth(Tone.FMSynth,{
-    harmonicity:1,modulationIndex:0.5,
-    oscillator:{type:"fattriangle",spread:6,count:2},modulation:{type:"sine"},
-    envelope:{attack:0.008,decay:0.4,sustain:0.35,release:0.6},
-    modulationEnvelope:{attack:0.003,decay:0.2,sustain:0.08,release:0.3},
-    volume:-9
-  }).connect(flt);
-  // Finger pluck transient — short, percussive
-  const atkFlt=new Tone.Filter({frequency:2500,type:"bandpass",Q:1.2}).connect(comp);
-  const atk=new Tone.PolySynth(Tone.Synth,{
-    oscillator:{type:"triangle4"},
-    envelope:{attack:0.001,decay:0.035,sustain:0,release:0.025},volume:-18
-  }).connect(atkFlt);
-  // String buzz noise
-  const buzzFlt=new Tone.Filter({frequency:1800,type:"bandpass",Q:2}).connect(rev);
-  const buzz=new Tone.NoiseSynth({
-    noise:{type:"pink"},envelope:{attack:0.001,decay:0.02,sustain:0,release:0.015},volume:-28
-  }).connect(buzzFlt);
-  bag.push(s,atk,buzz,flt,atkFlt,buzzFlt,comp,rev);
-  return{play:(n,d,t,v)=>{try{s.triggerAttackRelease(n,d,t,v);atk.triggerAttackRelease(n,"64n",t,v*0.8);buzz.triggerAttackRelease("64n",t,v*0.5);}catch(e){}}};
+// ── BASS: Sampler-based (reuses Salamander piano → LPF = warm upright bass) ──
+let _bassSampler=null,_bassSamplerReady=false,_bassSamplerPromise=null;
+function preloadBassSampler(){
+  if(_bassSamplerPromise)return _bassSamplerPromise;
+  _bassSamplerPromise=new Promise(res=>{try{
+    // Only load the low octave samples we actually need for bass
+    _bassSampler=new Tone.Sampler({urls:{"C2":"C2.mp3","D#2":"Ds2.mp3","F#2":"Fs2.mp3","A2":"A2.mp3","C3":"C3.mp3","D#3":"Ds3.mp3","F#3":"Fs3.mp3","A3":"A3.mp3"},baseUrl:SAL_BASE,release:0.3,volume:-4,
+      onload:()=>{_bassSamplerReady=true;res(true);},onerror:()=>{res(false);}});
+    setTimeout(()=>{if(!_bassSamplerReady)res(false);},12000);
+  }catch(e){res(false);}});return _bassSamplerPromise;
 }
+function makeBass(bag){
+  // Strategy: Salamander piano through heavy LPF → sounds like upright bass
+  if(_bassSamplerReady&&_bassSampler){
+    const comp=new Tone.Compressor({threshold:-16,ratio:4,attack:0.005,release:0.1}).toDestination();
+    const flt=new Tone.Filter({frequency:400,type:"lowpass",rolloff:-24}).connect(comp);
+    const warmth=new Tone.Filter({frequency:120,type:"lowshelf",gain:6}).connect(flt);
+    _bassSampler.disconnect();_bassSampler.connect(warmth);
+    bag.push(warmth,flt,comp);
+    return{play:(n,d,t,v)=>{try{_bassSampler.triggerAttackRelease(n,d,t,v);}catch(e){}}};
+  }
+  // Fallback: simple mono synth bass
+  const comp=new Tone.Compressor({threshold:-18,ratio:4,attack:0.005,release:0.1}).toDestination();
+  const flt=new Tone.Filter({frequency:500,type:"lowpass",rolloff:-24}).connect(comp);
+  const s=new Tone.Synth({oscillator:{type:"triangle"},envelope:{attack:0.01,decay:0.3,sustain:0.4,release:0.4},volume:-6}).connect(flt);
+  // Sub layer
+  const sub=new Tone.Synth({oscillator:{type:"sine"},envelope:{attack:0.01,decay:0.5,sustain:0.3,release:0.3},volume:-12}).connect(comp);
+  bag.push(s,sub,flt,comp);
+  return{play:(n,d,t,v)=>{try{s.triggerAttackRelease(n,d,t,v);sub.triggerAttackRelease(n,d,t,v*0.6);}catch(e){}}};
+}
+// ── DRUMS: Properly-designed synthesis ──
 function makeDrums(bag){
-  const master=new Tone.Gain(0.9).toDestination();
-  const roomRev=new Tone.Reverb({decay:0.6,wet:0.08}).connect(master);
-  // Kick: deeper, more thump
-  const kickFlt=new Tone.Filter({frequency:180,type:"lowpass",rolloff:-24}).connect(master);
-  const kick=new Tone.MembraneSynth({pitchDecay:0.06,octaves:5,envelope:{attack:0.001,decay:0.3,sustain:0,release:0.18},volume:-10}).connect(kickFlt);
-  // Snare: layered noise + pitched body + snare wire rattle
-  const snrFlt=new Tone.Filter({frequency:5500,type:"bandpass",Q:0.6}).connect(roomRev);
-  const snrNoise=new Tone.NoiseSynth({noise:{type:"white"},envelope:{attack:0.001,decay:0.13,sustain:0,release:0.08},volume:-13}).connect(snrFlt);
-  const snrBody=new Tone.MembraneSynth({pitchDecay:0.008,octaves:2.5,envelope:{attack:0.001,decay:0.1,sustain:0,release:0.06},volume:-18}).connect(roomRev);
-  // Snare wire rattle (for ghost notes)
-  const wireFlt=new Tone.Filter({frequency:8000,type:"highpass",rolloff:-12}).connect(roomRev);
-  const wireNoise=new Tone.NoiseSynth({noise:{type:"white"},envelope:{attack:0.001,decay:0.06,sustain:0,release:0.04},volume:-22}).connect(wireFlt);
-  // Hi-hat closed: tight filtered noise
-  const hhFlt=new Tone.Filter({frequency:10000,type:"highpass",rolloff:-12}).connect(master);
-  const hh=new Tone.NoiseSynth({noise:{type:"white"},envelope:{attack:0.001,decay:0.035,sustain:0,release:0.015},volume:-15}).connect(hhFlt);
-  // Ride: FM-based metallic shimmer (safer than MetalSynth)
-  const rideFlt=new Tone.Filter({frequency:6000,type:"highpass",rolloff:-6}).connect(master);
-  const rideRev=new Tone.Reverb({decay:2.0,wet:0.25}).connect(rideFlt);
-  const ride=new Tone.FMSynth({harmonicity:12,modulationIndex:20,oscillator:{type:"sine"},modulation:{type:"square"},envelope:{attack:0.001,decay:0.45,sustain:0.01,release:0.35},modulationEnvelope:{attack:0.001,decay:0.2,sustain:0,release:0.1},volume:-22}).connect(rideRev);
-  // Ride bell — higher, brighter
-  const rideBell=new Tone.FMSynth({harmonicity:8,modulationIndex:15,oscillator:{type:"sine"},modulation:{type:"sine"},envelope:{attack:0.001,decay:0.3,sustain:0.01,release:0.2},modulationEnvelope:{attack:0.001,decay:0.15,sustain:0,release:0.08},volume:-24}).connect(rideRev);
-  // Rim click / cross-stick: tight, woody
-  const rimFlt=new Tone.Filter({frequency:4000,type:"bandpass",Q:4}).connect(roomRev);
-  const rim=new Tone.NoiseSynth({noise:{type:"pink"},envelope:{attack:0.001,decay:0.018,sustain:0,release:0.012},volume:-12}).connect(rimFlt);
-  const rimBody=new Tone.Synth({oscillator:{type:"sine"},envelope:{attack:0.001,decay:0.015,sustain:0,release:0.01},volume:-20}).connect(roomRev);
-  // Brush: soft swish
-  const brushFlt=new Tone.Filter({frequency:3000,type:"bandpass",Q:0.5}).connect(roomRev);
-  const brushNoise=new Tone.NoiseSynth({noise:{type:"pink"},envelope:{attack:0.01,decay:0.12,sustain:0.02,release:0.08},volume:-16}).connect(brushFlt);
-  // Crash
-  const crashFlt=new Tone.Filter({frequency:4000,type:"highpass",rolloff:-6}).connect(master);
-  const crashRev=new Tone.Reverb({decay:2.5,wet:0.3}).connect(crashFlt);
-  const crash=new Tone.NoiseSynth({noise:{type:"white"},envelope:{attack:0.001,decay:0.8,sustain:0.02,release:0.5},volume:-18}).connect(crashRev);
-  bag.push(kick,snrNoise,snrBody,wireNoise,hh,ride,rideBell,rim,rimBody,brushNoise,crash,
-           kickFlt,snrFlt,wireFlt,hhFlt,rideFlt,rideRev,rimFlt,brushFlt,crashFlt,crashRev,roomRev,master);
+  const out=new Tone.Gain(0.85).toDestination();
+  const room=new Tone.Reverb({decay:0.5,wet:0.06}).connect(out);
+
+  // KICK: MembraneSynth + sub sine layer
+  const kickOut=new Tone.Filter({frequency:150,type:"lowpass",rolloff:-12}).connect(out);
+  const kick=new Tone.MembraneSynth({pitchDecay:0.04,octaves:3,
+    envelope:{attack:0.001,decay:0.22,sustain:0,release:0.12},volume:-8}).connect(kickOut);
+  const kickSub=new Tone.Synth({oscillator:{type:"sine"},
+    envelope:{attack:0.001,decay:0.2,sustain:0,release:0.15},volume:-14}).connect(out);
+
+  // SNARE: noise + body, shared for normal and ghost
+  const snrOut=new Tone.Filter({frequency:6000,type:"lowpass",rolloff:-12}).connect(room);
+  const snrNoise=new Tone.NoiseSynth({noise:{type:"white"},
+    envelope:{attack:0.001,decay:0.11,sustain:0,release:0.06},volume:-11}).connect(snrOut);
+  const snrBody=new Tone.MembraneSynth({pitchDecay:0.006,octaves:2,
+    envelope:{attack:0.001,decay:0.08,sustain:0,release:0.05},volume:-16}).connect(room);
+
+  // HI-HAT: tight filtered noise
+  const hhOut=new Tone.Filter({frequency:9000,type:"highpass",rolloff:-12}).connect(out);
+  const hh=new Tone.NoiseSynth({noise:{type:"white"},
+    envelope:{attack:0.001,decay:0.03,sustain:0,release:0.015},volume:-14}).connect(hhOut);
+
+  // RIDE: the key improvement — noise "wash" + sine "ping" (classic synth cymbal technique)
+  const rideOut=new Tone.Filter({frequency:4000,type:"highpass",rolloff:-6}).connect(out);
+  const rideRev=new Tone.Reverb({decay:1.8,wet:0.2}).connect(rideOut);
+  // Metallic wash: filtered noise with medium decay
+  const rideWash=new Tone.NoiseSynth({noise:{type:"white"},
+    envelope:{attack:0.001,decay:0.4,sustain:0.03,release:0.3},volume:-20}).connect(rideRev);
+  // Stick ping: short sine at ~340Hz with harmonic
+  const ridePing=new Tone.Synth({oscillator:{type:"sine"},
+    envelope:{attack:0.001,decay:0.08,sustain:0,release:0.05},volume:-18}).connect(rideRev);
+  // Second harmonic for shimmer
+  const rideHarm=new Tone.Synth({oscillator:{type:"sine"},
+    envelope:{attack:0.001,decay:0.12,sustain:0,release:0.08},volume:-24}).connect(rideRev);
+
+  // BRUSH: soft swish with longer attack
+  const brushOut=new Tone.Filter({frequency:3500,type:"bandpass",Q:0.4}).connect(room);
+  const brush=new Tone.NoiseSynth({noise:{type:"pink"},
+    envelope:{attack:0.015,decay:0.15,sustain:0.02,release:0.1},volume:-14}).connect(brushOut);
+
+  // RIM: short woody click
+  const rimOut=new Tone.Filter({frequency:3000,type:"bandpass",Q:3}).connect(room);
+  const rim=new Tone.NoiseSynth({noise:{type:"pink"},
+    envelope:{attack:0.001,decay:0.015,sustain:0,release:0.01},volume:-10}).connect(rimOut);
+
+  bag.push(kick,kickSub,snrNoise,snrBody,hh,rideWash,ridePing,rideHarm,brush,rim,
+           kickOut,snrOut,hhOut,rideOut,rideRev,brushOut,rimOut,room,out);
   return{
-    kick:(t,v)=>{try{kick.triggerAttackRelease("C1","8n",t,v);}catch(e){}},
+    kick:(t,v)=>{try{kick.triggerAttackRelease("C1","8n",t,v);kickSub.triggerAttackRelease("C1","8n",t,v*0.5);}catch(e){}},
     snare:(t,v,ghost)=>{try{
-      if(ghost){wireNoise.triggerAttackRelease("32n",t,v*0.6);snrBody.triggerAttackRelease("D3","32n",t,v*0.3);}
-      else{snrNoise.triggerAttackRelease("16n",t,v);snrBody.triggerAttackRelease("E2","16n",t,v*0.45);wireNoise.triggerAttackRelease("16n",t,v*0.3);}}catch(e){}},
+      if(ghost){snrNoise.triggerAttackRelease("32n",t,v*0.3);} // ghost = just quiet noise tap
+      else{snrNoise.triggerAttackRelease("16n",t,v);snrBody.triggerAttackRelease("D3","16n",t,v*0.4);}}catch(e){}},
     hh:(t,v)=>{try{hh.triggerAttackRelease("32n",t,v);}catch(e){}},
-    ride:(t,v)=>{try{ride.triggerAttackRelease("C6","32n",t,v);}catch(e){}},
-    rideBell:(t,v)=>{try{rideBell.triggerAttackRelease("C7","32n",t,v);}catch(e){}},
-    rim:(t,v)=>{try{rim.triggerAttackRelease("32n",t,v);rimBody.triggerAttackRelease("A4","64n",t,v*0.4);}catch(e){}},
-    brush:(t,v)=>{try{brushNoise.triggerAttackRelease("8n",t,v);}catch(e){}},
-    crash:(t,v)=>{try{crash.triggerAttackRelease("8n",t,v);}catch(e){}}
+    ride:(t,v)=>{try{rideWash.triggerAttackRelease("8n",t,v);ridePing.triggerAttackRelease("G4","32n",t,v*0.7);rideHarm.triggerAttackRelease("D5","32n",t,v*0.3);}catch(e){}},
+    rideBell:(t,v)=>{try{ridePing.triggerAttackRelease("G5","16n",t,v);rideHarm.triggerAttackRelease("D6","16n",t,v*0.5);rideWash.triggerAttackRelease("16n",t,v*0.3);}catch(e){}},
+    brush:(t,v)=>{try{brush.triggerAttackRelease("8n",t,v);}catch(e){}},
+    rim:(t,v)=>{try{rim.triggerAttackRelease("32n",t,v);}catch(e){}},
+    crash:(t,v)=>{try{rideWash.triggerAttackRelease("2n",t,v*1.3);ridePing.triggerAttackRelease("C5","8n",t,v*0.6);}catch(e){}}
   };
 }
 // Bass note from chord root + degree offset
@@ -1092,7 +1077,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
   const setLc=v=>{if(lcDispRef.current){lcDispRef.current.textContent=v;lcDispRef.current.parentElement.style.display=v>1?"flex":"none";}};
   const scheduledTimers=useRef([]);
   const clearScheduled=()=>{for(const tid of scheduledTimers.current)clearTimeout(tid);scheduledTimers.current=[];};
-  const disposeBag=()=>{clearScheduled();if(_sampler&&_samplerReady)try{_sampler.releaseAll();_sampler.disconnect();}catch(e){}if(_chordSampler&&_chordSamplerReady)try{_chordSampler.releaseAll();_chordSampler.disconnect();}catch(e){}for(const n of bagRef.current){try{n.releaseAll&&n.releaseAll();}catch(e){}try{n.stop&&n.stop();}catch(e){}try{n.dispose();}catch(e){}}bagRef.current=[];};
+  const disposeBag=()=>{clearScheduled();if(_sampler&&_samplerReady)try{_sampler.releaseAll();_sampler.disconnect();}catch(e){}if(_chordSampler&&_chordSamplerReady)try{_chordSampler.releaseAll();_chordSampler.disconnect();}catch(e){}if(_bassSampler&&_bassSamplerReady)try{_bassSampler.releaseAll();_bassSampler.disconnect();}catch(e){}for(const n of bagRef.current){try{n.releaseAll&&n.releaseAll();}catch(e){}try{n.stop&&n.stop();}catch(e){}try{n.dispose();}catch(e){}}bagRef.current=[];};
   const metroCtrlRef=useRef({});// MiniMetronome writes start/stop here
   const clr=useCallback(()=>{sT.current=true;if(aR.current)cancelAnimationFrame(aR.current);disposeBag();sPl(false);setPr(0);setLc(0);setLoading(false);lcR.current=0;curNoteR.current=-1;if(onCurNoteR.current)onCurNoteR.current(-1);try{metroCtrlRef.current.stop&&metroCtrlRef.current.stop();}catch(e){}},[]);
   // Live restart at new BPM (called when user changes BPM during playback)
@@ -1218,6 +1203,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
     setLoading(true);
     if(!_samplerReady&&!_samplerFailed){await preloadPiano();setSamplesOk(_samplerReady);}
     if(!_chordSamplerReady)await preloadChordPiano();
+    if(!_bassSamplerReady)preloadBassSampler(); // fire and forget, synth fallback works immediately
     const p=parseAbc(abcR.current,pTR.current);
     // Capture ONE time reference — shared by lick notes AND metronome
     var t0=Tone.now();toneStartR.current=t0;
@@ -3548,7 +3534,7 @@ function PolyrhythmTrainer({th,sharedInput,sharedMicSilent}){
 function Editor({onClose,onSubmit,onSubmitPrivate,th}){const t=th||TH.classic;const isStudio=t===TH.studio;
   const[title,sT]=useState("");const[artist,sA]=useState("");const[inst,sI]=useState("Alto Sax");const[cat,sC]=useState("ii-V-I");const[keySig,sK]=useState("C");const[timeSig,sTS]=useState("4/4");const[tempo,sTm]=useState("120");const[abc,sAbc]=useState("X:1\nT:My Lick\nM:4/4\nL:1/8\nQ:1/4=120\nK:C\n");const[mode,setMode]=useState("visual");const[feel,setFeel]=useState("straight");const[yu,sYu]=useState("");const[tm,sTmn]=useState("");const[ts,sTs]=useState("");const[sp,sSp]=useState("");const[desc,sD]=useState("");const[tags,sTg]=useState("");const[extrasOpen,setExtrasOpen]=useState(false);
   // Pre-init audio on editor open for instant feedback
-  useEffect(function(){try{Tone.start();}catch(e){}preloadPiano();preloadChordPiano();_ensurePreviewSynth();},[]);
+  useEffect(function(){try{Tone.start();}catch(e){}preloadPiano();preloadChordPiano();preloadBassSampler();_ensurePreviewSynth();},[]);
   const KEYS=["C","Db","D","Eb","E","F","F#","G","Ab","A","Bb","B"];const TS=["4/4","3/4","6/8","5/4","7/8"];const yt=parseYT(yu);const tSec=(parseInt(tm)||0)*60+(parseInt(ts)||0);
   const lb={fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5,display:"block",marginBottom:4};
   const ip={width:"100%",background:t.inputBg,border:"1px solid "+t.inputBorder,borderRadius:10,padding:"10px 14px",color:t.text,fontSize:14,fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"};
@@ -4809,7 +4795,7 @@ export default function Etudy(){
         if(lick&&adding){g.get("etudy:savedLicksData").then(r=>{var m={};try{m=r&&r.value?JSON.parse(r.value):{};}catch(e){}m[id]=lick;g.set("etudy:savedLicksData",JSON.stringify(m)).catch(()=>{});}).catch(()=>{});}
         if(!adding){g.get("etudy:savedLicksData").then(r=>{var m={};try{m=r&&r.value?JSON.parse(r.value):{};}catch(e){}delete m[id];g.set("etudy:savedLicksData",JSON.stringify(m)).catch(()=>{});}).catch(()=>{});}
       }return n;});};
-  useEffect(()=>{preloadPiano();preloadChordPiano();},[]);
+  useEffect(()=>{preloadPiano();preloadChordPiano();preloadBassSampler();},[]);
   const dayOfYear=Math.floor((Date.now()-new Date(new Date().getFullYear(),0,0))/86400000);
   const dailyLick=licks.length>0?licks[dayOfYear%licks.length]:null;
   const srcLicks=lickSource==="mine"?licks.filter(function(l){return savedSet.has(l.id);}).concat(myLicks):licks;
