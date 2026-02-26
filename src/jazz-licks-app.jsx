@@ -2133,7 +2133,7 @@ function Metronome({th}){
           :isMuted?"2px dashed "+(isStudio?t.border:t.borderSub)
           :"2px solid "+(isStudio?t.border:t.borderSub);
         var shadow=active&&!isMuted?"0 0 16px "+(isAcc?t.accentGlow:"rgba(245,158,11,0.4)"):"none";
-        return React.createElement("button",{key:i,onClick:function(){cycleBeat(i);},style:{width:32,height:32,borderRadius:"50%",background:bg,border:bdr,transform:"scale("+scale+")",transition:"transform 0.06s ease, background 0.06s ease, box-shadow 0.06s ease",boxShadow:shadow,cursor:"pointer",padding:0,display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}},
+        return React.createElement("button",{key:i,onClick:function(){cycleBeat(i);},style:{width:32,height:32,minWidth:32,minHeight:32,flexShrink:0,borderRadius:"50%",background:bg,border:bdr,transform:"scale("+scale+")",transition:"transform 0.06s ease, background 0.06s ease, box-shadow 0.06s ease",boxShadow:shadow,cursor:"pointer",padding:0,display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}},
           isMuted&&React.createElement("span",{style:{fontSize:10,color:t.subtle,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,lineHeight:1}},"\u00D7"),
           isAcc&&!active&&React.createElement("span",{style:{fontSize:8,color:t.accent,fontWeight:700}},"\u25B2"));
       })),
@@ -2390,7 +2390,7 @@ function MiniMetronome({th,initBpm,syncPlaying,ctrlRef,onBpmChange,lickTempo,onS
       beatStates.map(function(bs,i){
         var active=playing&&currentBeat===i;var isAcc=bs===1;var isMut=bs===2;
         var bg=isMut?(isStudio?"rgba(255,255,255,0.05)":"#F3F3F3"):active?(isAcc?t.accent:"#F59E0B"):isAcc?(isStudio?t.accent+"40":t.accent+"25"):(isStudio?t.border+"60":t.border);
-        return React.createElement("button",{key:i,onClick:function(e){e.stopPropagation();cycleBeat(i);},style:{width:22,height:22,borderRadius:"50%",background:bg,border:isAcc?"2px solid "+t.accent:isMut?"2px dashed "+t.border:"2px solid "+(isStudio?t.border:t.borderSub||t.border),transform:active?"scale(1.2)":"scale(1)",transition:"all 0.06s",cursor:"pointer",padding:0,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:active&&!isMut?"0 0 8px "+(isAcc?t.accentGlow:"rgba(245,158,11,0.4)"):"none"}},
+        return React.createElement("button",{key:i,onClick:function(e){e.stopPropagation();cycleBeat(i);},style:{width:22,height:22,minWidth:22,minHeight:22,flexShrink:0,borderRadius:"50%",background:bg,border:isAcc?"2px solid "+t.accent:isMut?"2px dashed "+t.border:"2px solid "+(isStudio?t.border:t.borderSub||t.border),transform:active?"scale(1.2)":"scale(1)",transition:"all 0.06s",cursor:"pointer",padding:0,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:active&&!isMut?"0 0 8px "+(isAcc?t.accentGlow:"rgba(245,158,11,0.4)"):"none"}},
           isMut&&React.createElement("span",{style:{fontSize:8,color:t.subtle,fontWeight:700}},"\u00D7"),
           isAcc&&!active&&React.createElement("span",{style:{fontSize:6,color:t.accent,fontWeight:700}},"\u25B2"));
       }),
@@ -2450,7 +2450,7 @@ function MiniMetronome({th,initBpm,syncPlaying,ctrlRef,onBpmChange,lickTempo,onS
       beatStates.map(function(bs,i){
         var active=playing&&currentBeat===i;var isAcc=bs===1;var isMut=bs===2;
         var bg=isMut?(isStudio?"rgba(255,255,255,0.05)":"#F3F3F3"):active?(isAcc?t.accent:"#F59E0B"):isAcc?(isStudio?t.accent+"40":t.accent+"25"):(isStudio?t.border+"60":t.border);
-        return React.createElement("button",{key:i,onClick:function(e){e.stopPropagation();cycleBeat(i);},style:{width:22,height:22,borderRadius:"50%",background:bg,border:isAcc?"2px solid "+t.accent:isMut?"2px dashed "+t.border:"2px solid "+(isStudio?t.border:t.borderSub||t.border),transform:active?"scale(1.2)":"scale(1)",transition:"all 0.06s",boxShadow:active&&!isMut?"0 0 10px "+(isAcc?t.accentGlow:"rgba(245,158,11,0.4)"):"none",cursor:"pointer",padding:0,display:"flex",alignItems:"center",justifyContent:"center"}},
+        return React.createElement("button",{key:i,onClick:function(e){e.stopPropagation();cycleBeat(i);},style:{width:22,height:22,minWidth:22,minHeight:22,flexShrink:0,borderRadius:"50%",background:bg,border:isAcc?"2px solid "+t.accent:isMut?"2px dashed "+t.border:"2px solid "+(isStudio?t.border:t.borderSub||t.border),transform:active?"scale(1.2)":"scale(1)",transition:"all 0.06s",boxShadow:active&&!isMut?"0 0 10px "+(isAcc?t.accentGlow:"rgba(245,158,11,0.4)"):"none",cursor:"pointer",padding:0,display:"flex",alignItems:"center",justifyContent:"center"}},
           isMut&&React.createElement("span",{style:{fontSize:8,color:t.subtle,fontWeight:700}},"\u00D7"),
           isAcc&&!active&&React.createElement("span",{style:{fontSize:6,color:t.accent,fontWeight:700}},"\u25B2"));
       }),
