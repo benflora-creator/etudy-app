@@ -1450,7 +1450,7 @@ function noteIcon(idx,color,sz){var c=color||"#666",s=sz||22,h=s,w=Math.round(s*
 const NOTE_NMS=["C","D","E","F","G","A","B"];const CHORD_PR=["maj7","m7","7","m7b5","dim7","6","9","sus4"];
 function e2s(e){if(e===1)return"";if(e===0.5)return"/2";if(e===0.75)return"3/4";if(e===1.5)return"3/2";if(e===3)return"3";if(e===6)return"6";if(e===12)return"12";if(Number.isInteger(e))return String(e);return String(Math.round(e*2))+"/2";}
 var KEY_SIG_ACC={"C":{},"G":{F:1},"D":{F:1,C:1},"A":{F:1,C:1,G:1},"E":{F:1,C:1,G:1,D:1},"B":{F:1,C:1,G:1,D:1,A:1},"F#":{F:1,C:1,G:1,D:1,A:1,E:1},"Gb":{B:-1,E:-1,A:-1,D:-1,G:-1,C:-1},"F":{B:-1},"Bb":{B:-1,E:-1},"Eb":{B:-1,E:-1,A:-1},"Ab":{B:-1,E:-1,A:-1,D:-1},"Db":{B:-1,E:-1,A:-1,D:-1,G:-1}};
-function buildAbc(items,keySig,timeSig,tempo,chords){const[tsN,tsD]=timeSig.split("/").map(Number);const bE=tsN*(8/tsD);const beatE=8/tsD;const bG=tsD===8?3:2;let abc="X:1\nT:My Lick\nM:"+timeSig+"\nL:1/8\nQ:1/4="+tempo+"\nK:"+keySig+"\n";const ksMap=KEY_SIG_ACC[keySig]||{};let pos=0,ns=false,nc=0;var barAlts={};var triCount=0;var chObj=chords||{};var emittedCh={};for(var ii=0;ii<items.length;ii++){var item=items[ii];if(item.type==="chord")continue;const ei=DURS[item.dur].eighths*(item.dotted?1.5:1);var effEi=item.tri?ei*(2/3):ei;if(pos>0){const bN=pos/bE;if(Math.abs(bN-Math.round(bN))<0.01&&Math.round(bN)>0){abc+=" | ";ns=false;barAlts={};}}if(nc>0&&ns)abc+=" ";var beatIdx=Math.floor(pos/beatE+0.01);if(chObj[beatIdx]&&!emittedCh[beatIdx]){abc+='"'+chObj[beatIdx]+'"';emittedCh[beatIdx]=true;}if(item.tri&&triCount%3===0)abc+="(3";if(item.tri)triCount++;else triCount=0;if(item.type==="rest")abc+="z"+e2s(ei);else if(item.type==="note"){var ksA=ksMap[item.note]||0;var prevA=barAlts.hasOwnProperty(item.note)?barAlts[item.note]:ksA;var needsAcc=false;if(item.acc!==prevA){needsAcc=true;}else if(item.acc===ksA&&barAlts.hasOwnProperty(item.note)&&barAlts[item.note]!==ksA){needsAcc=true;}if(needsAcc){if(item.acc===1)abc+="^";else if(item.acc===-1)abc+="_";else abc+="=";}barAlts[item.note]=item.acc;if(item.oct>=5){abc+=item.note.toLowerCase();for(let o=6;o<=item.oct;o++)abc+="'";}else{abc+=item.note.toUpperCase();for(let o=3;o>=item.oct;o--)abc+=",";}abc+=e2s(ei);}const eP=pos+effEi;ns=ei>=2||Math.floor((eP-0.001)/bG)>Math.floor(pos/bG)||Math.floor((eP-0.001)/bE)>Math.floor(pos/bE);pos=eP;nc++;}if(nc>0)abc+=" |";return abc;}
+function buildAbc(items,keySig,timeSig,tempo,chords){const[tsN,tsD]=timeSig.split("/").map(Number);const bE=tsN*(8/tsD);const beatE=8/tsD;const bG=tsD===8?3:2;let abc="X:1\nT:My Lick\nM:"+timeSig+"\nL:1/8\nQ:1/4="+tempo+"\nK:"+keySig+"\n";const ksMap=KEY_SIG_ACC[keySig]||{};let pos=0,ns=false,nc=0;var barAlts={};var triCount=0;var chObj=chords||{};var emittedCh={};for(var ii=0;ii<items.length;ii++){var item=items[ii];if(item.type==="chord")continue;const ei=DURS[item.dur].eighths*(item.dotted?1.5:1);var effEi=item.tri?ei*(2/3):ei;if(pos>0){const bN=pos/bE;if(Math.abs(bN-Math.round(bN))<0.01&&Math.round(bN)>0){abc+=" | ";ns=false;barAlts={};}}if(nc>0&&ns)abc+=" ";var beatIdx=Math.floor(pos/beatE+0.01);if(chObj[beatIdx]&&!emittedCh[beatIdx]){abc+='"'+chObj[beatIdx]+'"';emittedCh[beatIdx]=true;}if(item.tri&&triCount%3===0)abc+="(3";if(item.tri)triCount++;else triCount=0;if(item.type==="rest")abc+="z"+e2s(ei);else if(item.type==="note"){var ksA=ksMap[item.note]||0;var prevA=barAlts.hasOwnProperty(item.note)?barAlts[item.note]:ksA;var needsAcc=false;if(item.acc!==prevA){needsAcc=true;}else if(item.acc===ksA&&barAlts.hasOwnProperty(item.note)&&barAlts[item.note]!==ksA){needsAcc=true;}if(needsAcc){if(item.acc===1)abc+="^";else if(item.acc===-1)abc+="_";else abc+="=";}barAlts[item.note]=item.acc;if(item.oct>=5){abc+=item.note.toLowerCase();for(let o=6;o<=item.oct;o++)abc+="'";}else{abc+=item.note.toUpperCase();for(let o=3;o>=item.oct;o--)abc+=",";}abc+=e2s(ei);}const eP=pos+effEi;ns=effEi>=2||Math.floor((eP-0.001)/bG)>Math.floor(pos/bG)||Math.floor((eP-0.001)/bE)>Math.floor(pos/bE);pos=eP;nc++;}if(nc>0)abc+=" |";return abc;}
 function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl}){
   const[items,sIt]=useState([]);const[cO,sCO]=useState(5);const[cD,sCD]=useState(2);const[dt,sDt]=useState(false);const[tri,sTri]=useState(false);
   const[chords,sChords]=useState({});const[chEd,sChEd]=useState(null);const[chRoot,sChRoot]=useState("C");const[chQual,sChQual]=useState("maj7");
@@ -1514,7 +1514,9 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl}){
     }else{
       var oct=smartOct(n,items);sCO(oct);
       prevNote(n,oct,acc);
-      mutate(items.concat([{type:"note",note:n,acc:acc,oct:oct,dur:cD,dotted:dt,tri:tri}]));
+      var newItems=items.concat([{type:"note",note:n,acc:acc,oct:oct,dur:cD,dotted:dt,tri:tri}]);
+      mutate(newItems);
+      if(tri){var tc=0;for(var k=newItems.length-1;k>=0&&newItems[k].tri;k--)tc++;if(tc>=3){sTri(false);}}
     }
   };
   const addRest=function(){
@@ -1522,7 +1524,11 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl}){
       var ni=items.map(function(x){return Object.assign({},x);});
       ni[selIdx]={type:"rest",dur:ni[selIdx].dur,dotted:ni[selIdx].dotted,tri:ni[selIdx].tri};
       mutate(ni);
-    }else{mutate(items.concat([{type:"rest",dur:cD,dotted:dt,tri:tri}]));}
+    }else{
+      var newItems=items.concat([{type:"rest",dur:cD,dotted:dt,tri:tri}]);
+      mutate(newItems);
+      if(tri){var tc=0;for(var k=newItems.length-1;k>=0&&newItems[k].tri;k--)tc++;if(tc>=3){sTri(false);}}
+    }
   };
   const changeDur=function(d){
     sCD(d);
