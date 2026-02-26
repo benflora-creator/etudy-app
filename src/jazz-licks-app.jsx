@@ -1048,7 +1048,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
   const[backingStyle,setBackingStyle]=useState("piano");const[muteKeys,setMuteKeys]=useState(false);const[muteBass,setMuteBass]=useState(false);const[muteDrums,setMuteDrums]=useState(false);
   const[sound,setSound]=useState("piano");const[loading,setLoading]=useState(false);const[samplesOk,setSamplesOk]=useState(_samplerReady);
   const[ci,setCi]=useState(true);const lcDispRef=useRef(null);const[settingsOpen,setSettingsOpen]=useState(false);
-  const[soundDdOpen,setSoundDdOpen]=useState(false);const[backDdOpen,setBackDdOpen]=useState(false);const[metroExpand,setMetroExpand]=useState(false);
+  const[soundDdOpen,setSoundDdOpen]=useState(false);const[backDdOpen,setBackDdOpen]=useState(false);const[metroExpand,setMetroExpand]=useState(false);const[feelDdOpen,setFeelDdOpen]=useState(false);
   const prBarRef=useRef(null);
   const bagRef=useRef([]);const aR=useRef(null);const tR=useRef(0);const dR=useRef(0);const sT=useRef(true);
   const lR=useRef(false);const mR=useRef(false);const bR=useRef(true);const mlR=useRef(true);const fR=useRef(initFeel||"straight");const soR=useRef("piano");const ciR=useRef(true);
@@ -1359,6 +1359,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
   const dispBpm=pT||tempo;
   const curSoundLabel=(SOUND_PRESETS.find(p=>p.id===sound)||{}).label||"Piano";
   const curBackObj=BACKING_STYLES.find(s=>s.id===backingStyle)||BACKING_STYLES[0];
+  const curFeelLabel=fl==="straight"?"Straight":fl==="swing"?"Swing":"Hard Swing";
   return React.createElement("div",{style:{marginTop:12}},
     // ROW 1: Play + progress + Loop + AB
     React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
@@ -1372,34 +1373,33 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
       pill(lp,"\u221E",()=>sLp(!lp),"Loop"),
       setAbOn&&React.createElement("span",{"data-coach":"ab-loop"},pill(abOn,"\u2759\u2759",()=>{setAbOn(!abOn);if(!abOn){setAbA(0);setAbB(1);}},"A\u2009\u00B7\u2009B"))),
 
-    // ROW 2: Metronome — BPM(tap) + +/- + TAP + More
-    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginTop:8}},
+    // ROW 2: Metronome — BPM(tap) + ± + TAP + mute + dots + ▸More (wraps for expand)
+    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:5,marginTop:8,flexWrap:"wrap"}},
       React.createElement("button",{onClick:e=>{e.stopPropagation();parentTapTempo();},style:{...bb,padding:"2px 4px",borderRadius:6,background:"transparent",flexShrink:0}},
         React.createElement("span",{style:{fontSize:18,fontWeight:700,color:pl?t.accent:t.text,fontFamily:"'JetBrains Mono',monospace",letterSpacing:-0.5}},dispBpm)),
       React.createElement("div",{style:{display:"flex",gap:2,flexShrink:0}},
         React.createElement("button",{onClick:e=>{e.stopPropagation();parentChangeBpm(-5);},style:{...bb,width:22,height:22,borderRadius:5,border:"1px solid "+t.border,background:t.filterBg,color:t.text,fontSize:11}},"\u2212"),
         React.createElement("button",{onClick:e=>{e.stopPropagation();parentChangeBpm(5);},style:{...bb,width:22,height:22,borderRadius:5,border:"1px solid "+t.border,background:t.filterBg,color:t.text,fontSize:11}},"+"),
         lickTempo&&dispBpm!==lickTempo&&React.createElement("button",{onClick:e=>{e.stopPropagation();parentChangeBpm(lickTempo-dispBpm);},style:{...bb,padding:"2px 5px",borderRadius:5,background:"none",color:t.subtle,fontSize:8}},"\u21A9")),
-      React.createElement("button",{onClick:e=>{e.stopPropagation();parentTapTempo();},style:{...bb,padding:"3px 8px",borderRadius:6,border:"1.5px solid "+t.border,background:t.card,color:t.text,fontSize:9,fontWeight:600,flexShrink:0}},"TAP"),
-      React.createElement("div",{style:{marginLeft:"auto",flexShrink:0}},
-        React.createElement("button",{onClick:e=>{e.stopPropagation();setMetroExpand(!metroExpand);},style:{...bb,padding:"3px 8px",borderRadius:6,background:metroExpand?t.filterBg:"transparent",color:metroExpand?t.text:t.subtle,fontSize:9}},metroExpand?"\u25B4 Less":"\u25BE More"))),
-    // Metronome expand: beat dots, click mute/sound, count-in, progressive
-    metroExpand&&React.createElement("div",{style:{marginTop:4,padding:"8px 10px",background:t.settingsBg,borderRadius:10,border:"1px solid "+t.border}},
-      React.createElement(MiniMetronome,{th:t,initBpm:pT||tempo,syncPlaying:pl,ctrlRef:metroCtrlRef,onBpmChange:function(v){pTR.current=v;if(sPT)sPT(v);if(!sT.current)liveRestart(v);},lickTempo:lickTempo||tempo,onSetLoop:function(v){if(v)sLp(true);},lickTimeSig:lickTS,headless:true}),
-      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginTop:6}},
+      React.createElement("button",{onClick:e=>{e.stopPropagation();parentTapTempo();},style:{...bb,padding:"3px 7px",borderRadius:6,border:"1.5px solid "+t.border,background:t.card,color:t.text,fontSize:9,fontWeight:600,flexShrink:0}},"TAP"),
+      // Mute + beat dots rendered inline by MiniMetronome (display:contents)
+      React.createElement(MiniMetronome,{th:t,initBpm:pT||tempo,syncPlaying:pl,ctrlRef:metroCtrlRef,onBpmChange:function(v){pTR.current=v;if(sPT)sPT(v);if(!sT.current)liveRestart(v);},lickTempo:lickTempo||tempo,onSetLoop:function(v){if(v)sLp(true);},lickTimeSig:lickTS,headless:true,expandOpen:metroExpand}),
+      React.createElement("button",{onClick:e=>{e.stopPropagation();setMetroExpand(!metroExpand);},style:{...bb,padding:"3px 7px",borderRadius:6,background:metroExpand?t.filterBg:"transparent",color:metroExpand?t.text:t.subtle,fontSize:9,flexShrink:0,marginLeft:"auto"}},metroExpand?"\u25B4":"\u25BE"),
+      // Count-in (only when expanded, wraps to new line)
+      metroExpand&&React.createElement("div",{style:{width:"100%",display:"flex",alignItems:"center",gap:6,marginTop:2}},
         sBtn(ci,"Count-in "+(ci?"\u2713":"\u2717"),()=>setCi(!ci)))),
 
-    // ROW 3: Melody [Sound dropdown] | Backing [Style dropdown]
+    // ROW 3: Melody [Sound▾] | Backing [Style▾]
     React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginTop:8,position:"relative"}},
-      pill(ml,ml?"\u266B":"\u2715",()=>sMl(!ml),ml?"Mel":"Mel off"),
+      pill(ml,ml?"\u266B":"\u2715",()=>sMl(!ml),ml?"Melody":"Melody off"),
       ml&&React.createElement("div",{style:{position:"relative"}},
-        React.createElement("button",{onClick:e=>{e.stopPropagation();setSoundDdOpen(!soundDdOpen);setBackDdOpen(false);},style:{...bb,padding:"4px 8px",fontSize:10,borderRadius:6,background:soundDdOpen?t.accentBg:t.filterBg,color:soundDdOpen?t.accent:t.muted,gap:3}},curSoundLabel," ",soundDdOpen?"\u25B4":"\u25BE"),
+        React.createElement("button",{onClick:e=>{e.stopPropagation();setSoundDdOpen(!soundDdOpen);setBackDdOpen(false);setFeelDdOpen(false);},style:{...bb,padding:"4px 8px",fontSize:10,borderRadius:6,background:soundDdOpen?t.accentBg:t.filterBg,color:soundDdOpen?t.accent:t.muted,gap:3}},curSoundLabel," ",soundDdOpen?"\u25B4":"\u25BE"),
         soundDdOpen&&React.createElement("div",{style:{position:"absolute",top:"100%",left:0,marginTop:4,background:t.card,border:"1px solid "+t.border,borderRadius:8,boxShadow:"0 4px 16px rgba(0,0,0,0.12)",zIndex:50,minWidth:110,padding:4,display:"flex",flexDirection:"column",gap:2}},
           SOUND_PRESETS.map(p=>React.createElement("button",{key:p.id,onClick:e=>{e.stopPropagation();setSound(p.id);setSoundDdOpen(false);},style:{...bb,padding:"6px 10px",fontSize:11,borderRadius:6,background:sound===p.id?t.accentBg:"transparent",color:sound===p.id?t.accent:t.text,justifyContent:"flex-start",width:"100%"}},p.label)))),
       React.createElement("div",{style:{width:1,height:20,background:t.border,flexShrink:0}}),
-      pill(bk,bk?"\uD83C\uDFB9":"\uD83C\uDFB9",()=>sBk(!bk),bk?"Back":"Back off"),
+      pill(bk,bk?"\uD83C\uDFB9":"\uD83C\uDFB9",()=>sBk(!bk),bk?"Backing":"Backing off"),
       bk&&React.createElement("div",{style:{position:"relative"}},
-        React.createElement("button",{onClick:e=>{e.stopPropagation();setBackDdOpen(!backDdOpen);setSoundDdOpen(false);},style:{...bb,padding:"4px 8px",fontSize:10,borderRadius:6,background:backDdOpen?t.accentBg:t.filterBg,color:backDdOpen?t.accent:t.muted,gap:3}},curBackObj.emoji+" "+curBackObj.label," ",backDdOpen?"\u25B4":"\u25BE"),
+        React.createElement("button",{onClick:e=>{e.stopPropagation();setBackDdOpen(!backDdOpen);setSoundDdOpen(false);setFeelDdOpen(false);},style:{...bb,padding:"4px 8px",fontSize:10,borderRadius:6,background:backDdOpen?t.accentBg:t.filterBg,color:backDdOpen?t.accent:t.muted,gap:3}},curBackObj.emoji+" "+curBackObj.label," ",backDdOpen?"\u25B4":"\u25BE"),
         backDdOpen&&React.createElement("div",{style:{position:"absolute",top:"100%",left:0,marginTop:4,background:t.card,border:"1px solid "+t.border,borderRadius:8,boxShadow:"0 4px 16px rgba(0,0,0,0.12)",zIndex:50,minWidth:140,padding:4,display:"flex",flexDirection:"column",gap:2}},
           BACKING_STYLES.map(s=>React.createElement("button",{key:s.id,onClick:e=>{e.stopPropagation();setBackingStyle(s.id);},style:{...bb,padding:"6px 10px",fontSize:11,borderRadius:6,background:backingStyle===s.id?t.accentBg:"transparent",color:backingStyle===s.id?t.accent:t.text,justifyContent:"flex-start",width:"100%"}},s.emoji+" "+s.label)),
           backingStyle!=="piano"&&backingStyle!=="rhodes"&&React.createElement("div",{style:{borderTop:"1px solid "+t.border,marginTop:2,paddingTop:4,display:"flex",gap:4,padding:"4px 6px"}},
@@ -1407,10 +1407,12 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
             React.createElement("button",{onClick:e=>{e.stopPropagation();setMuteBass(!muteBass);},style:{...bb,padding:"4px 7px",fontSize:9,borderRadius:5,background:muteBass?t.filterBg:t.accentBg,color:muteBass?t.muted:t.accent,textDecoration:muteBass?"line-through":"none"}},"Bass"),
             (backingStyle==="jazz"||backingStyle==="bossa")&&React.createElement("button",{onClick:e=>{e.stopPropagation();setMuteDrums(!muteDrums);},style:{...bb,padding:"4px 7px",fontSize:9,borderRadius:5,background:muteDrums?t.filterBg:t.accentBg,color:muteDrums?t.muted:t.accent,textDecoration:muteDrums?"line-through":"none"}},"Drums"))))),
 
-    // ROW 4: Feel (always visible, inline)
-    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4,marginTop:8}},
-      React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5,flexShrink:0}},"Feel"),
-      ["straight","swing","hard-swing"].map(v=>sBtn(fl===v,v==="straight"?"Straight":v==="swing"?"Swing":"Hard Swing",()=>sFl(v)))));
+    // ROW 4: Feel dropdown
+    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginTop:8,position:"relative"}},
+      React.createElement("div",{style:{position:"relative"}},
+        React.createElement("button",{onClick:e=>{e.stopPropagation();setFeelDdOpen(!feelDdOpen);setSoundDdOpen(false);setBackDdOpen(false);},style:{...bb,padding:"5px 10px",fontSize:11,fontWeight:400,borderRadius:8,background:feelDdOpen?t.filterBg:"transparent",color:feelDdOpen?t.text:t.muted,gap:4}},"Feel: "+curFeelLabel," ",feelDdOpen?"\u25B4":"\u25BE"),
+        feelDdOpen&&React.createElement("div",{style:{position:"absolute",bottom:"100%",left:0,marginBottom:4,background:t.card,border:"1px solid "+t.border,borderRadius:8,boxShadow:"0 4px 16px rgba(0,0,0,0.12)",zIndex:50,minWidth:120,padding:4,display:"flex",flexDirection:"column",gap:2}},
+          ["straight","swing","hard-swing"].map(v=>React.createElement("button",{key:v,onClick:e=>{e.stopPropagation();sFl(v);setFeelDdOpen(false);},style:{...bb,padding:"6px 10px",fontSize:11,borderRadius:6,background:fl===v?t.accentBg:"transparent",color:fl===v?t.accent:t.text,justifyContent:"flex-start",width:"100%"}},v==="straight"?"Straight":v==="swing"?"Swing":"Hard Swing"))))));
 }
 
 // ============================================================
@@ -2217,7 +2219,7 @@ function Metronome({th}){
 // MINI METRONOME — compact inline metronome for Player Practice mode
 // Same Web Audio scheduler as full Metronome, compact UI
 // ============================================================
-function MiniMetronome({th,initBpm,syncPlaying,ctrlRef,onBpmChange,lickTempo,onSetLoop,lickTimeSig,headless}){
+function MiniMetronome({th,initBpm,syncPlaying,ctrlRef,onBpmChange,lickTempo,onSetLoop,lickTimeSig,headless,expandOpen}){
   var t=th||TH.classic;var isStudio=t===TH.studio;
   var bb={border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.15s",fontFamily:"'Inter',sans-serif"};
   var[bpm,setBpm]=useState(initBpm||120);
@@ -2392,12 +2394,11 @@ function MiniMetronome({th,initBpm,syncPlaying,ctrlRef,onBpmChange,lickTempo,onS
 
   var isSynced=!!ctrlRef;
 
-  // HEADLESS MODE: only render mute + beat dots + progressive (for embedding in parent More panel)
-  if(headless)return React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:6}},
-    // Mute toggle + beat dots
-    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
-      React.createElement("button",{onClick:function(e){e.stopPropagation();setMuted(!muted);},style:{padding:"3px 8px",borderRadius:6,border:"1px solid "+(muted?t.border:t.accent),background:muted?t.filterBg:(isStudio?t.accent+"20":t.accent+"10"),color:muted?t.muted:t.accent,fontSize:10,fontFamily:"'Inter',sans-serif",fontWeight:500,cursor:"pointer"}},muted?"Click off":"Click on"),
-      beatStates.map(function(bs,i){
+  // HEADLESS MODE: mute+dots always visible; sound/progressive/count-in only when expandOpen
+  if(headless)return React.createElement("div",{style:{display:"contents"}},
+    // Inline items: mute toggle + beat dots (participate in parent flex row)
+    React.createElement("button",{onClick:function(e){e.stopPropagation();setMuted(!muted);},style:{padding:"3px 7px",borderRadius:6,border:"1px solid "+(muted?t.border:t.accent),background:muted?t.filterBg:(isStudio?t.accent+"20":t.accent+"10"),color:muted?t.muted:t.accent,fontSize:10,fontFamily:"'Inter',sans-serif",fontWeight:500,cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}},muted?"\u2715":"\u266A"),
+    beatStates.map(function(bs,i){
         var active=playing&&currentBeat===i;var isAcc=bs===1;var isMut=bs===2;
         var bg=isMut?(isStudio?"rgba(255,255,255,0.05)":"#F3F3F3"):active?(isAcc?t.accent:"#F59E0B"):isAcc?(isStudio?t.accent+"40":t.accent+"25"):(isStudio?t.border+"60":t.border);
         return React.createElement("button",{key:i,onClick:function(e){e.stopPropagation();cycleBeat(i);},style:{width:18,height:18,borderRadius:"50%",background:bg,border:isAcc?"2px solid "+t.accent:isMut?"2px dashed "+t.border:"2px solid "+(isStudio?t.border:t.borderSub||t.border),transform:active?"scale(1.15)":"scale(1)",transition:"all 0.06s",cursor:"pointer",padding:0,display:"flex",alignItems:"center",justifyContent:"center"}},
@@ -2405,22 +2406,26 @@ function MiniMetronome({th,initBpm,syncPlaying,ctrlRef,onBpmChange,lickTempo,onS
           isAcc&&!active&&React.createElement("span",{style:{fontSize:5,color:t.accent,fontWeight:700}},"\u25B2"));
       }),
       React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'JetBrains Mono',monospace"}},timeSig[0]+"/"+timeSig[1]),
+    // Expand panel: rendered as sibling, breaks out of parent flex row via display:contents
+    expandOpen&&React.createElement("div",{style:{width:"100%",display:"flex",flexDirection:"column",gap:6,marginTop:6}},
       // Click sound
-      SOUNDS.map(function(s){return React.createElement("button",{key:s.v,onClick:function(e){e.stopPropagation();setSound(s.v);},style:{padding:"2px 6px",borderRadius:4,border:"none",background:sound===s.v?t.accentBg:t.filterBg,color:sound===s.v?t.accent:t.subtle,fontSize:9,cursor:"pointer"}},s.l);})),
-    // Progressive trainer
-    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}},
-      chip(progOn,"Progressive",function(){var nv=!progOn;setProgOn(nv);if(nv&&isSynced&&onSetLoop)onSetLoop(true);}),
-      progOn&&React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'JetBrains Mono',monospace"}},"\u2192"),
-      progOn&&React.createElement("input",{type:"number",value:progTarget,onClick:function(e){e.stopPropagation();},onChange:function(e){e.stopPropagation();setProgTarget(parseInt(e.target.value)||180);},style:{width:40,padding:"3px 4px",borderRadius:5,border:"1px solid "+t.border,background:t.filterBg,color:t.accent,fontSize:10,fontFamily:"'JetBrains Mono',monospace",textAlign:"center",fontWeight:600}}),
-      progOn&&React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'JetBrains Mono',monospace"}},"+"),
-      progOn&&React.createElement("input",{type:"number",value:progInc,onClick:function(e){e.stopPropagation();},onChange:function(e){e.stopPropagation();setProgInc(parseInt(e.target.value)||5);},style:{width:28,padding:"3px 4px",borderRadius:5,border:"1px solid "+t.border,background:t.filterBg,color:t.text,fontSize:10,fontFamily:"'JetBrains Mono',monospace",textAlign:"center"}}),
-      progOn&&React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'JetBrains Mono',monospace"}},"/"),
-      progOn&&React.createElement("input",{type:"number",value:progBars,onClick:function(e){e.stopPropagation();},onChange:function(e){e.stopPropagation();setProgBars(Math.max(1,parseInt(e.target.value)||1));},style:{width:24,padding:"3px 4px",borderRadius:5,border:"1px solid "+t.border,background:t.filterBg,color:t.text,fontSize:10,fontFamily:"'JetBrains Mono',monospace",textAlign:"center"}}),
-      progOn&&React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'JetBrains Mono',monospace"}},isSynced?"loops":"bars")),
-    progOn&&playing&&React.createElement("div",{style:{fontSize:10,color:progDone?"#22D89E":t.accent,fontFamily:"'Inter',sans-serif",fontWeight:500}},
-      progDone?"\u2713 Target reached! "+progTarget+" BPM":(isSynced?"Loop ":"Bar ")+(progBarInStep+1)+"/"+progBars+" \u00B7 "+progCurBpm+" BPM"));
+      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4}},
+        React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600}},"Click"),
+        SOUNDS.map(function(s){return React.createElement("button",{key:s.v,onClick:function(e){e.stopPropagation();setSound(s.v);},style:{padding:"2px 6px",borderRadius:4,border:"none",background:sound===s.v?t.accentBg:t.filterBg,color:sound===s.v?t.accent:t.subtle,fontSize:9,cursor:"pointer"}},s.l);})),
+      // Progressive trainer
+      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}},
+        chip(progOn,"Progressive",function(){var nv=!progOn;setProgOn(nv);if(nv&&isSynced&&onSetLoop)onSetLoop(true);}),
+        progOn&&React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'JetBrains Mono',monospace"}},"\u2192"),
+        progOn&&React.createElement("input",{type:"number",value:progTarget,onClick:function(e){e.stopPropagation();},onChange:function(e){e.stopPropagation();setProgTarget(parseInt(e.target.value)||180);},style:{width:40,padding:"3px 4px",borderRadius:5,border:"1px solid "+t.border,background:t.filterBg,color:t.accent,fontSize:10,fontFamily:"'JetBrains Mono',monospace",textAlign:"center",fontWeight:600}}),
+        progOn&&React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'JetBrains Mono',monospace"}},"+"),
+        progOn&&React.createElement("input",{type:"number",value:progInc,onClick:function(e){e.stopPropagation();},onChange:function(e){e.stopPropagation();setProgInc(parseInt(e.target.value)||5);},style:{width:28,padding:"3px 4px",borderRadius:5,border:"1px solid "+t.border,background:t.filterBg,color:t.text,fontSize:10,fontFamily:"'JetBrains Mono',monospace",textAlign:"center"}}),
+        progOn&&React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'JetBrains Mono',monospace"}},"/"),
+        progOn&&React.createElement("input",{type:"number",value:progBars,onClick:function(e){e.stopPropagation();},onChange:function(e){e.stopPropagation();setProgBars(Math.max(1,parseInt(e.target.value)||1));},style:{width:24,padding:"3px 4px",borderRadius:5,border:"1px solid "+t.border,background:t.filterBg,color:t.text,fontSize:10,fontFamily:"'JetBrains Mono',monospace",textAlign:"center"}}),
+        progOn&&React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'JetBrains Mono',monospace"}},isSynced?"loops":"bars")),
+      progOn&&playing&&React.createElement("div",{style:{fontSize:10,color:progDone?"#22D89E":t.accent,fontFamily:"'Inter',sans-serif",fontWeight:500}},
+        progDone?"\u2713 Target reached! "+progTarget+" BPM":(isSynced?"Loop ":"Bar ")+(progBarInStep+1)+"/"+progBars+" \u00B7 "+progCurBpm+" BPM")));
 
-  return React.createElement("div",{style:{padding:"10px 0"}},
+  // Full-mode (non-headless) rendering below
     // ROW 1: Mute/Play + BPM + controls
     React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:8}},
       // Synced: mute/unmute toggle. Standalone: play/stop
