@@ -442,47 +442,103 @@ const BACKING_STYLES=[
 {id:"ballad",label:"Ballad",emoji:"\uD83C\uDF19"}
 ];
 
-// Bass synth — warm mono synth
+// Bass — Salamander piano samples through heavy lowpass = warm upright bass
 function makeBass(bag){
-const rev=new Tone.Reverb({decay:1.2,wet:0.08}).toDestination();
-const flt=new Tone.Filter({frequency:400,type:"lowpass",rolloff:-12}).connect(rev);
-const comp=new Tone.Compressor({threshold:-18,ratio:4,attack:0.01,release:0.15}).connect(flt);
-const gain=new Tone.Gain(0.9).connect(comp);
-const s=new Tone.MonoSynth({oscillator:{type:"triangle"},filter:{Q:1,type:"lowpass",rolloff:-12,frequency:600},filterEnvelope:{attack:0.01,decay:0.3,sustain:0.6,release:0.8,baseFrequency:100,octaves:1.5},envelope:{attack:0.008,decay:0.4,sustain:0.5,release:0.6},volume:-6}).connect(gain);
-bag.push(s,gain,comp,flt,rev);
-return s;}
+  if(_bassSamplerReady&&_bassSampler){
+    const rev=new Tone.Reverb({decay:0.8,wet:0.06}).toDestination();
+    const flt=new Tone.Filter({frequency:320,type:"lowpass",rolloff:-24}).connect(rev);
+    const lowBoost=new Tone.Filter({frequency:120,type:"lowshelf",gain:8}).connect(flt);
+    const comp=new Tone.Compressor({threshold:-20,ratio:5,attack:0.008,release:0.12}).connect(lowBoost);
+    try{_bassSampler.disconnect();}catch(e){}
+    _bassSampler.connect(comp);
+    bag.push(rev,flt,lowBoost,comp);
+    return{play:function(n,d,t,v){try{_bassSampler.triggerAttackRelease(n,d,t,v||0.7);}catch(e){}}};
+  }
+  // Fallback: layered triangle+sine for warm bass
+  const rev=new Tone.Reverb({decay:0.8,wet:0.06}).toDestination();
+  const flt=new Tone.Filter({frequency:400,type:"lowpass",rolloff:-12}).connect(rev);
+  const comp=new Tone.Compressor({threshold:-18,ratio:4,attack:0.01,release:0.15}).connect(flt);
+  const gain=new Tone.Gain(0.85).connect(comp);
+  const s=new Tone.MonoSynth({oscillator:{type:"triangle"},filter:{Q:1,type:"lowpass",rolloff:-12,frequency:500},filterEnvelope:{attack:0.01,decay:0.3,sustain:0.5,release:0.6,baseFrequency:80,octaves:1.2},envelope:{attack:0.008,decay:0.4,sustain:0.4,release:0.5},volume:-8}).connect(gain);
+  bag.push(s,gain,comp,flt,rev);
+  return{play:function(n,d,t,v){try{s.triggerAttackRelease(n,d,t);}catch(e){}}};
+}
 
-// Drums — noise-based, simple, LOUD
+// Drums — carefully layered synthesis for natural jazz sound
 function makeDrums(bag){
-const master=new Tone.Gain(1.0).toDestination();
-const rev=new Tone.Reverb({decay:1.0,wet:0.12}).connect(master);
-bag.push(master,rev);
-// Kick
-const kickGain=new Tone.Gain(0.8).connect(master);
-const kick=new Tone.MembraneSynth({pitchDecay:0.05,octaves:6,oscillator:{type:"sine"},envelope:{attack:0.001,decay:0.25,sustain:0,release:0.3},volume:-4}).connect(kickGain);
-bag.push(kick,kickGain);
-// Snare / Brush
-const snareGain=new Tone.Gain(0.7).connect(rev);
-const snareNoise=new Tone.NoiseSynth({noise:{type:"white"},envelope:{attack:0.002,decay:0.15,sustain:0,release:0.1},volume:-6}).connect(snareGain);
-const snareBody=new Tone.MembraneSynth({pitchDecay:0.01,octaves:4,envelope:{attack:0.001,decay:0.1,sustain:0,release:0.08},volume:-12}).connect(snareGain);
-bag.push(snareNoise,snareBody,snareGain);
-// Hi-hat
-const hhFlt=new Tone.Filter({frequency:8000,type:"highpass"}).connect(rev);
-const hh=new Tone.NoiseSynth({noise:{type:"white"},envelope:{attack:0.001,decay:0.06,sustain:0,release:0.03},volume:-8}).connect(hhFlt);
-bag.push(hh,hhFlt);
-// Ride — noise wash + sine ping
-const rideGain=new Tone.Gain(0.6).connect(rev);
-const rideFlt=new Tone.Filter({frequency:3000,type:"highpass"}).connect(rideGain);
-const rideNoise=new Tone.NoiseSynth({noise:{type:"white"},envelope:{attack:0.001,decay:0.4,sustain:0,release:0.2},volume:-10}).connect(rideFlt);
-const ridePing=new Tone.Synth({oscillator:{type:"sine"},envelope:{attack:0.001,decay:0.08,sustain:0,release:0.05},volume:-14}).connect(rideGain);
-bag.push(rideNoise,ridePing,rideFlt,rideGain);
-return{
-kick:function(t,v){try{kick.triggerAttackRelease("C1","8n",t,(v||1)*0.7);}catch(e){}},
-snare:function(t,v){try{snareNoise.triggerAttackRelease("16n",t,(v||1)*0.6);snareBody.triggerAttackRelease("E3","32n",t,(v||0.5)*0.3);}catch(e){}},
-hh:function(t,v){try{hh.triggerAttackRelease("32n",t,(v||1)*0.5);}catch(e){}},
-ride:function(t,v){try{rideNoise.triggerAttackRelease("8n",t,(v||1)*0.5);ridePing.triggerAttackRelease("G5","32n",t,(v||1)*0.3);}catch(e){}},
-brush:function(t,v){try{snareNoise.triggerAttackRelease("4n",t,(v||0.3)*0.25);}catch(e){}}
-};}
+  const master=new Tone.Gain(0.9).toDestination();
+  const roomRev=new Tone.Reverb({decay:1.5,wet:0.15}).connect(master);
+  bag.push(master,roomRev);
+
+  // --- KICK: sine with pitch sweep (natural feel) ---
+  var kickOsc=null,kickGain=null;
+  try{
+    kickGain=new Tone.Gain(0.6).connect(master);
+    var kickFlt=new Tone.Filter({frequency:200,type:"lowpass",rolloff:-12}).connect(kickGain);
+    kickOsc=new Tone.MembraneSynth({pitchDecay:0.06,octaves:5,oscillator:{type:"sine"},envelope:{attack:0.002,decay:0.3,sustain:0,release:0.25},volume:-6}).connect(kickFlt);
+    bag.push(kickOsc,kickFlt,kickGain);
+  }catch(e){console.warn("kick init:",e);}
+
+  // --- RIDE: the heart of jazz drums ---
+  // Layered: band-limited noise wash + two sine partials for shimmer
+  var rideNoiseNode=null,ridePing1=null,ridePing2=null,rideGain=null;
+  try{
+    rideGain=new Tone.Gain(0.65).connect(roomRev);
+    // Noise wash through bandpass (3-10kHz = cymbal character)
+    var rideBP=new Tone.Filter({frequency:5500,type:"bandpass",Q:0.7}).connect(rideGain);
+    rideNoiseNode=new Tone.NoiseSynth({noise:{type:"white"},envelope:{attack:0.002,decay:0.6,sustain:0,release:0.3},volume:-8}).connect(rideBP);
+    // Ping 1: stick attack ~392Hz (G4)
+    ridePing1=new Tone.Synth({oscillator:{type:"sine"},envelope:{attack:0.001,decay:0.06,sustain:0,release:0.04},volume:-16}).connect(rideGain);
+    // Ping 2: bell shimmer ~587Hz (D5)
+    ridePing2=new Tone.Synth({oscillator:{type:"sine"},envelope:{attack:0.001,decay:0.12,sustain:0,release:0.06},volume:-20}).connect(rideGain);
+    bag.push(rideNoiseNode,ridePing1,ridePing2,rideBP,rideGain);
+  }catch(e){console.warn("ride init:",e);}
+
+  // --- HI-HAT: tight, crisp ---
+  var hhNode=null,hhGain=null;
+  try{
+    hhGain=new Tone.Gain(0.45).connect(roomRev);
+    var hhHP=new Tone.Filter({frequency:7000,type:"highpass"}).connect(hhGain);
+    hhNode=new Tone.NoiseSynth({noise:{type:"white"},envelope:{attack:0.001,decay:0.04,sustain:0,release:0.02},volume:-10}).connect(hhHP);
+    bag.push(hhNode,hhHP,hhGain);
+  }catch(e){console.warn("hh init:",e);}
+
+  // --- SNARE (ghost notes / cross-stick) ---
+  var snareNoise=null,snareBody=null,snareGain=null;
+  try{
+    snareGain=new Tone.Gain(0.5).connect(roomRev);
+    var snareBP=new Tone.Filter({frequency:1200,type:"bandpass",Q:0.8}).connect(snareGain);
+    snareNoise=new Tone.NoiseSynth({noise:{type:"pink"},envelope:{attack:0.001,decay:0.12,sustain:0,release:0.08},volume:-8}).connect(snareBP);
+    // Body thump
+    snareBody=new Tone.MembraneSynth({pitchDecay:0.008,octaves:2,envelope:{attack:0.001,decay:0.08,sustain:0,release:0.05},volume:-14}).connect(snareGain);
+    bag.push(snareNoise,snareBody,snareBP,snareGain);
+  }catch(e){console.warn("snare init:",e);}
+
+  // --- BRUSH: soft noise swish ---
+  var brushNoise=null,brushGain=null;
+  try{
+    brushGain=new Tone.Gain(0.35).connect(roomRev);
+    var brushBP=new Tone.Filter({frequency:2500,type:"bandpass",Q:0.5}).connect(brushGain);
+    brushNoise=new Tone.NoiseSynth({noise:{type:"pink"},envelope:{attack:0.02,decay:0.25,sustain:0,release:0.15},volume:-10}).connect(brushBP);
+    bag.push(brushNoise,brushBP,brushGain);
+  }catch(e){console.warn("brush init:",e);}
+
+  return{
+    kick:function(t,v){if(kickOsc)try{kickOsc.triggerAttackRelease("C1","8n",t,(v||0.5)*0.6);}catch(e){}},
+    ride:function(t,v){
+      var vel=(v||0.6);
+      if(rideNoiseNode)try{rideNoiseNode.triggerAttackRelease("8n",t,vel*0.5);}catch(e){}
+      if(ridePing1)try{ridePing1.triggerAttackRelease("G4","32n",t,vel*0.25);}catch(e){}
+      if(ridePing2)try{ridePing2.triggerAttackRelease("D5","32n",t,vel*0.15);}catch(e){}
+    },
+    hh:function(t,v){if(hhNode)try{hhNode.triggerAttackRelease("32n",t,(v||0.4)*0.4);}catch(e){}},
+    snare:function(t,v){
+      if(snareNoise)try{snareNoise.triggerAttackRelease("16n",t,(v||0.4)*0.5);}catch(e){}
+      if(snareBody)try{snareBody.triggerAttackRelease("E3","32n",t,(v||0.3)*0.25);}catch(e){}
+    },
+    brush:function(t,v){if(brushNoise)try{brushNoise.triggerAttackRelease("4n",t,(v||0.3)*0.3);}catch(e){}}
+  };
+}
 
 // ============================================================
 // TRANSPOSE
@@ -650,6 +706,9 @@ function makeVibes(bag){
 function makeMelSynth(id,bag){if((id==="piano"||id==="rhodes")&&_samplerReady&&_sampler)return id==="piano"?makeSamplerPiano(bag):makeSamplerRhodes(bag);switch(id){case"piano":case"rhodes":return makeSynthPiano(bag);case"sax":return makeSax(bag);case"trumpet":return makeTrumpet(bag);case"guitar":return makeGuitar(bag);case"flute":return makeFlute(bag);case"vibes":return makeVibes(bag);default:return makeSynthPiano(bag);}}
 let _chordSampler=null,_chordSamplerReady=false,_chordSamplerPromise=null;
 function preloadChordPiano(){if(_chordSamplerPromise)return _chordSamplerPromise;_chordSamplerPromise=new Promise(res=>{try{_chordSampler=new Tone.Sampler({urls:SAL_MAP,baseUrl:SAL_BASE,release:1.2,volume:-14,onload:()=>{_chordSamplerReady=true;res(true);},onerror:()=>{res(false);}});setTimeout(()=>{if(!_chordSamplerReady)res(false);},15000);}catch(e){res(false);}});return _chordSamplerPromise;}
+// Bass sampler — Salamander piano pitched low + heavy filtering = upright bass
+let _bassSampler=null,_bassSamplerReady=false,_bassSamplerPromise=null;
+function preloadBassSampler(){if(_bassSamplerPromise)return _bassSamplerPromise;_bassSamplerPromise=new Promise(res=>{try{_bassSampler=new Tone.Sampler({urls:SAL_MAP,baseUrl:SAL_BASE,release:0.4,volume:-6,onload:()=>{_bassSamplerReady=true;res(true);},onerror:()=>{res(false);}});setTimeout(()=>{if(!_bassSamplerReady)res(false);},15000);}catch(e){res(false);}});return _bassSamplerPromise;}
 function makeChordSynth(bag){
   // Use pre-loaded piano sampler for warm comping sound
   if(_chordSamplerReady&&_chordSampler){
@@ -924,7 +983,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
   const setLc=v=>{if(lcDispRef.current){lcDispRef.current.textContent=v;lcDispRef.current.parentElement.style.display=v>1?"flex":"none";}};
   const scheduledTimers=useRef([]);
   const clearScheduled=()=>{for(const tid of scheduledTimers.current)clearTimeout(tid);scheduledTimers.current=[];};
-  const disposeBag=()=>{clearScheduled();if(_sampler&&_samplerReady)try{_sampler.releaseAll();_sampler.disconnect();}catch(e){}if(_chordSampler&&_chordSamplerReady)try{_chordSampler.releaseAll();_chordSampler.disconnect();}catch(e){}for(const n of bagRef.current){try{n.releaseAll&&n.releaseAll();}catch(e){}try{n.stop&&n.stop();}catch(e){}try{n.dispose();}catch(e){}}bagRef.current=[];};
+  const disposeBag=()=>{clearScheduled();if(_sampler&&_samplerReady)try{_sampler.releaseAll();_sampler.disconnect();}catch(e){}if(_chordSampler&&_chordSamplerReady)try{_chordSampler.releaseAll();_chordSampler.disconnect();}catch(e){}if(_bassSampler&&_bassSamplerReady)try{_bassSampler.releaseAll();_bassSampler.disconnect();}catch(e){}for(const n of bagRef.current){try{n.releaseAll&&n.releaseAll();}catch(e){}try{n.stop&&n.stop();}catch(e){}try{n.dispose();}catch(e){}}bagRef.current=[];};
   const metroCtrlRef=useRef({});// MiniMetronome writes start/stop here
   const clr=useCallback(()=>{sT.current=true;if(aR.current)cancelAnimationFrame(aR.current);disposeBag();sPl(false);setPr(0);setLc(0);setLoading(false);lcR.current=0;curNoteR.current=-1;if(onCurNoteR.current)onCurNoteR.current(-1);try{metroCtrlRef.current.stop&&metroCtrlRef.current.stop();}catch(e){}},[]);
   // Live restart at new BPM (called when user changes BPM during playback)
@@ -1007,18 +1066,18 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
           var wNotes=walkingBassNotes(c.name,nextCn);var nBeats=Math.round(chordDur/spb);
           for(var wb=0;wb<nBeats&&wb<4;wb++){const _ct=ct+wb*spb;const _n=wNotes[Math.min(wb,wNotes.length-1)];const hum=(Math.random()-0.5)*0.01;
             const fireMs=Math.max(0,_ct*1000-LA*1000);
-            timers.push(setTimeout(()=>{if(sT.current)return;try{bassInst.triggerAttackRelease(_n,spb*0.85,baseTime+_ct+hum,0.7);}catch(e){}},fireMs));}
+            timers.push(setTimeout(()=>{if(sT.current)return;try{bassInst.play(_n,spb*0.85,baseTime+_ct+hum,0.7);}catch(e){}},fireMs));}
         }else if(_bStyle==="bossa"){
           // Bossa bass — root on 1, fifth on 3
           var bRoot=chordBassNote(c.name);var bq=c.name.substring(c.name.match(/^[A-G][b#]?/)?.[0]?.length||1).toLowerCase();var fifthSt=(N2M[c.name[0].toUpperCase()]||0)+(c.name[1]==="#"?1:c.name[1]==="b"?-1:0)+7;var bFifth=["C","C#","D","Eb","E","F","F#","G","Ab","A","Bb","B"][((fifthSt%12)+12)%12]+"2";
           if(bRoot){const _ct1=ct;const hum1=(Math.random()-0.5)*0.008;const fireMs1=Math.max(0,_ct1*1000-LA*1000);
-            timers.push(setTimeout(()=>{if(sT.current)return;try{bassInst.triggerAttackRelease(bRoot,spb*1.8,baseTime+_ct1+hum1,0.65);}catch(e){}},fireMs1));}
+            timers.push(setTimeout(()=>{if(sT.current)return;try{bassInst.play(bRoot,spb*1.8,baseTime+_ct1+hum1,0.65);}catch(e){}},fireMs1));}
           if(chordDur>spb*2){const _ct2=ct+spb*2;const hum2=(Math.random()-0.5)*0.008;const fireMs2=Math.max(0,_ct2*1000-LA*1000);
-            timers.push(setTimeout(()=>{if(sT.current)return;try{bassInst.triggerAttackRelease(bFifth,spb*1.8,baseTime+_ct2+hum2,0.6);}catch(e){}},fireMs2));}
+            timers.push(setTimeout(()=>{if(sT.current)return;try{bassInst.play(bFifth,spb*1.8,baseTime+_ct2+hum2,0.6);}catch(e){}},fireMs2));}
         }else if(_bStyle==="ballad"){
           // Ballad bass — whole note root, occasional 5th
           var bRoot2=chordBassNote(c.name);if(bRoot2){const _ct=ct;const hum=(Math.random()-0.5)*0.01;const dur=Math.min(chordDur*0.9,spb*4);const fireMs=Math.max(0,_ct*1000-LA*1000);
-            timers.push(setTimeout(()=>{if(sT.current)return;try{bassInst.triggerAttackRelease(bRoot2,dur,baseTime+_ct+hum,0.55);}catch(e){}},fireMs));}
+            timers.push(setTimeout(()=>{if(sT.current)return;try{bassInst.play(bRoot2,dur,baseTime+_ct+hum,0.55);}catch(e){}},fireMs));}
         }
       }}
       // --- DRUMS ---
@@ -1060,6 +1119,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
     setLoading(true);
     if(!_samplerReady&&!_samplerFailed){await preloadPiano();setSamplesOk(_samplerReady);}
     if(!_chordSamplerReady)await preloadChordPiano();
+    if(!_bassSamplerReady)preloadBassSampler(); // fire-and-forget, synth fallback works immediately
     const p=parseAbc(abcR.current,pTR.current);
     // Capture ONE time reference — shared by lick notes AND metronome
     var t0=Tone.now();toneStartR.current=t0;
