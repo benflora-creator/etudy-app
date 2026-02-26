@@ -1058,12 +1058,13 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
       if(hasDrums){try{drumsInst=makeDrums(bag);}catch(e){console.warn("Drums init:",e);}}
       var spb=parsed.spb;var tsN=parsed.tsNum;
       // --- PIANO COMPING ---
-      if(hasKeys){var _chordOct=(_bStyle==="rhodes")?3:4;for(let ci=0;ci<chordTimes.length;ci++){const c=chordTimes[ci];if(abActive&&(c.time<abS-0.001||c.time>=abE-0.001))continue;const cn=chordToNotes(c.name,_chordOct);if(!cn.length)continue;const ct=abActive?c.time-abS:c.time;const nextTime=ci<chordTimes.length-1?chordTimes[ci+1].time:totalDur;const chordDur=abActive?Math.min(nextTime,abE)-c.time:nextTime-c.time;
+      if(hasKeys){var _chordOct=(_bStyle==="rhodes")?2:4;for(let ci=0;ci<chordTimes.length;ci++){const c=chordTimes[ci];if(abActive&&(c.time<abS-0.001||c.time>=abE-0.001))continue;const cn=chordToNotes(c.name,_chordOct);if(!cn.length)continue;const ct=abActive?c.time-abS:c.time;const nextTime=ci<chordTimes.length-1?chordTimes[ci+1].time:totalDur;const chordDur=abActive?Math.min(nextTime,abE)-c.time:nextTime-c.time;
         if(_bStyle==="piano"||_bStyle==="rhodes"||_bStyle==="ballad"){
           // Sustained chord, legato — hold until next chord
           const dur=Math.max(0.5,chordDur);const fireMs=Math.max(0,ct*1000-LA*1000);const _dur=dur;
           const vel=_bStyle==="rhodes"?0.5:0.35;
-          timers.push(setTimeout(()=>{if(sT.current)return;cs.triggerAttackRelease(cn,_dur,baseTime+ct,vel);},fireMs));
+          // Trigger each note individually for reliable sustain on Sampler
+          for(let ni=0;ni<cn.length;ni++){const _note=cn[ni];timers.push(setTimeout(()=>{if(sT.current)return;try{cs.triggerAttackRelease(_note,_dur,baseTime+ct,vel);}catch(e){}},fireMs));}
         }else if(_bStyle==="jazz"){
           // Rhythmic comping — hits on beat 2 and beat 4 (classic Freddie Green)
           var compBeats=[];var barStart=Math.floor(c.time/spb/tsN)*spb*tsN;
