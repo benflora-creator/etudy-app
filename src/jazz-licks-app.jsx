@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import * as Tone from "tone";
-import { supabase, signInWithGoogle, signInWithMagicLink, verifyOtp, signOut, getSession, onAuthStateChange, fetchProfile, updateProfile } from "./supabase.js";
+import { supabase } from "./supabase.js";
 
 
 const ABCJS_CDN = "https://cdnjs.cloudflare.com/ajax/libs/abcjs/6.4.1/abcjs-basic-min.js";
@@ -359,50 +359,6 @@ async function updateLikes(id, newCount) {
   }
 }
 
-// ── User Licks (server-side likes & saves) ──
-async function fetchUserLicks(userId) {
-  try {
-    const { data, error } = await supabase
-      .from('user_licks')
-      .select('lick_id, type')
-      .eq('user_id', userId);
-    if (error) throw error;
-    var likes = new Set();
-    var saves = new Set();
-    (data || []).forEach(function(row) {
-      if (row.type === 'like') likes.add(row.lick_id);
-      if (row.type === 'save') saves.add(row.lick_id);
-    });
-    return { likes: likes, saves: saves };
-  } catch (e) {
-    console.error('Failed to fetch user licks:', e);
-    return { likes: new Set(), saves: new Set() };
-  }
-}
-
-async function addUserLick(userId, lickId, type) {
-  try {
-    await supabase.from('user_licks').upsert(
-      { user_id: userId, lick_id: lickId, type: type },
-      { onConflict: 'user_id,lick_id,type' }
-    );
-  } catch (e) {
-    console.error('Failed to add user lick:', e);
-  }
-}
-
-async function removeUserLick(userId, lickId, type) {
-  try {
-    await supabase.from('user_licks')
-      .delete()
-      .eq('user_id', userId)
-      .eq('lick_id', lickId)
-      .eq('type', type);
-  } catch (e) {
-    console.error('Failed to remove user lick:', e);
-  }
-}
-
 const SOUND_PRESETS = [
   { id:"piano", label:"Piano", sample:true },
   { id:"rhodes", label:"Rhodes", sample:true },
@@ -415,6 +371,49 @@ const SOUND_PRESETS = [
 
 const INST_TRANS = {"Concert":0,"Alto Sax":9,"Tenor Sax":2,"Bb Trumpet":2,"Clarinet":2,"Trombone":0,"Piano":0,"Guitar":0,"Flute":0};
 const TRANS_INSTRUMENTS = ["Concert","Alto Sax","Tenor Sax","Bb Trumpet","Clarinet"];
+
+// ============================================================
+// BACKING STYLES — iReal Pro-style comping/bass/drum patterns
+// ============================================================
+// Patterns are arrays of {t: beat offset (0-based in quarter notes), dur: duration, vel: velocity}
+// For drums: {t: beat, inst: 'kick'|'snare'|'hh'|'ride'|'rim'|'crash', vel}
+// For bass: {t: beat, deg: scale degree offset from root (0=root,4=3rd,7=5th etc), oct: octave, dur, vel}
+// For keys: {t: beat, dur, vel, style: 'chord'|'arp'} — chords voiced per chord symbol
+const BACKING_STYLES = [
+  {id:"jazz-swing",label:"Jazz Swing",emoji:"\uD83C\uDFB7",feel:"swing",
+    keys:[{t:0,dur:0.4,vel:0.35},{t:1,dur:0.4,vel:0.5},{t:2,dur:0.4,vel:0.35},{t:3,dur:0.4,vel:0.5}],
+    bass:[{t:0,deg:0,dur:0.9,vel:0.7},{t:1,deg:4,dur:0.9,vel:0.6},{t:2,deg:7,dur:0.9,vel:0.65},{t:3,deg:5,dur:0.9,vel:0.6}],
+    drums:[{t:0,inst:"ride",vel:0.5},{t:0.667,inst:"ride",vel:0.3},{t:1,inst:"ride",vel:0.45},{t:1,inst:"hh",vel:0.35},{t:1.667,inst:"ride",vel:0.3},{t:2,inst:"ride",vel:0.5},{t:2.667,inst:"ride",vel:0.3},{t:3,inst:"ride",vel:0.45},{t:3,inst:"hh",vel:0.35},{t:3.667,inst:"ride",vel:0.3},{t:0,inst:"kick",vel:0.45},{t:2.5,inst:"kick",vel:0.3}]},
+  {id:"bossa",label:"Bossa Nova",emoji:"\uD83C\uDDE7\uD83C\uDDF7",feel:"straight",
+    keys:[{t:0,dur:0.3,vel:0.35},{t:0.5,dur:0.3,vel:0.4},{t:1.5,dur:0.3,vel:0.35},{t:2,dur:0.3,vel:0.4},{t:3,dur:0.3,vel:0.35},{t:3.5,dur:0.3,vel:0.38}],
+    bass:[{t:0,deg:0,dur:1.4,vel:0.65},{t:1.5,deg:7,dur:0.9,vel:0.55},{t:2,deg:0,dur:0.4,vel:0.5},{t:3,deg:7,dur:0.9,vel:0.55}],
+    drums:[{t:0,inst:"kick",vel:0.4},{t:1.5,inst:"kick",vel:0.3},{t:3,inst:"kick",vel:0.35},{t:0,inst:"rim",vel:0.3},{t:0.5,inst:"rim",vel:0.2},{t:1.5,inst:"rim",vel:0.3},{t:2,inst:"hh",vel:0.2},{t:2.5,inst:"rim",vel:0.2},{t:3,inst:"rim",vel:0.3},{t:3.5,inst:"hh",vel:0.2}]},
+  {id:"latin",label:"Latin",emoji:"\uD83E\uDD41",feel:"straight",
+    keys:[{t:0,dur:0.25,vel:0.4},{t:0.5,dur:0.25,vel:0.45},{t:1.5,dur:0.25,vel:0.4},{t:2,dur:0.25,vel:0.45},{t:2.5,dur:0.25,vel:0.4},{t:3.5,dur:0.25,vel:0.45}],
+    bass:[{t:0,deg:0,dur:0.9,vel:0.7},{t:1,deg:7,dur:0.4,vel:0.5},{t:1.5,deg:0,dur:0.4,vel:0.55},{t:2,deg:5,dur:0.9,vel:0.6},{t:3,deg:4,dur:0.4,vel:0.5},{t:3.5,deg:7,dur:0.4,vel:0.55}],
+    drums:[{t:0,inst:"kick",vel:0.45},{t:1.5,inst:"kick",vel:0.35},{t:2,inst:"snare",vel:0.35},{t:3,inst:"kick",vel:0.3},{t:0,inst:"hh",vel:0.3},{t:0.5,inst:"hh",vel:0.25},{t:1,inst:"hh",vel:0.3},{t:1.5,inst:"hh",vel:0.25},{t:2,inst:"hh",vel:0.3},{t:2.5,inst:"hh",vel:0.25},{t:3,inst:"hh",vel:0.3},{t:3.5,inst:"hh",vel:0.25}]},
+  {id:"funk",label:"Funk",emoji:"\uD83D\uDD7A",feel:"straight",
+    keys:[{t:0,dur:0.15,vel:0.45},{t:0.75,dur:0.15,vel:0.35},{t:1.5,dur:0.15,vel:0.4},{t:2,dur:0.15,vel:0.45},{t:2.5,dur:0.15,vel:0.35},{t:3.25,dur:0.15,vel:0.38},{t:3.75,dur:0.15,vel:0.35}],
+    bass:[{t:0,deg:0,dur:0.4,vel:0.75},{t:0.75,deg:0,dur:0.2,vel:0.5},{t:1.5,deg:10,dur:0.4,vel:0.6},{t:2,deg:0,dur:0.4,vel:0.7},{t:2.75,deg:3,dur:0.2,vel:0.5},{t:3,deg:5,dur:0.4,vel:0.6},{t:3.75,deg:7,dur:0.2,vel:0.5}],
+    drums:[{t:0,inst:"kick",vel:0.55},{t:0.75,inst:"kick",vel:0.3},{t:1.5,inst:"kick",vel:0.4},{t:2.5,inst:"kick",vel:0.45},{t:3.75,inst:"kick",vel:0.3},{t:1,inst:"snare",vel:0.5},{t:3,inst:"snare",vel:0.5},{t:0,inst:"hh",vel:0.3},{t:0.25,inst:"hh",vel:0.15},{t:0.5,inst:"hh",vel:0.25},{t:0.75,inst:"hh",vel:0.15},{t:1,inst:"hh",vel:0.3},{t:1.25,inst:"hh",vel:0.15},{t:1.5,inst:"hh",vel:0.25},{t:1.75,inst:"hh",vel:0.15},{t:2,inst:"hh",vel:0.3},{t:2.25,inst:"hh",vel:0.15},{t:2.5,inst:"hh",vel:0.25},{t:2.75,inst:"hh",vel:0.15},{t:3,inst:"hh",vel:0.3},{t:3.25,inst:"hh",vel:0.15},{t:3.5,inst:"hh",vel:0.25},{t:3.75,inst:"hh",vel:0.15}]},
+  {id:"pop",label:"Pop / Rock",emoji:"\uD83C\uDFB8",feel:"straight",
+    keys:[{t:0,dur:1.8,vel:0.3},{t:2,dur:1.8,vel:0.3}],
+    bass:[{t:0,deg:0,dur:0.9,vel:0.65},{t:1,deg:0,dur:0.9,vel:0.55},{t:2,deg:7,dur:0.9,vel:0.6},{t:3,deg:5,dur:0.9,vel:0.55}],
+    drums:[{t:0,inst:"kick",vel:0.55},{t:2,inst:"kick",vel:0.55},{t:1,inst:"snare",vel:0.5},{t:3,inst:"snare",vel:0.5},{t:0,inst:"hh",vel:0.3},{t:0.5,inst:"hh",vel:0.2},{t:1,inst:"hh",vel:0.3},{t:1.5,inst:"hh",vel:0.2},{t:2,inst:"hh",vel:0.3},{t:2.5,inst:"hh",vel:0.2},{t:3,inst:"hh",vel:0.3},{t:3.5,inst:"hh",vel:0.2}]},
+  {id:"ballad",label:"Ballad",emoji:"\uD83C\uDF19",feel:"straight",
+    keys:[{t:0,dur:0.5,vel:0.25,style:"arp"},{t:0.5,dur:0.5,vel:0.2,style:"arp"},{t:1,dur:0.5,vel:0.25,style:"arp"},{t:1.5,dur:0.5,vel:0.2,style:"arp"},{t:2,dur:0.5,vel:0.25,style:"arp"},{t:2.5,dur:0.5,vel:0.2,style:"arp"},{t:3,dur:0.5,vel:0.25,style:"arp"},{t:3.5,dur:0.5,vel:0.2,style:"arp"}],
+    bass:[{t:0,deg:0,dur:3.8,vel:0.5}],
+    drums:[{t:0,inst:"ride",vel:0.2},{t:1,inst:"ride",vel:0.15},{t:2,inst:"ride",vel:0.2},{t:2,inst:"kick",vel:0.25},{t:3,inst:"ride",vel:0.15}]},
+  {id:"waltz",label:"Waltz",emoji:"\uD83D\uDC83",feel:"straight",ts:"3/4",
+    keys:[{t:0,dur:0.8,vel:0.35},{t:1,dur:0.4,vel:0.3},{t:2,dur:0.4,vel:0.3}],
+    bass:[{t:0,deg:0,dur:2.8,vel:0.6}],
+    drums:[{t:0,inst:"kick",vel:0.4},{t:1,inst:"hh",vel:0.25},{t:2,inst:"hh",vel:0.25}]},
+  {id:"shuffle",label:"Shuffle",emoji:"\uD83C\uDFB5",feel:"hard-swing",
+    keys:[{t:0,dur:0.3,vel:0.4},{t:1,dur:0.3,vel:0.45},{t:2,dur:0.3,vel:0.4},{t:3,dur:0.3,vel:0.45}],
+    bass:[{t:0,deg:0,dur:0.6,vel:0.7},{t:0.667,deg:0,dur:0.3,vel:0.5},{t:1,deg:4,dur:0.6,vel:0.6},{t:1.667,deg:5,dur:0.3,vel:0.5},{t:2,deg:7,dur:0.6,vel:0.65},{t:2.667,deg:7,dur:0.3,vel:0.5},{t:3,deg:5,dur:0.6,vel:0.6},{t:3.667,deg:4,dur:0.3,vel:0.5}],
+    drums:[{t:0,inst:"kick",vel:0.5},{t:2,inst:"kick",vel:0.45},{t:1,inst:"snare",vel:0.45},{t:3,inst:"snare",vel:0.45},{t:0,inst:"hh",vel:0.3},{t:0.667,inst:"hh",vel:0.2},{t:1,inst:"hh",vel:0.3},{t:1.667,inst:"hh",vel:0.2},{t:2,inst:"hh",vel:0.3},{t:2.667,inst:"hh",vel:0.2},{t:3,inst:"hh",vel:0.3},{t:3.667,inst:"hh",vel:0.2}]},
+  {id:"none",label:"No Backing",emoji:"\u2014",feel:null,keys:[],bass:[],drums:[]},
+];
 
 // ============================================================
 // MUSIC THEORY
@@ -605,6 +604,63 @@ function makeChordSynth(bag){
   }
   // Fallback: FM synth comping
   const rev=new Tone.Reverb({decay:3,wet:0.22}).toDestination();const ch=new Tone.Chorus({frequency:0.4,delayTime:6,depth:0.22,wet:0.22}).connect(rev);ch.start();const tr=new Tone.Tremolo({frequency:2.2,depth:0.12,wet:0.18}).connect(ch);tr.start();const flt=new Tone.Filter({frequency:1800,type:"lowpass",rolloff:-24}).connect(tr);const s=new Tone.PolySynth(Tone.FMSynth,{harmonicity:3,modulationIndex:0.6,oscillator:{type:"fatsine2",spread:15,count:3},modulation:{type:"sine"},envelope:{attack:0.015,decay:1.0,sustain:0.3,release:1.5},modulationEnvelope:{attack:0.008,decay:0.6,sustain:0,release:0.6},volume:-18}).connect(flt);bag.push(s,flt,tr,ch,rev);return s;
+}
+function makeBass(bag){
+  const rev=new Tone.Reverb({decay:1.0,wet:0.12}).toDestination();
+  const comp=new Tone.Compressor({threshold:-18,ratio:4,attack:0.005,release:0.12}).connect(rev);
+  const flt=new Tone.Filter({frequency:800,type:"lowpass",rolloff:-24}).connect(comp);
+  const s=new Tone.PolySynth(Tone.FMSynth,{
+    harmonicity:1,modulationIndex:0.8,
+    oscillator:{type:"triangle"},modulation:{type:"sine"},
+    envelope:{attack:0.01,decay:0.3,sustain:0.4,release:0.5},
+    modulationEnvelope:{attack:0.005,decay:0.15,sustain:0,release:0.2},
+    volume:-10
+  }).connect(flt);
+  // Pluck transient for definition
+  const atk=new Tone.PolySynth(Tone.Synth,{
+    oscillator:{type:"sine"},
+    envelope:{attack:0.001,decay:0.04,sustain:0,release:0.03},volume:-20
+  }).connect(flt);
+  bag.push(s,atk,flt,comp,rev);
+  return{play:(n,d,t,v)=>{s.triggerAttackRelease(n,d,t,v);atk.triggerAttackRelease(n,"64n",t,v);}};
+}
+function makeDrums(bag){
+  const master=new Tone.Gain(1).toDestination();
+  // Kick: low sine with pitch drop
+  const kickFlt=new Tone.Filter({frequency:200,type:"lowpass",rolloff:-12}).connect(master);
+  const kick=new Tone.MembraneSynth({pitchDecay:0.05,octaves:4,envelope:{attack:0.001,decay:0.25,sustain:0,release:0.15},volume:-12}).connect(kickFlt);
+  // Snare: noise + body
+  const snrFlt=new Tone.Filter({frequency:5000,type:"bandpass",Q:0.8}).connect(master);
+  const snrNoise=new Tone.NoiseSynth({noise:{type:"white"},envelope:{attack:0.001,decay:0.12,sustain:0,release:0.08},volume:-14}).connect(snrFlt);
+  const snrBody=new Tone.MembraneSynth({pitchDecay:0.01,octaves:2,envelope:{attack:0.001,decay:0.08,sustain:0,release:0.06},volume:-20}).connect(master);
+  // Hi-hat: filtered noise, short
+  const hhFlt=new Tone.Filter({frequency:9000,type:"highpass",rolloff:-12}).connect(master);
+  const hh=new Tone.NoiseSynth({noise:{type:"white"},envelope:{attack:0.001,decay:0.04,sustain:0,release:0.02},volume:-16}).connect(hhFlt);
+  // Ride: metallic shimmer
+  const rideFlt=new Tone.Filter({frequency:7000,type:"highpass",rolloff:-12}).connect(master);
+  const rideRev=new Tone.Reverb({decay:1.5,wet:0.2}).connect(rideFlt);
+  const ride=new Tone.MetalSynth({frequency:300,envelope:{attack:0.001,decay:0.4,release:0.3},harmonicity:5.1,modulationIndex:16,resonance:3000,octaves:1,volume:-22}).connect(rideRev);
+  // Rim click
+  const rim=new Tone.NoiseSynth({noise:{type:"pink"},envelope:{attack:0.001,decay:0.02,sustain:0,release:0.01},volume:-14}).connect(master);
+  const rimFlt=new Tone.Filter({frequency:3500,type:"bandpass",Q:3}).connect(master);rim.disconnect();rim.connect(rimFlt);
+  bag.push(kick,snrNoise,snrBody,hh,ride,rim,kickFlt,snrFlt,hhFlt,rideFlt,rideRev,rimFlt,master);
+  return{
+    kick:(t,v)=>{kick.triggerAttackRelease("C1","8n",t,v);},
+    snare:(t,v)=>{snrNoise.triggerAttackRelease("16n",t,v);snrBody.triggerAttackRelease("E2","16n",t,v*0.5);},
+    hh:(t,v)=>{hh.triggerAttackRelease("32n",t,v);},
+    ride:(t,v)=>{ride.triggerAttackRelease("32n",t,v);},
+    rim:(t,v)=>{rim.triggerAttackRelease("32n",t,v);}
+  };
+}
+// Bass note from chord root + degree offset
+function bassNoteFromChord(chordName,degOffset,octave){
+  const nn=["C","C#","D","Eb","E","F","F#","G","Ab","A","Bb","B"];
+  let r=chordName.trim();if(!r)return"C"+(octave||2);
+  let root=r[0].toUpperCase(),ri=1;if(ri<r.length&&(r[ri]==="b"||r[ri]==="#"))ri++;
+  const rs=r.substring(0,ri);let st=N2M[rs[0]]||0;
+  if(rs.includes("b"))st--;if(rs.includes("#"))st++;
+  st=((st+(degOffset||0))%12+12)%12;
+  return nn[st]+(octave||2);
 }
 function makeClick(bag){const rev=new Tone.Reverb({decay:0.2,wet:0.06}).toDestination();const flt=new Tone.Filter({frequency:7000,type:"bandpass",Q:2}).connect(rev);const hi=new Tone.NoiseSynth({noise:{type:"white"},envelope:{attack:0.001,decay:0.035,sustain:0,release:0.015},volume:-10}).connect(flt);const lo=new Tone.NoiseSynth({noise:{type:"pink"},envelope:{attack:0.001,decay:0.02,sustain:0,release:0.01},volume:-16}).connect(flt);bag.push(hi,lo,flt,rev);return{hi,lo};}
 let _pS=null,_pR=null,_pReady=false;
@@ -842,9 +898,11 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
   const[pl,sPl]=useState(false);const[lp,sLp]=useState(forceLoop||false);const[bk,sBk]=useState(false);const[ml,sMl]=useState(true);const[fl,sFl]=useState(initFeel||"straight");
   const[sound,setSound]=useState("piano");const[loading,setLoading]=useState(false);const[samplesOk,setSamplesOk]=useState(_samplerReady);
   const[ci,setCi]=useState(true);const lcDispRef=useRef(null);const[settingsOpen,setSettingsOpen]=useState(false);
+  const[bStyle,setBStyle]=useState("jazz-swing");const[muKeys,setMuKeys]=useState(false);const[muBass,setMuBass]=useState(false);const[muDrums,setMuDrums]=useState(false);
   const prBarRef=useRef(null);
   const bagRef=useRef([]);const aR=useRef(null);const tR=useRef(0);const dR=useRef(0);const sT=useRef(true);
   const lR=useRef(false);const mR=useRef(false);const bR=useRef(false);const mlR=useRef(true);const fR=useRef(initFeel||"straight");const soR=useRef("piano");const ciR=useRef(true);
+  const bStyleR=useRef("jazz-swing");const muKeysR=useRef(false);const muBassR=useRef(false);const muDrumsR=useRef(false);
   const abOnR=useRef(false);const abAR=useRef(0);const abBR=useRef(1);const lcR=useRef(0);
   const noteFracsR=useRef(null);const curNoteR=useRef(-1);const onCurNoteR=useRef(null);const onLoopCompleteR=useRef(null);
   const pTR=useRef(pT||tempo);
@@ -853,6 +911,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
   useEffect(()=>{abcR.current=abc;},[abc]);
   useEffect(()=>{lR.current=lp;},[lp]);useEffect(()=>{bR.current=bk;},[bk]);
   useEffect(()=>{mlR.current=ml;},[ml]);useEffect(()=>{fR.current=fl;},[fl]);useEffect(()=>{soR.current=sound;},[sound]);
+  useEffect(()=>{bStyleR.current=bStyle;},[bStyle]);useEffect(()=>{muKeysR.current=muKeys;},[muKeys]);useEffect(()=>{muBassR.current=muBass;},[muBass]);useEffect(()=>{muDrumsR.current=muDrums;},[muDrums]);
   useEffect(()=>{if(initFeel&&initFeel!==fl){sFl(initFeel);fR.current=initFeel;}},[initFeel]);
   useEffect(()=>{ciR.current=ci;},[ci]);
   useEffect(()=>{abOnR.current=abOn;abAR.current=abA;abBR.current=abB;},[abOn,abA,abB]);
@@ -899,7 +958,9 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
   const sch=(parsed,doCi,refNow)=>{disposeBag();const bag=[];const sw=fR.current==="straight"?0:fR.current==="swing"?1:2;
     const{scheduled:notes,totalDur,chordTimes}=applyTiming(parsed,sw);dR.current=totalDur;
     const mel=makeMelSynth(soR.current,bag);const click=makeClick(bag);
-    const cs=makeChordSynth(bag);bagRef.current=bag;const now=refNow||Tone.now();
+    const cs=makeChordSynth(bag);
+    const bassInst=makeBass(bag);const drumsInst=makeDrums(bag);
+    bagRef.current=bag;const now=refNow||Tone.now();
     let cOff=doCi?parsed.spb*parsed.tsNum:0;
     const abActive=abOnR.current;const abS=abActive?abAR.current*totalDur:0;const abE=abActive?abBR.current*totalDur:totalDur;
     const timers=[];const LA=0.04;
@@ -907,8 +968,53 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
     // Schedule melody
     for(const n of notes){if(!n.tones)continue;if(abActive&&(n.startTime<abS-0.001||n.startTime>=abE-0.001))continue;const noteTime=abActive?n.startTime-abS:n.startTime;
       if(mlR.current){const _n=n;const fireMs=Math.max(0,noteTime*1000-LA*1000);timers.push(setTimeout(()=>{if(sT.current)return;const t=baseTime+noteTime;_n.tones.forEach(tn=>mel.play(tn,Math.min(_n.dur*0.9,2),t,_n.vel));},fireMs));}}
-    // Schedule backing chords — sustain until next chord
-    if(bR.current){for(let ci=0;ci<chordTimes.length;ci++){const c=chordTimes[ci];if(abActive&&(c.time<abS-0.001||c.time>=abE-0.001))continue;const cn=chordToNotes(c.name);if(!cn.length)continue;const ct=abActive?c.time-abS:c.time;const nextTime=ci<chordTimes.length-1?chordTimes[ci+1].time:totalDur;const dur=Math.max(0.3,(abActive?Math.min(nextTime,abE)-c.time:nextTime-c.time)*0.95);const fireMs=Math.max(0,ct*1000-LA*1000);const _dur=dur;timers.push(setTimeout(()=>{if(sT.current)return;cs.triggerAttackRelease(cn,_dur,baseTime+ct);},fireMs));}}
+    // Schedule pattern-based backing (style-aware)
+    if(bR.current){
+      const style=BACKING_STYLES.find(s=>s.id===bStyleR.current)||BACKING_STYLES[0];
+      const spb=parsed.spb;const tsNum=parsed.tsNum;
+      // Find active chord at a given time
+      const chordAt=(time)=>{let ch=chordTimes.length?chordTimes[0].name:"C";for(const c of chordTimes){if(c.time<=time+0.001)ch=c.name;}return ch;};
+      // Schedule pattern for each bar
+      const barDur=spb*tsNum;const numBars=Math.ceil(totalDur/barDur);
+      for(let bar=0;bar<numBars;bar++){
+        const barStart=bar*barDur;
+        // Keys pattern
+        if(!muKeysR.current&&style.keys){for(const k of style.keys){
+          const evTime=barStart+k.t*spb;
+          if(evTime>=totalDur)continue;if(abActive&&(evTime<abS-0.001||evTime>=abE-0.001))continue;
+          const ct=abActive?evTime-abS:evTime;const ch=chordAt(evTime);
+          const cn=chordToNotes(ch);if(!cn.length)continue;
+          const dur=Math.min(k.dur*spb,0.95*(barStart+barDur-evTime));
+          const fireMs=Math.max(0,ct*1000-LA*1000);const _dur=dur;const _vel=k.vel||0.35;
+          if(k.style==="arp"){
+            // Arpeggiate: play chord notes one at a time
+            cn.forEach((note,ni)=>{const arpOff=ni*0.08;
+              timers.push(setTimeout(()=>{if(sT.current)return;cs.triggerAttackRelease([note],_dur,baseTime+ct+arpOff,_vel);},fireMs));});
+          }else{
+            timers.push(setTimeout(()=>{if(sT.current)return;cs.triggerAttackRelease(cn,_dur,baseTime+ct,_vel);},fireMs));
+          }
+        }}
+        // Bass pattern
+        if(!muBassR.current&&style.bass){for(const b of style.bass){
+          const evTime=barStart+b.t*spb;
+          if(evTime>=totalDur)continue;if(abActive&&(evTime<abS-0.001||evTime>=abE-0.001))continue;
+          const ct=abActive?evTime-abS:evTime;const ch=chordAt(evTime);
+          const bn=bassNoteFromChord(ch,b.deg||0,b.oct||2);
+          const dur=Math.min((b.dur||0.5)*spb,0.95*(barStart+barDur-evTime));
+          const fireMs=Math.max(0,ct*1000-LA*1000);const _dur=dur;const _vel=b.vel||0.6;
+          timers.push(setTimeout(()=>{if(sT.current)return;bassInst.play(bn,_dur,baseTime+ct,_vel);},fireMs));
+        }}
+        // Drums pattern
+        if(!muDrumsR.current&&style.drums){for(const d of style.drums){
+          const evTime=barStart+d.t*spb;
+          if(evTime>=totalDur)continue;if(abActive&&(evTime<abS-0.001||evTime>=abE-0.001))continue;
+          const ct=abActive?evTime-abS:evTime;
+          const fireMs=Math.max(0,ct*1000-LA*1000);const _vel=d.vel||0.4;
+          const inst=d.inst||"hh";
+          timers.push(setTimeout(()=>{if(sT.current)return;if(drumsInst[inst])drumsInst[inst](baseTime+ct,_vel);},fireMs));
+        }}
+      }
+    }
     // Schedule metronome clicks
     if(mR.current){const bLen=parsed.spb;for(let tm=0;tm<totalDur;tm+=bLen){if(abActive&&(tm<abS-0.001||tm>=abE-0.001))continue;const ct=abActive?tm-abS:tm;const fireMs=Math.max(0,ct*1000-LA*1000);const bIdx=Math.round(tm/bLen)%parsed.tsNum;timers.push(setTimeout(()=>{if(sT.current)return;click[bIdx===0?"hi":"lo"].triggerAttackRelease("32n",baseTime+ct);},fireMs));}}
     scheduledTimers.current=timers;
@@ -954,7 +1060,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
   const bb={border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.15s",fontFamily:"'Inter',sans-serif"};
   const pill=(a,ic,fn,label)=>React.createElement("button",{onClick:e=>{e.stopPropagation();fn();},style:{...bb,gap:4,padding:"5px 12px",fontSize:11,fontWeight:a?600:500,borderRadius:20,background:a?t.accentBg:t.pillBg,color:a?t.accent:t.subtle,border:a?"1.5px solid "+t.accentBorder:"1.5px solid "+t.pillBorder,boxShadow:a?"0 0 8px "+t.accentGlow:"none",letterSpacing:0.2}},ic,label?" "+label:"");
   const sBtn=(a,l,fn)=>React.createElement("button",{onClick:e=>{e.stopPropagation();fn();},style:{...bb,gap:4,padding:"6px 12px",fontSize:11,fontWeight:500,borderRadius:8,background:a?t.accentBg:t.filterBg,color:a?t.accent:t.muted}},l);
-  const nonDefaults=[!ml&&"mute",fl!=="straight"&&"feel",ci===false&&"no-ci",sound!=="piano"&&"sound"].filter(Boolean);
+  const nonDefaults=[!ml&&"mute",fl!=="straight"&&"feel",ci===false&&"no-ci",sound!=="piano"&&"sound",bk&&bStyle!=="jazz-swing"&&"style",muKeys&&"muKeys",muBass&&"muBass",muDrums&&"muDrums"].filter(Boolean);
 
   if(hideControls)return React.createElement("div",{style:{marginTop:8}},
     // Progress bar only (thin)
@@ -963,7 +1069,10 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
     // Melody + Backing toggles
     React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:6}},
       pill(ml,ml?"\u266B":"\u2715",()=>sMl(!ml),ml?"Melody":"Melody off"),
-      pill(bk,bk?"\uD83C\uDFB9":"\uD83C\uDFB9",()=>sBk(!bk),bk?"Backing":"Backing off")),
+      pill(bk,bk?"\uD83C\uDFB9":"\uD83C\uDFB9",()=>sBk(!bk),bk?"Backing":"Backing off"),
+      bk&&pill(!muKeys,"\uD83C\uDFB9",()=>setMuKeys(!muKeys),muKeys?"Keys off":"Keys"),
+      bk&&pill(!muBass,"\uD83C\uDFB8",()=>setMuBass(!muBass),muBass?"Bass off":"Bass"),
+      bk&&pill(!muDrums,"\uD83E\uDD41",()=>setMuDrums(!muDrums),muDrums?"Drums off":"Drums")),
     // MINI METRONOME
     React.createElement("div",{"data-coach":"metro",style:{background:t.settingsBg||t.card,borderRadius:12,border:"1px solid "+t.border,padding:"4px 12px",marginBottom:6}},
       React.createElement(MiniMetronome,{th:t,initBpm:pT||tempo,syncPlaying:pl,ctrlRef:metroCtrlRef,onBpmChange:function(v){pTR.current=v;if(sPT)sPT(v);if(!sT.current)liveRestart(v);},lickTempo:lickTempo||tempo,onSetLoop:function(v){if(v)sLp(true);},lickTimeSig:lickTS})),
@@ -972,6 +1081,9 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
       React.createElement("button",{onClick:e=>{e.stopPropagation();setSettingsOpen(!settingsOpen);},style:{...bb,gap:4,padding:"5px 10px",fontSize:11,fontWeight:400,borderRadius:8,background:settingsOpen?t.filterBg:"transparent",color:settingsOpen?t.text:t.muted}},"Settings",settingsOpen?" \u25B4":" \u25BE"),
       nonDefaults.length>0&&!settingsOpen&&React.createElement("span",{style:{fontSize:10,color:t.accent,fontFamily:"'Inter',sans-serif",fontWeight:500}},nonDefaults.length+" changed")),
     settingsOpen&&React.createElement("div",{style:{marginTop:6,padding:"14px",background:t.settingsBg,borderRadius:12,border:"1px solid "+t.border,display:"flex",flexDirection:"column",gap:14}},
+      React.createElement("div",null,
+        React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,display:"block",marginBottom:6,letterSpacing:0.5}},"BACKING STYLE"),
+        React.createElement("div",{style:{display:"flex",gap:4,overflowX:"auto",scrollbarWidth:"none",paddingBottom:2}},BACKING_STYLES.map(s=>React.createElement("button",{key:s.id,onClick:e=>{e.stopPropagation();setBStyle(s.id);if(!bk&&s.id!=="none")sBk(true);if(s.id==="none")sBk(false);if(s.feel&&s.feel!==fl){sFl(s.feel);fR.current=s.feel;}},style:{...bb,gap:3,padding:"6px 10px",fontSize:11,borderRadius:8,whiteSpace:"nowrap",background:bStyle===s.id?t.accentBg:t.filterBg,color:bStyle===s.id?t.accent:t.muted}},s.emoji+" "+s.label)))),
       React.createElement("div",null,
         React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,display:"block",marginBottom:6,letterSpacing:0.5}},"SOUND"),
         React.createElement("div",{style:{display:"flex",gap:4,overflowX:"auto",scrollbarWidth:"none"}},SOUND_PRESETS.map(p=>React.createElement("button",{key:p.id,onClick:e=>{e.stopPropagation();setSound(p.id);},style:{...bb,gap:3,padding:"6px 10px",fontSize:11,borderRadius:8,whiteSpace:"nowrap",background:sound===p.id?t.accentBg:t.filterBg,color:sound===p.id?t.accent:t.muted}},p.label)))),
@@ -995,10 +1107,16 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
       pill(lp,"\u221E",()=>sLp(!lp),"Loop"),
       setAbOn&&React.createElement("span",{"data-coach":"ab-loop"},pill(abOn,"\u2759\u2759",()=>{setAbOn(!abOn);if(!abOn){setAbA(0);setAbB(1);}},"A\u2009\u00B7\u2009B"))),
 
-    // ROW 2: Melody + Backing toggles
-    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginTop:8}},
+    // ROW 2: Melody + Backing toggles + instrument mixer
+    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginTop:8,flexWrap:"wrap"}},
       pill(ml,ml?"\u266B":"\u2715",()=>sMl(!ml),ml?"Melody":"Melody off"),
       pill(bk,bk?"\uD83C\uDFB9":"\uD83C\uDFB9",()=>sBk(!bk),bk?"Backing":"Backing off")),
+    // ROW 2b: Instrument mixer (shown when backing is on)
+    bk&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:5,marginTop:6,flexWrap:"wrap"}},
+      React.createElement("span",{style:{fontSize:9,color:t.subtle,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5,marginRight:2}},"MIX"),
+      pill(!muKeys,"\uD83C\uDFB9",()=>setMuKeys(!muKeys),muKeys?"Keys off":"Keys"),
+      pill(!muBass,"\uD83C\uDFB8",()=>setMuBass(!muBass),muBass?"Bass off":"Bass"),
+      pill(!muDrums,"\uD83E\uDD41",()=>setMuDrums(!muDrums),muDrums?"Drums off":"Drums")),
 
     // MINI METRONOME — single source of truth for tempo
     React.createElement("div",{"data-coach":"metro",style:{marginTop:8,background:t.settingsBg||t.card,borderRadius:12,border:"1px solid "+t.border,padding:"4px 12px"}},
@@ -1010,6 +1128,9 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
       nonDefaults.length>0&&!settingsOpen&&React.createElement("span",{style:{fontSize:10,color:t.accent,fontFamily:"'Inter',sans-serif",fontWeight:500}},nonDefaults.length+" changed")),
     settingsOpen&&React.createElement("div",{style:{marginTop:6,padding:"14px",background:t.settingsBg,borderRadius:12,border:"1px solid "+t.border,display:"flex",flexDirection:"column",gap:14}},
       setTrInst&&React.createElement(TransposeBar,{trInst,setTrInst,trMan,setTrMan,th:t}),
+      React.createElement("div",null,
+        React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,display:"block",marginBottom:6,letterSpacing:0.5}},"BACKING STYLE"),
+        React.createElement("div",{style:{display:"flex",gap:4,overflowX:"auto",scrollbarWidth:"none",paddingBottom:2}},BACKING_STYLES.map(s=>React.createElement("button",{key:s.id,onClick:e=>{e.stopPropagation();setBStyle(s.id);if(!bk&&s.id!=="none")sBk(true);if(s.id==="none")sBk(false);if(s.feel&&s.feel!==fl){sFl(s.feel);fR.current=s.feel;}},style:{...bb,gap:3,padding:"6px 10px",fontSize:11,borderRadius:8,whiteSpace:"nowrap",background:bStyle===s.id?t.accentBg:t.filterBg,color:bStyle===s.id?t.accent:t.muted}},s.emoji+" "+s.label)))),
       React.createElement("div",null,
         React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,display:"block",marginBottom:6,letterSpacing:0.5}},"SOUND"),
         React.createElement("div",{style:{display:"flex",gap:4,overflowX:"auto",scrollbarWidth:"none"}},SOUND_PRESETS.map(p=>React.createElement("button",{key:p.id,onClick:e=>{e.stopPropagation();setSound(p.id);},style:{...bb,gap:3,padding:"6px 10px",fontSize:11,borderRadius:8,whiteSpace:"nowrap",background:sound===p.id?t.accentBg:t.filterBg,color:sound===p.id?t.accent:t.muted}},p.label)))),
@@ -4360,480 +4481,10 @@ function Filters({instrument,setInstrument,category,setCategory,sq,setSq,th}){
 // ============================================================
 // APP — theme selector + main view
 // ============================================================
-// ============================================================
-// ONBOARDING — 3 screens after first login
-// ============================================================
-const ONBOARD_INSTRUMENTS = ["Alto Sax","Tenor Sax","Trumpet","Piano","Guitar","Trombone","Flute","Clarinet","Bass","Vibes","Drums","Vocals","Other"];
-const ONBOARD_LEVELS = [
-  {id:"beginner",label:"Beginner",sub:"Less than 2 years"},
-  {id:"intermediate",label:"Intermediate",sub:"2\u20135 years"},
-  {id:"advanced",label:"Advanced",sub:"5\u201310 years"},
-  {id:"pro",label:"Pro",sub:"10+ years"}
-];
-
-function Onboarding({onComplete, th}) {
-  var t = th || TH.studio;
-  var isStudio = t === TH.studio;
-  var _step = useState(0);
-  var step = _step[0], setStep = _step[1];
-  var _name = useState("");
-  var name = _name[0], setName = _name[1];
-  var _inst = useState(null);
-  var inst = _inst[0], setInst = _inst[1];
-  var _level = useState(null);
-  var level = _level[0], setLevel = _level[1];
-  var _saving = useState(false);
-  var saving = _saving[0], setSaving = _saving[1];
-
-  var canNext = step === 0 ? name.trim().length > 0 : step === 1 ? inst !== null : level !== null;
-
-  var handleNext = function() {
-    if (step < 2) { setStep(step + 1); return; }
-    setSaving(true);
-    onComplete({ display_name: name.trim(), instrument: inst, level: level });
-  };
-
-  var handleBack = function() {
-    if (step > 0) setStep(step - 1);
-  };
-
-  var dots = React.createElement("div", { style: { display: "flex", gap: 6, justifyContent: "center", marginBottom: 28 } },
-    [0,1,2].map(function(i) {
-      return React.createElement("div", { key: i, style: {
-        width: i === step ? 20 : 6, height: 6, borderRadius: 3,
-        background: i === step ? t.accent : (i < step ? t.accent + "60" : t.border),
-        transition: "all 0.2s"
-      }});
-    }));
-
-  return React.createElement("div", {
-    style: {
-      position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 3100,
-      background: t.bg, display: "flex", alignItems: "center", justifyContent: "center",
-      padding: 20
-    }
-  },
-    React.createElement("div", {
-      style: { width: "100%", maxWidth: 400 }
-    },
-      // Header
-      React.createElement("div", { style: { textAlign: "center", marginBottom: 8 } },
-        React.createElement("div", {
-          style: {
-            width: 48, height: 48, borderRadius: 12, margin: "0 auto 12px",
-            background: t.accentBg, border: "1px solid " + t.accentBorder,
-            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24
-          }
-        }, "\u266B"),
-        React.createElement("div", {
-          style: { fontSize: 14, color: t.muted, fontFamily: "'Inter',sans-serif", marginBottom: 4 }
-        }, "Welcome to \u00C9tudy")),
-
-      // Dots
-      dots,
-
-      // ─── Screen 0: Name ───
-      step === 0 && React.createElement("div", null,
-        React.createElement("div", {
-          style: { fontSize: 20, fontWeight: 700, color: t.text, fontFamily: "'Inter',sans-serif", textAlign: "center", marginBottom: 6 }
-        }, "What\u2019s your name?"),
-        React.createElement("div", {
-          style: { fontSize: 13, color: t.muted, fontFamily: "'Inter',sans-serif", textAlign: "center", marginBottom: 24 }
-        }, "This is how other musicians will see you"),
-        React.createElement("input", {
-          type: "text", placeholder: "Your name", value: name, autoFocus: true,
-          onChange: function(e) { setName(e.target.value); },
-          onKeyDown: function(e) { if (e.key === "Enter" && canNext) handleNext(); },
-          style: {
-            width: "100%", padding: "16px", borderRadius: 14, fontSize: 16, textAlign: "center",
-            border: "2px solid " + (name ? t.accent : t.border), background: t.inputBg || t.filterBg,
-            color: t.text, fontFamily: "'Inter',sans-serif", outline: "none",
-            boxSizing: "border-box", transition: "border-color 0.15s"
-          }
-        })),
-
-      // ─── Screen 1: Instrument ───
-      step === 1 && React.createElement("div", null,
-        React.createElement("div", {
-          style: { fontSize: 20, fontWeight: 700, color: t.text, fontFamily: "'Inter',sans-serif", textAlign: "center", marginBottom: 6 }
-        }, "What do you play?"),
-        React.createElement("div", {
-          style: { fontSize: 13, color: t.muted, fontFamily: "'Inter',sans-serif", textAlign: "center", marginBottom: 24 }
-        }, "We\u2019ll auto-transpose notation for you"),
-        React.createElement("div", {
-          style: { display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }
-        },
-          ONBOARD_INSTRUMENTS.map(function(name) {
-            var sel = inst === name;
-            var ic = INST_COL[name] || t.accent;
-            return React.createElement("button", {
-              key: name, onClick: function() { setInst(name); },
-              style: {
-                padding: "10px 16px", borderRadius: 12, fontSize: 13, fontWeight: sel ? 600 : 400,
-                fontFamily: "'Inter',sans-serif", cursor: "pointer", transition: "all 0.15s",
-                border: sel ? "2px solid " + ic : "1.5px solid " + t.border,
-                background: sel ? (isStudio ? ic + "18" : ic + "10") : "transparent",
-                color: sel ? t.text : t.muted
-              }
-            }, name);
-          }))),
-
-      // ─── Screen 2: Level ───
-      step === 2 && React.createElement("div", null,
-        React.createElement("div", {
-          style: { fontSize: 20, fontWeight: 700, color: t.text, fontFamily: "'Inter',sans-serif", textAlign: "center", marginBottom: 6 }
-        }, "Your experience level?"),
-        React.createElement("div", {
-          style: { fontSize: 13, color: t.muted, fontFamily: "'Inter',sans-serif", textAlign: "center", marginBottom: 24 }
-        }, "Helps us suggest the right licks for you"),
-        React.createElement("div", {
-          style: { display: "flex", flexDirection: "column", gap: 10 }
-        },
-          ONBOARD_LEVELS.map(function(lv) {
-            var sel = level === lv.id;
-            return React.createElement("button", {
-              key: lv.id, onClick: function() { setLevel(lv.id); },
-              style: {
-                padding: "16px 20px", borderRadius: 14, cursor: "pointer", textAlign: "left",
-                transition: "all 0.15s",
-                border: sel ? "2px solid " + t.accent : "1.5px solid " + t.border,
-                background: sel ? (isStudio ? t.accent + "15" : t.accent + "08") : "transparent"
-              }
-            },
-              React.createElement("div", {
-                style: { fontSize: 15, fontWeight: 600, color: sel ? t.text : t.muted, fontFamily: "'Inter',sans-serif", marginBottom: 2 }
-              }, lv.label),
-              React.createElement("div", {
-                style: { fontSize: 12, color: t.subtle, fontFamily: "'Inter',sans-serif" }
-              }, lv.sub));
-          }))),
-
-      // ─── Navigation ───
-      React.createElement("div", {
-        style: { display: "flex", gap: 10, marginTop: 28 }
-      },
-        step > 0 && React.createElement("button", {
-          onClick: handleBack,
-          style: {
-            padding: "14px 24px", borderRadius: 14, border: "1px solid " + t.border,
-            background: "transparent", color: t.muted, fontSize: 14, fontWeight: 600,
-            fontFamily: "'Inter',sans-serif", cursor: "pointer"
-          }
-        }, "\u2190 Back"),
-        React.createElement("button", {
-          onClick: handleNext, disabled: !canNext || saving,
-          style: {
-            flex: 1, padding: "14px", borderRadius: 14, border: "none",
-            background: canNext ? t.accent : t.border,
-            color: canNext ? (isStudio ? "#08080F" : "#fff") : t.subtle,
-            fontSize: 14, fontWeight: 700, fontFamily: "'Inter',sans-serif",
-            cursor: canNext ? "pointer" : "default", opacity: saving ? 0.7 : 1,
-            transition: "all 0.15s"
-          }
-        }, saving ? "Saving\u2026" : step === 2 ? "Let\u2019s go \u2192" : "Next \u2192"))
-    )
-  );
-}
-
-// ============================================================
-// LOGIN MODAL — OTP Code Flow (PWA-safe, no redirect needed)
-// ============================================================
-function LoginModal({onClose, onLogin, th}) {
-  var t = th || TH.studio;
-  var isStudio = t === TH.studio;
-  var _s = useState("idle");
-  var step = _s[0], setStep = _s[1];
-  var _e = useState("");
-  var email = _e[0], setEmail = _e[1];
-  var _c = useState(["","","","","","","",""]);
-  var code = _c[0], setCode = _c[1];
-  var _err = useState("");
-  var errMsg = _err[0], setErr = _err[1];
-  var inputRefs = useRef([]);
-
-  var handleSendCode = function() {
-    if (!email || !email.includes("@")) { setErr("Please enter a valid email"); return; }
-    setStep("sending"); setErr("");
-    signInWithMagicLink(email).then(function() {
-      setStep("code");
-    }).catch(function(e) {
-      setErr(e.message || "Failed to send code");
-      setStep("idle");
-    });
-  };
-
-  var handleCodeChange = function(idx, val) {
-    if (val.length > 1) val = val.slice(-1);
-    if (val && !/^\d$/.test(val)) return;
-    var next = code.slice();
-    next[idx] = val;
-    setCode(next);
-    if (val && idx < 7 && inputRefs.current[idx + 1]) {
-      inputRefs.current[idx + 1].focus();
-    }
-    if (val && idx === 7) {
-      var fullCode = next.join("");
-      if (fullCode.length === 8) { submitCode(fullCode); }
-    }
-  };
-
-  var handleCodeKeyDown = function(idx, e) {
-    if (e.key === "Backspace" && !code[idx] && idx > 0 && inputRefs.current[idx - 1]) {
-      inputRefs.current[idx - 1].focus();
-    }
-  };
-
-  var handleCodePaste = function(e) {
-    var pasted = (e.clipboardData || window.clipboardData).getData("text").trim();
-    if (/^\d{8}$/.test(pasted)) {
-      e.preventDefault();
-      var digits = pasted.split("");
-      setCode(digits);
-      if (inputRefs.current[7]) inputRefs.current[7].focus();
-      submitCode(pasted);
-    }
-  };
-
-  var submitCode = function(fullCode) {
-    setStep("verifying"); setErr("");
-    verifyOtp(email, fullCode).then(function(data) {
-      setStep("done");
-      if (onLogin) onLogin(data.session);
-    }).catch(function(e) {
-      setErr(e.message || "Invalid code. Please try again.");
-      setStep("code");
-      setCode(["","","","","","","",""]);
-      if (inputRefs.current[0]) inputRefs.current[0].focus();
-    });
-  };
-
-  var handleGoogle = function() {
-    signInWithGoogle().catch(function(e) {
-      setErr(e.message || "Google sign-in failed");
-    });
-  };
-
-  return React.createElement("div", {
-    onClick: onClose,
-    style: {
-      position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 3000,
-      background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center",
-      justifyContent: "center", padding: 20, animation: "fadeIn 0.15s ease"
-    }
-  },
-    React.createElement("div", {
-      onClick: function(e) { e.stopPropagation(); },
-      style: {
-        width: "100%", maxWidth: 400, background: t.card, borderRadius: 20,
-        border: "1px solid " + t.border, padding: 32,
-        boxShadow: "0 20px 60px rgba(0,0,0,0.4)"
-      }
-    },
-      React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", marginBottom: 8 } },
-        React.createElement("button", {
-          onClick: onClose,
-          style: { background: "none", border: "none", color: t.muted, fontSize: 20, cursor: "pointer", padding: 4 }
-        }, "\u00D7")),
-      React.createElement("div", { style: { textAlign: "center", marginBottom: 24 } },
-        React.createElement("div", {
-          style: {
-            width: 48, height: 48, borderRadius: 12, margin: "0 auto 12px",
-            background: t.accentBg, border: "1px solid " + t.accentBorder,
-            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24
-          }
-        }, "\u266B"),
-        React.createElement("div", {
-          style: { fontSize: 22, fontWeight: 700, color: t.text, fontFamily: "'Inter',sans-serif" }
-        }, "\u00C9tudy"),
-        React.createElement("div", {
-          style: { fontSize: 13, color: t.muted, fontFamily: "'Inter',sans-serif", marginTop: 4 }
-        }, step === "code" || step === "verifying"
-          ? "Enter the 8-digit code from your email"
-          : "Sign in to save licks, track progress & more")),
-      (step === "idle" || step === "sending") && React.createElement("div", null,
-        React.createElement("button", {
-          onClick: handleGoogle,
-          style: {
-            width: "100%", padding: "14px", borderRadius: 12, border: "1px solid " + t.border,
-            background: t.filterBg || t.inputBg, color: t.text, fontSize: 14, fontWeight: 600,
-            fontFamily: "'Inter',sans-serif", cursor: "pointer", display: "flex",
-            alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 16
-          }
-        },
-          React.createElement("img", {
-            src: "https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg",
-            alt: "Google", style: { width: 18, height: 18 }
-          }),
-          "Continue with Google"),
-        React.createElement("div", {
-          style: { display: "flex", alignItems: "center", gap: 12, margin: "4px 0 16px" }
-        },
-          React.createElement("div", { style: { flex: 1, height: 1, background: t.border } }),
-          React.createElement("span", { style: { fontSize: 11, color: t.subtle, fontFamily: "'Inter',sans-serif" } }, "or"),
-          React.createElement("div", { style: { flex: 1, height: 1, background: t.border } })),
-        React.createElement("input", {
-          type: "email", placeholder: "your@email.com", value: email,
-          onChange: function(e) { setEmail(e.target.value); setErr(""); },
-          onKeyDown: function(e) { if (e.key === "Enter") handleSendCode(); },
-          style: {
-            width: "100%", padding: "14px 16px", borderRadius: 12, fontSize: 15,
-            border: "1px solid " + (errMsg ? "#EF4444" : t.border), background: t.inputBg || t.filterBg,
-            color: t.text, fontFamily: "'Inter',sans-serif", outline: "none",
-            boxSizing: "border-box", marginBottom: 12
-          }
-        }),
-        React.createElement("button", {
-          onClick: handleSendCode, disabled: step === "sending",
-          style: {
-            width: "100%", padding: "14px", borderRadius: 12, border: "none",
-            background: step === "sending" ? t.subtle : t.accent,
-            color: isStudio ? "#08080F" : "#fff", fontSize: 14, fontWeight: 700,
-            fontFamily: "'Inter',sans-serif", cursor: step === "sending" ? "default" : "pointer",
-            opacity: step === "sending" ? 0.7 : 1
-          }
-        }, step === "sending" ? "Sending code\u2026" : "Send sign-in code")),
-      (step === "code" || step === "verifying") && React.createElement("div", null,
-        React.createElement("div", {
-          style: {
-            textAlign: "center", marginBottom: 20, padding: "10px 16px",
-            background: t.accentBg, borderRadius: 10, border: "1px solid " + t.accentBorder
-          }
-        },
-          React.createElement("span", {
-            style: { fontSize: 12, color: t.accent, fontFamily: "'JetBrains Mono',monospace" }
-          }, email)),
-        React.createElement("div", {
-          style: { display: "flex", gap: 6, justifyContent: "center", marginBottom: 20 }
-        },
-          [0,1,2,3,4,5,6,7].map(function(i) {
-            return React.createElement("input", {
-              key: i,
-              ref: function(el) { inputRefs.current[i] = el; },
-              type: "text", inputMode: "numeric", maxLength: 1,
-              value: code[i],
-              onChange: function(e) { handleCodeChange(i, e.target.value); },
-              onKeyDown: function(e) { handleCodeKeyDown(i, e); },
-              onPaste: i === 0 ? handleCodePaste : undefined,
-              autoFocus: i === 0,
-              disabled: step === "verifying",
-              style: {
-                width: 38, height: 48, textAlign: "center", fontSize: 20, fontWeight: 700,
-                fontFamily: "'JetBrains Mono',monospace", borderRadius: 10,
-                border: "2px solid " + (code[i] ? t.accent : t.border),
-                background: t.inputBg || t.filterBg, color: t.text, outline: "none",
-                transition: "border-color 0.15s"
-              }
-            });
-          })),
-        step === "verifying" && React.createElement("div", {
-          style: { textAlign: "center", marginBottom: 12 }
-        },
-          React.createElement("span", {
-            style: { fontSize: 13, color: t.accent, fontFamily: "'Inter',sans-serif" }
-          }, "Verifying\u2026")),
-        step === "code" && React.createElement("div", { style: { textAlign: "center" } },
-          React.createElement("button", {
-            onClick: function() { setStep("idle"); setCode(["","","","","","","",""]); },
-            style: {
-              background: "none", border: "none", color: t.muted, fontSize: 12,
-              fontFamily: "'Inter',sans-serif", cursor: "pointer", textDecoration: "underline"
-            }
-          }, "Didn\u2019t get a code? Try again"))),
-      errMsg && React.createElement("div", {
-        style: {
-          marginTop: 12, padding: "10px 14px", borderRadius: 10,
-          background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)"
-        }
-      },
-        React.createElement("span", {
-          style: { fontSize: 12, color: "#EF4444", fontFamily: "'Inter',sans-serif" }
-        }, errMsg)),
-      React.createElement("div", {
-        style: { textAlign: "center", marginTop: 20 }
-      },
-        React.createElement("span", {
-          style: { fontSize: 10, color: t.subtle, fontFamily: "'Inter',sans-serif", lineHeight: "1.5" }
-        }, "By signing in you agree to our Terms of Service"))
-    )
-  );
-}
-
 export default function Etudy(){
   const[theme,setTheme]=useState(null);const[view,sV]=useState("explore");const[selectedLick,setSelected]=useState(null);const[inst,sI]=useState("All");const[cat,sC]=useState("All");const[sq,sQ]=useState("");const[showEd,sSE]=useState(false);const[licks,sL]=useState(SAMPLE_LICKS);
   // PWA Install prompt
   const[installPrompt,setInstallPrompt]=useState(null);
-  // ─── AUTH STATE ───
-  const[authUser,setAuthUser]=useState(null);
-  const[authProfile,setAuthProfile]=useState(null);
-  const[authLoading,setAuthLoading]=useState(true);
-  const[showLogin,setShowLogin]=useState(false);
-  const[showOnboarding,setShowOnboarding]=useState(false);
-  // Load profile + likes/saves from Supabase
-  var loadUserData=function(user){
-    setAuthUser(user);
-    fetchProfile(user.id).then(function(p){
-      setAuthProfile(p);
-      if(!p||!p.onboarding_done)setShowOnboarding(true);
-    }).catch(function(){setShowOnboarding(true);});
-    // Load server-side likes & saves
-    fetchUserLicks(user.id).then(function(result){
-      if(result.likes.size>0)setLikedSet(result.likes);
-      if(result.saves.size>0)setSavedSet(result.saves);
-      // Also cache locally for offline
-      var g=getStg();if(g){
-        g.set("etudy:likedSet",JSON.stringify([...result.likes])).catch(function(){});
-        g.set("etudy:savedSet",JSON.stringify([...result.saves])).catch(function(){});
-      }
-    }).catch(function(){});
-  };
-  useEffect(()=>{
-    getSession().then(function(session){
-      if(session&&session.user){ loadUserData(session.user); }
-      setAuthLoading(false);
-    }).catch(function(){setAuthLoading(false);});
-    var sub=onAuthStateChange(function(event,session){
-      if(session&&session.user){ loadUserData(session.user); }
-      else { setAuthUser(null);setAuthProfile(null); }
-    });
-    return function(){if(sub&&sub.unsubscribe)sub.unsubscribe();};
-  },[]);
-  var requireAuth=function(callback){
-    if(authUser){callback();return;}
-    setShowLogin(true);
-  };
-  var handleLoginSuccess=function(session){
-    if(session&&session.user){ loadUserData(session.user); }
-    setShowLogin(false);
-  };
-  var handleOnboardingComplete=function(data){
-    if(!authUser)return;
-    updateProfile(authUser.id,{...data, onboarding_done:true}).then(function(p){
-      setAuthProfile(p);
-      setShowOnboarding(false);
-      // Auto-set transposition instrument if applicable
-      var transMap={"Alto Sax":"Alto Sax","Tenor Sax":"Tenor Sax","Trumpet":"Bb Trumpet","Clarinet":"Clarinet","Trombone":"Trombone","Flute":"Flute"};
-      if(transMap[data.instrument]){setUserInst(transMap[data.instrument]);var g=getStg();if(g)g.set("etudy:userInst",transMap[data.instrument]).catch(function(){});}
-    }).catch(function(e){
-      console.error("Profile update failed:",e);
-      setShowOnboarding(false);
-    });
-  };
-  var handleLogout=function(){
-    signOut().then(function(){
-      setAuthUser(null);setAuthProfile(null);
-      // Clear user-specific local data
-      setLikedSet(new Set());setSavedSet(new Set());setMyLicks([]);
-      setStreakDays(0);setTotalHours(0);setKeyProgress({});
-      var g=getStg();if(g){
-        g.delete("etudy:likedSet").catch(function(){});
-        g.delete("etudy:savedSet").catch(function(){});
-        g.delete("etudy:savedLicksData").catch(function(){});
-        g.delete("etudy:myLicks").catch(function(){});
-        g.delete("etudy:keyProgress").catch(function(){});
-        g.delete("practice-log").catch(function(){});
-      }
-    }).catch(function(){});
-  };
   const[isStandalone,setIsStandalone]=useState(false);
   const[isIOS,setIsIOS]=useState(false);
   const[showIOSGuide,setShowIOSGuide]=useState(false);
@@ -4950,7 +4601,6 @@ export default function Etudy(){
   const markEarTipped=useCallback(()=>{setEarTipped(true);setEarShowTips(false);},[]);
   const markRhythmTipped=useCallback(()=>{setRhythmTipped(true);setRhythmShowTips(false);},[]);
   const toggleLike=id=>{
-    if(!authUser){setShowLogin(true);return;}
     const wasLiked=likedSet.has(id);
     const adding=!wasLiked;
     setLikedSet(s=>{const n=new Set(s);if(adding)n.add(id);else n.delete(id);const g=getStg();if(g)g.set("etudy:likedSet",JSON.stringify([...n])).catch(()=>{});return n;});
@@ -4958,29 +4608,21 @@ export default function Etudy(){
     if(lick){const newCount=Math.max(0,(lick.likes||0)+(adding?1:-1));
       sL(prev=>prev.map(l=>l.id===id?{...l,likes:newCount}:l));
       updateLikes(id,newCount);}
-    // Sync with Supabase
-    if(adding){addUserLick(authUser.id,id,"like");}else{removeUserLick(authUser.id,id,"like");}
   };
   const toggleSave=id=>{
-    if(!authUser){setShowLogin(true);return;}
     const lick=allLicks.find(l=>l.id===id);
-    const wassSaved=savedSet.has(id);
-    const adding=!wassSaved;
-    setSavedSet(s=>{const n=new Set(s);if(adding)n.add(id);else n.delete(id);
+    setSavedSet(s=>{const n=new Set(s);const adding=!n.has(id);if(adding)n.add(id);else n.delete(id);
       const g=getStg();if(g){g.set("etudy:savedSet",JSON.stringify([...n])).catch(()=>{});
+        // Persist full lick data for offline
         if(lick&&adding){g.get("etudy:savedLicksData").then(r=>{var m={};try{m=r&&r.value?JSON.parse(r.value):{};}catch(e){}m[id]=lick;g.set("etudy:savedLicksData",JSON.stringify(m)).catch(()=>{});}).catch(()=>{});}
         if(!adding){g.get("etudy:savedLicksData").then(r=>{var m={};try{m=r&&r.value?JSON.parse(r.value):{};}catch(e){}delete m[id];g.set("etudy:savedLicksData",JSON.stringify(m)).catch(()=>{});}).catch(()=>{});}
-      }return n;});
-    // Sync with Supabase
-    if(adding){addUserLick(authUser.id,id,"save");}else{removeUserLick(authUser.id,id,"save");}
-  };
+      }return n;});};
   useEffect(()=>{preloadPiano();preloadChordPiano();},[]);
   const dayOfYear=Math.floor((Date.now()-new Date(new Date().getFullYear(),0,0))/86400000);
   const dailyLick=licks.length>0?licks[dayOfYear%licks.length]:null;
   const srcLicks=lickSource==="mine"?licks.filter(function(l){return savedSet.has(l.id);}).concat(myLicks):licks;
   const fl=srcLicks.filter(l=>{if(lickSource==="community"&&dailyLick&&l.id===dailyLick.id)return false;if(inst!=="All"&&l.instrument!==inst)return false;if(cat!=="All"&&l.category!==cat)return false;if(sq){const q=sq.toLowerCase();return l.title.toLowerCase().includes(q)||l.artist.toLowerCase().includes(q)||l.key.toLowerCase().includes(q)||(l.tags||[]).some(tg2=>tg2.includes(q));}return true;});
   const addLick=d=>{
-    if(!authUser){setShowLogin(true);return;}
     const temp={...d,id:Date.now(),likes:0,user:"You",tags:d.tags||[]};
     sL([temp,...licks]);sSE(false);openLick(temp);
     insertLick({...d,user:"You"}).then(real=>{
@@ -5212,17 +4854,9 @@ export default function Etudy(){
                 React.createElement("div",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}},lick.artist),
                 React.createElement("div",{style:{fontSize:9,color:cc,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,marginTop:4}},lick.category));}))),
 
-        // Auth info + Logout
-        React.createElement("div",{style:{textAlign:"center",padding:"24px 0",marginTop:16,borderTop:"1px solid "+t.border}},
-          authUser
-            ?React.createElement("div",null,
-              React.createElement("div",{style:{fontSize:12,color:t.muted,fontFamily:"'Inter',sans-serif",marginBottom:4}},
-                authProfile&&authProfile.display_name?authProfile.display_name:authUser.email),
-              React.createElement("div",{style:{fontSize:10,color:t.subtle,fontFamily:"'JetBrains Mono',monospace",marginBottom:12}},authUser.email),
-              React.createElement("button",{onClick:handleLogout,style:{padding:"8px 20px",borderRadius:10,border:"1px solid "+t.border,background:"transparent",color:t.muted,fontSize:12,fontFamily:"'Inter',sans-serif",cursor:"pointer"}},"Sign out"))
-            :React.createElement("button",{onClick:function(){setShowLogin(true);},style:{padding:"10px 24px",borderRadius:12,border:"none",background:t.accent,color:isStudio?"#08080F":"#fff",fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer"}},"Sign in"),
-          React.createElement("div",{style:{marginTop:12}},
-            React.createElement("span",{style:{fontSize:10,color:t.subtle,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1}},"\u00C9tudy \u00B7 Beta")))),
+        // Version info
+        React.createElement("div",{style:{textAlign:"center",padding:"24px 0",marginTop:16}},
+          React.createElement("span",{style:{fontSize:10,color:t.subtle,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1}},"\u00C9tudy \u00B7 Beta \u00B7 Jazz Lick Collection"))),
 
     // BOTTOM TAB BAR
     React.createElement("div",{style:{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:520,zIndex:100,background:t.tabBarBg||t.headerBg,backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderTop:"1px solid "+(isStudio?t.borderSub||t.border:t.border),display:"flex",padding:"6px 16px",paddingBottom:"calc(8px + env(safe-area-inset-bottom, 0px))"}},
@@ -5271,7 +4905,4 @@ export default function Etudy(){
         // Version
         React.createElement("div",{style:{textAlign:"center",paddingTop:16,borderTop:"1px solid "+t.border}},
           React.createElement("span",{style:{fontSize:10,color:t.subtle,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1}},"\u00C9tudy \u00B7 Beta"))))
-    ),
-    showLogin&&React.createElement(LoginModal,{th:t,onClose:function(){setShowLogin(false);},onLogin:handleLoginSuccess}),
-    showOnboarding&&authUser&&React.createElement(Onboarding,{th:t,onComplete:handleOnboardingComplete})
-  );}
+    ));}
