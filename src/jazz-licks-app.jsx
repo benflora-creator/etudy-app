@@ -269,6 +269,7 @@ function dbToLick(row) {
     id: row.id,
     title: row.title,
     artist: row.artist || '',
+    tune: row.tune || '',
     instrument: row.instrument || 'Alto Sax',
     category: row.category || 'ii-V-I',
     key: row.key || 'C',
@@ -291,6 +292,7 @@ function lickToDb(d) {
   return {
     title: d.title,
     artist: d.artist || '',
+    tune: d.tune || '',
     instrument: d.instrument || 'Alto Sax',
     category: d.category || 'ii-V-I',
     key: d.key || 'C',
@@ -1044,7 +1046,7 @@ function ABRangeBar({abc,abA,abB,setAbA,setAbB,onReset,th}){
 // ============================================================
 function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,trInst,setTrInst,trMan,setTrMan,onCurNote,th,onLoopComplete,forceLoop,autoPlay,hideControls,ctrlRef,initFeel,editorMode}){
   const t=th||TH.classic;
-  const[pl,sPl]=useState(false);const[lp,sLp]=useState(forceLoop||false);const[bk,sBk]=useState(true);const[ml,sMl]=useState(true);const[fl,sFl]=useState(initFeel||"straight");
+  const[pl,sPl]=useState(false);const[lp,sLp]=useState(forceLoop||editorMode||false);const[bk,sBk]=useState(true);const[ml,sMl]=useState(true);const[fl,sFl]=useState(initFeel||"straight");
   const[backingStyle,setBackingStyle]=useState("piano");const[muteKeys,setMuteKeys]=useState(false);const[muteBass,setMuteBass]=useState(false);const[muteDrums,setMuteDrums]=useState(false);
   const[sound,setSound]=useState("piano");const[loading,setLoading]=useState(false);const[samplesOk,setSamplesOk]=useState(_samplerReady);
   const[ci,setCi]=useState(true);const lcDispRef=useRef(null);const[settingsOpen,setSettingsOpen]=useState(false);
@@ -1356,6 +1358,17 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
       React.createElement("div",{style:{display:"flex",gap:5,flexWrap:"wrap"}},
         sBtn(ci,"Count-in "+(ci?"\u2713":"\u2717"),()=>setCi(!ci)))));
 
+  // EDITOR MODE: minimal player — Play + progress + loop only
+  if(editorMode)return React.createElement("div",{style:{marginTop:6}},
+    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
+      React.createElement("button",{onClick:e=>{e.stopPropagation();tg();},style:{...bb,width:36,height:36,borderRadius:"50%",flexShrink:0,background:pl?t.filterBg:loading?t.filterBg:t.playBg,boxShadow:pl||loading?"none":"0 4px 14px "+(t.accentGlow||"rgba(0,0,0,0.1)")}},
+        loading?React.createElement("div",{style:{width:12,height:12,border:"2px solid "+t.accentBg,borderTopColor:t.accent,borderRadius:"50%",animation:"spin 0.8s linear infinite"}}):
+        pl?React.createElement("div",{style:{display:"flex",gap:2}},React.createElement("div",{style:{width:3,height:11,background:t.muted,borderRadius:1}}),React.createElement("div",{style:{width:3,height:11,background:t.muted,borderRadius:1}})):
+        React.createElement("div",{style:{width:0,height:0,borderTop:"6px solid transparent",borderBottom:"6px solid transparent",borderLeft:"10px solid #fff",marginLeft:2}})),
+      React.createElement("div",{style:{flex:1,height:3,background:t.progressBg,borderRadius:3,overflow:"hidden"}},
+        React.createElement("div",{ref:prBarRef,style:{width:"0%",height:"100%",background:t.accent,borderRadius:3}})),
+      pill(lp,"\u221E",()=>sLp(!lp))));
+
   const curSoundLabel=(SOUND_PRESETS.find(p=>p.id===sound)||{}).label||"Piano";
   const curBackObj=BACKING_STYLES.find(s=>s.id===backingStyle)||BACKING_STYLES[0];
   const curFeelLabel=fl==="straight"?"Straight":fl==="swing"?"Swing":"Hard Swing";
@@ -1435,62 +1448,199 @@ const NOTE_NMS=["C","D","E","F","G","A","B"];const CHORD_PR=["maj7","m7","7","m7
 function e2s(e){if(e===1)return"";if(e===0.5)return"/2";if(e===0.75)return"3/4";if(e===1.5)return"3/2";if(e===3)return"3";if(e===6)return"6";if(e===12)return"12";if(Number.isInteger(e))return String(e);return String(Math.round(e*2))+"/2";}
 var KEY_SIG_ACC={"C":{},"G":{F:1},"D":{F:1,C:1},"A":{F:1,C:1,G:1},"E":{F:1,C:1,G:1,D:1},"B":{F:1,C:1,G:1,D:1,A:1},"F#":{F:1,C:1,G:1,D:1,A:1,E:1},"Gb":{B:-1,E:-1,A:-1,D:-1,G:-1,C:-1},"F":{B:-1},"Bb":{B:-1,E:-1},"Eb":{B:-1,E:-1,A:-1},"Ab":{B:-1,E:-1,A:-1,D:-1},"Db":{B:-1,E:-1,A:-1,D:-1,G:-1}};
 function buildAbc(items,keySig,timeSig,tempo,chords){const[tsN,tsD]=timeSig.split("/").map(Number);const bE=tsN*(8/tsD);const beatE=8/tsD;const bG=tsD===8?3:2;let abc="X:1\nT:My Lick\nM:"+timeSig+"\nL:1/8\nQ:1/4="+tempo+"\nK:"+keySig+"\n";const ksMap=KEY_SIG_ACC[keySig]||{};let pos=0,ns=false,nc=0;var barAlts={};var triCount=0;var chObj=chords||{};for(var ii=0;ii<items.length;ii++){var item=items[ii];if(item.type==="chord")continue;const ei=DURS[item.dur].eighths*(item.dotted?1.5:1);var effEi=item.tri?ei*(2/3):ei;if(pos>0){const bN=pos/bE;if(Math.abs(bN-Math.round(bN))<0.01&&Math.round(bN)>0){abc+=" | ";ns=false;barAlts={};}}if(nc>0&&ns)abc+=" ";var beatIdx=Math.round(pos/beatE);if(chObj[beatIdx])abc+='"'+chObj[beatIdx]+'"';if(item.tri&&triCount%3===0)abc+="(3";if(item.tri)triCount++;else triCount=0;if(item.type==="rest")abc+="z"+e2s(ei);else if(item.type==="note"){var ksA=ksMap[item.note]||0;var prevA=barAlts.hasOwnProperty(item.note)?barAlts[item.note]:ksA;var needsAcc=false;if(item.acc!==prevA){needsAcc=true;}else if(item.acc===ksA&&barAlts.hasOwnProperty(item.note)&&barAlts[item.note]!==ksA){needsAcc=true;}if(needsAcc){if(item.acc===1)abc+="^";else if(item.acc===-1)abc+="_";else abc+="=";}barAlts[item.note]=item.acc;if(item.oct>=5){abc+=item.note.toLowerCase();for(let o=6;o<=item.oct;o++)abc+="'";}else{abc+=item.note.toUpperCase();for(let o=3;o>=item.oct;o--)abc+=",";}abc+=e2s(ei);}const eP=pos+effEi;ns=ei>=2||Math.floor((eP-0.001)/bG)>Math.floor(pos/bG)||Math.floor((eP-0.001)/bE)>Math.floor(pos/bE);pos=eP;nc++;}if(nc>0)abc+=" |";return abc;}
-function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl}){const[items,sIt]=useState([]);const[cA,sCA]=useState(0);const[cO,sCO]=useState(5);const[cD,sCD]=useState(2);const[dt,sDt]=useState(false);const[tri,sTri]=useState(false);const[chords,sChords]=useState({});const[chEd,sChEd]=useState(null);const[chRoot,sChRoot]=useState("C");const[chQual,sChQual]=useState("maj7");const sR=useRef(null);useEffect(()=>{onAbcChange(buildAbc(items,keySig,timeSig,tempo,chords));},[items,keySig,timeSig,tempo,chords]);useEffect(()=>{if(sR.current)sR.current.scrollLeft=sR.current.scrollWidth;},[items]);const[tsN,tsD]=timeSig.split("/").map(Number);const bE=tsN*(8/tsD);const beatE=8/tsD;let tE=0;for(const it of items)if(it.type==="note"||it.type==="rest")tE+=DURS[it.dur].eighths*(it.dotted?1.5:1)*(it.tri?2/3:1);const cBar=Math.floor(tE/bE)+1;const pIB=tE%bE;const cBeat=Math.floor(pIB/beatE)+1;const totalBeats=Math.max(tsN,Math.ceil(tE/beatE));const ac="#6366F1",mu="#8E8E93";
-  const renderItem=(item,idx)=>{let pB=0;for(let j=0;j<idx;j++){const it=items[j];if(it.type==="note"||it.type==="rest")pB+=DURS[it.dur].eighths*(it.dotted?1.5:1)*(it.tri?2/3:1);}const atBar=idx>0&&pB>0&&Math.abs(pB%bE)<0.01;const els=[];if(atBar)els.push(React.createElement("div",{key:idx+"b",style:{width:2,height:44,background:"#E0DFD8",borderRadius:1,flexShrink:0,marginRight:2}}));let ct,bg="#F5F4F0";if(item.type==="note"){const aS=item.acc===1?"\u266F":item.acc===-1?"\u266D":"";ct=React.createElement("div",{style:{display:"flex",flexDirection:"column",alignItems:"center",gap:0}},React.createElement("span",{style:{fontSize:13,fontWeight:600,fontFamily:"'Instrument Serif',serif",lineHeight:1.1,color:"#1A1A1A"}},aS+item.note+(item.dotted?".":"")+(item.tri?"\u00B3":"")),React.createElement("span",{style:{fontSize:8,color:mu,lineHeight:1}},item.oct),noteIcon(item.dur,"#666",16));bg="rgba(99,102,241,0.04)";}else if(item.type==="rest"){ct=React.createElement("div",{style:{display:"flex",flexDirection:"column",alignItems:"center"}},React.createElement("span",{style:{fontSize:10,color:mu}},"rest"),noteIcon(item.dur,"#AAA",14));bg="#F0EFE8";}els.push(React.createElement("div",{key:idx,onClick:()=>sIt(p=>p.filter((_,i)=>i!==idx)),style:{minWidth:38,height:48,borderRadius:8,background:bg,color:"#1A1A1A",display:"flex",alignItems:"center",justifyContent:"center",padding:"2px 5px",cursor:"pointer",flexShrink:0,border:"1px solid #E8E7E3"}},ct));return els;};
-  // Chord lane: beat slots with inline editor
+function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl}){
+  const[items,sIt]=useState([]);const[cO,sCO]=useState(5);const[cD,sCD]=useState(2);const[dt,sDt]=useState(false);const[tri,sTri]=useState(false);
+  const[chords,sChords]=useState({});const[chEd,sChEd]=useState(null);const[chRoot,sChRoot]=useState("C");const[chQual,sChQual]=useState("maj7");
+  const[selIdx,setSelIdx]=useState(null);
+  const histRef=useRef([{items:[],chords:{}}]);const histIdxRef=useRef(0);
+  const sR=useRef(null);
+  const ac="#6366F1",mu="#8E8E93";
+
+  // Push history snapshot
+  const pushHist=function(ni,nc){
+    var h=histRef.current.slice(0,histIdxRef.current+1);
+    h.push({items:ni.map(function(x){return Object.assign({},x);}),chords:Object.assign({},nc)});
+    if(h.length>50)h.shift();
+    histRef.current=h;histIdxRef.current=h.length-1;
+  };
+  const mutate=function(ni,nc){
+    var newC=nc!==undefined?nc:chords;
+    sIt(ni);if(nc!==undefined)sChords(nc);pushHist(ni,newC);
+  };
+  const undo=function(){
+    if(histIdxRef.current<=0)return;histIdxRef.current--;
+    var s=histRef.current[histIdxRef.current];
+    sIt(s.items.map(function(x){return Object.assign({},x);}));sChords(Object.assign({},s.chords));setSelIdx(null);
+  };
+  const redo=function(){
+    if(histIdxRef.current>=histRef.current.length-1)return;histIdxRef.current++;
+    var s=histRef.current[histIdxRef.current];
+    sIt(s.items.map(function(x){return Object.assign({},x);}));sChords(Object.assign({},s.chords));setSelIdx(null);
+  };
+  const canUndo=histIdxRef.current>0;const canRedo=histIdxRef.current<histRef.current.length-1;
+
+  // Smart octave: pick nearest octave to previous note
+  const smartOct=function(noteName,prevItems){
+    var semiMap={C:0,D:2,E:4,F:5,G:7,A:9,B:11};
+    for(var i=prevItems.length-1;i>=0;i--){
+      if(prevItems[i].type==="note"){var pn=prevItems[i];var ps=semiMap[pn.note]+pn.oct*12;
+        var best=cO,bd=999;
+        for(var o=Math.max(2,pn.oct-1);o<=Math.min(7,pn.oct+1);o++){
+          var d=Math.abs((semiMap[noteName]+o*12)-ps);if(d<bd){bd=d;best=o;}}
+        return best;}}
+    return cO;
+  };
+
+  // ABC generation
+  useEffect(function(){onAbcChange(buildAbc(items,keySig,timeSig,tempo,chords));},[items,keySig,timeSig,tempo,chords]);
+  // Auto-scroll note strip
+  useEffect(function(){if(sR.current&&selIdx===null)sR.current.scrollLeft=sR.current.scrollWidth;},[items]);
+  // Scroll to selected note
+  useEffect(function(){if(sR.current&&selIdx!==null){var el=sR.current.querySelector("[data-nidx='"+selIdx+"']");if(el)el.scrollIntoView({block:"nearest",inline:"center",behavior:"smooth"});}},[selIdx]);
+
+  const[tsN,tsD]=timeSig.split("/").map(Number);const bE=tsN*(8/tsD);const beatE=8/tsD;
+  var tE=0;for(var ii=0;ii<items.length;ii++){var it=items[ii];if(it.type==="note"||it.type==="rest")tE+=DURS[it.dur].eighths*(it.dotted?1.5:1)*(it.tri?2/3:1);}
+  const totalBeats=Math.max(tsN,Math.ceil(tE/beatE));
+
+  // Add note (append or edit selected)
+  const addNote=function(n,acc){
+    if(selIdx!==null&&selIdx<items.length){
+      var ni=items.map(function(x){return Object.assign({},x);});
+      ni[selIdx]=Object.assign({},ni[selIdx],{type:"note",note:n,acc:acc,oct:items[selIdx].type==="note"?items[selIdx].oct:cO});
+      prevNote(n,ni[selIdx].oct,acc);mutate(ni);
+    }else{
+      var oct=smartOct(n,items);sCO(oct);
+      prevNote(n,oct,acc);
+      mutate(items.concat([{type:"note",note:n,acc:acc,oct:oct,dur:cD,dotted:dt,tri:tri}]));
+    }
+  };
+  const addRest=function(){
+    if(selIdx!==null&&selIdx<items.length){
+      var ni=items.map(function(x){return Object.assign({},x);});
+      ni[selIdx]={type:"rest",dur:ni[selIdx].dur,dotted:ni[selIdx].dotted,tri:ni[selIdx].tri};
+      mutate(ni);
+    }else{mutate(items.concat([{type:"rest",dur:cD,dotted:dt,tri:tri}]));}
+  };
+  const changeDur=function(d){
+    sCD(d);
+    if(selIdx!==null&&selIdx<items.length){
+      var ni=items.map(function(x){return Object.assign({},x);});ni[selIdx]=Object.assign({},ni[selIdx],{dur:d});mutate(ni);
+    }
+  };
+  const toggleDot=function(){
+    var nv=!dt;sDt(nv);
+    if(selIdx!==null&&selIdx<items.length){
+      var ni=items.map(function(x){return Object.assign({},x);});ni[selIdx]=Object.assign({},ni[selIdx],{dotted:nv});mutate(ni);
+    }
+  };
+  const toggleTri=function(){
+    var nv=!tri;sTri(nv);
+    if(selIdx!==null&&selIdx<items.length){
+      var ni=items.map(function(x){return Object.assign({},x);});ni[selIdx]=Object.assign({},ni[selIdx],{tri:nv});mutate(ni);
+    }
+  };
+  const changeOct=function(delta){
+    var nv=Math.max(2,Math.min(7,(selIdx!==null&&items[selIdx]&&items[selIdx].type==="note"?items[selIdx].oct:cO)+delta));sCO(nv);
+    if(selIdx!==null&&selIdx<items.length&&items[selIdx].type==="note"){
+      var ni=items.map(function(x){return Object.assign({},x);});ni[selIdx]=Object.assign({},ni[selIdx],{oct:nv});
+      prevNote(ni[selIdx].note,nv,ni[selIdx].acc);mutate(ni);
+    }
+  };
+  const deleteNote=function(){
+    if(selIdx!==null&&selIdx<items.length){
+      var ni=items.filter(function(_,i){return i!==selIdx;});
+      setSelIdx(null);mutate(ni);
+    }else if(items.length>0){mutate(items.slice(0,-1));}
+  };
+  const tapNote=function(idx){
+    if(selIdx===idx){setSelIdx(null);return;}
+    setSelIdx(idx);
+    if(items[idx]){var it2=items[idx];sCD(it2.dur);sDt(!!it2.dotted);sTri(!!it2.tri);
+      if(it2.type==="note")sCO(it2.oct);}
+  };
+  var selItem=selIdx!==null&&items[selIdx]?items[selIdx]:null;
+  var effDur=selItem?selItem.dur:cD;var effDot=selItem?!!selItem.dotted:dt;var effTri=selItem?!!selItem.tri:tri;
+  var effOct=selItem&&selItem.type==="note"?selItem.oct:cO;
+
+  const renderItem=function(item,idx){
+    var pB=0;for(var j=0;j<idx;j++){var it3=items[j];if(it3.type==="note"||it3.type==="rest")pB+=DURS[it3.dur].eighths*(it3.dotted?1.5:1)*(it3.tri?2/3:1);}
+    var atBar=idx>0&&pB>0&&Math.abs(pB%bE)<0.01;var els=[];var isSel=selIdx===idx;
+    if(atBar)els.push(React.createElement("div",{key:idx+"b",style:{width:2,height:44,background:"#E0DFD8",borderRadius:1,flexShrink:0,marginRight:2}}));
+    var ct,bg=isSel?"rgba(99,102,241,0.12)":"#F5F4F0";
+    if(item.type==="note"){var aS=item.acc===1?"\u266F":item.acc===-1?"\u266D":"";
+      ct=React.createElement("div",{style:{display:"flex",flexDirection:"column",alignItems:"center",gap:0}},
+        React.createElement("span",{style:{fontSize:13,fontWeight:600,fontFamily:"'Instrument Serif',serif",lineHeight:1.1,color:isSel?ac:"#1A1A1A"}},aS+item.note+(item.dotted?".":" ")+(item.tri?"\u00B3":"")),
+        React.createElement("span",{style:{fontSize:8,color:isSel?ac:mu,lineHeight:1}},item.oct),noteIcon(item.dur,isSel?ac:"#666",16));
+      bg=isSel?"rgba(99,102,241,0.15)":"rgba(99,102,241,0.04)";
+    }else if(item.type==="rest"){
+      ct=React.createElement("div",{style:{display:"flex",flexDirection:"column",alignItems:"center"}},
+        React.createElement("span",{style:{fontSize:10,color:isSel?ac:mu}},item.dotted?"rest.":"rest"),noteIcon(item.dur,isSel?ac:"#AAA",14));bg=isSel?"rgba(99,102,241,0.12)":"#F0EFE8";}
+    els.push(React.createElement("div",{key:idx,"data-nidx":idx,onClick:function(){tapNote(idx);},style:{minWidth:38,height:48,borderRadius:8,background:bg,color:"#1A1A1A",display:"flex",alignItems:"center",justifyContent:"center",padding:"2px 5px",cursor:"pointer",flexShrink:0,border:isSel?"2px solid "+ac:"1px solid #E8E7E3",transition:"all 0.1s"}},ct));return els;};
+
+  // Chord lane
   var chordLaneEl=React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:4}},
     React.createElement("div",{style:{display:"flex",gap:2,overflow:"auto"}},
       Array.from({length:totalBeats},function(_,bi){
-        var ch=chords[bi];var isEd=chEd===bi;var barNum=Math.floor(bi/tsN)+1;var beatNum=(bi%tsN)+1;var isBarStart=bi%tsN===0;
+        var ch=chords[bi];var isEd=chEd===bi;var beatNum=(bi%tsN)+1;var isBarStart=bi%tsN===0;
         return React.createElement("div",{key:bi,onClick:function(){if(isEd){sChEd(null);}else{if(ch){var ps=ch.match(/^([A-G][b#]?)(.*)/);if(ps){sChRoot(ps[1]);sChQual(ps[2]||"maj7");}}sChEd(bi);}},style:{flex:1,minWidth:44,padding:ch?"4px 2px":"6px 2px",borderRadius:8,border:isEd?"2px solid "+ac:"1px solid "+(ch?"rgba(99,102,241,0.2)":"#E8E7E3"),background:isEd?"rgba(99,102,241,0.06)":ch?"rgba(99,102,241,0.03)":"#FAFAF8",cursor:"pointer",textAlign:"center",position:"relative",borderLeft:isBarStart&&bi>0?"2px solid #D0CFc8":undefined}},
           ch?React.createElement("div",{style:{fontSize:11,fontWeight:600,color:ac,fontFamily:"'Instrument Serif',serif",lineHeight:1.2}},ch):React.createElement("div",{style:{fontSize:10,color:"#CCC"}},"+"),
           React.createElement("div",{style:{fontSize:7,color:"#BBB",fontFamily:"monospace",lineHeight:1}},beatNum));})),
-    // Inline chord editor
     chEd!==null&&React.createElement("div",{style:{background:"rgba(99,102,241,0.03)",border:"1px solid rgba(99,102,241,0.12)",borderRadius:10,padding:8}},
       React.createElement("div",{style:{display:"flex",gap:3,marginBottom:5,flexWrap:"wrap"}},["C","D","E","F","G","A","B","Bb","Eb","Ab","Db","F#"].map(function(r){return React.createElement("button",{key:r,onClick:function(){sChRoot(r);},style:{padding:"2px 7px",borderRadius:5,border:"none",cursor:"pointer",fontSize:11,fontFamily:"'Instrument Serif',serif",fontWeight:600,background:chRoot===r?"rgba(99,102,241,0.1)":"#F0EFE8",color:chRoot===r?ac:"#666"}},r);})),
       React.createElement("div",{style:{display:"flex",gap:3,marginBottom:6,flexWrap:"wrap"}},CHORD_PR.map(function(q){return React.createElement("button",{key:q,onClick:function(){sChQual(q);},style:{padding:"2px 6px",borderRadius:5,border:"none",cursor:"pointer",fontSize:10,fontFamily:"monospace",background:chQual===q?"rgba(99,102,241,0.1)":"#F0EFE8",color:chQual===q?ac:mu}},q);})),
       React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
         React.createElement("span",{style:{fontSize:14,color:ac,fontFamily:"'Instrument Serif',serif",fontWeight:600}},chRoot+chQual),
-        React.createElement("button",{onClick:function(){sChords(function(p){var n=Object.assign({},p);n[chEd]=chRoot+chQual;return n;});sChEd(null);},style:{padding:"4px 12px",borderRadius:7,border:"none",background:ac,color:"#fff",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},"Set"),
-        chords[chEd]&&React.createElement("button",{onClick:function(){sChords(function(p){var n=Object.assign({},p);delete n[chEd];return n;});sChEd(null);},style:{padding:"4px 10px",borderRadius:7,border:"1px solid #E0DFD8",background:"#F5F4F0",color:"#E53935",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},"\u2715"),
+        React.createElement("button",{onClick:function(){var nc=Object.assign({},chords);nc[chEd]=chRoot+chQual;mutate(items,nc);sChEd(null);},style:{padding:"4px 12px",borderRadius:7,border:"none",background:ac,color:"#fff",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},"Set"),
+        chords[chEd]&&React.createElement("button",{onClick:function(){var nc=Object.assign({},chords);delete nc[chEd];mutate(items,nc);sChEd(null);},style:{padding:"4px 10px",borderRadius:7,border:"1px solid #E0DFD8",background:"#F5F4F0",color:"#E53935",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},"\u2715"),
         React.createElement("button",{onClick:function(){sChEd(null);},style:{padding:"4px 10px",borderRadius:7,border:"1px solid #E0DFD8",background:"#F5F4F0",color:mu,fontSize:10,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},"Cancel"))));
+
+  var flatKeys=["F","Bb","Eb","Ab","Db","Gb"];var useFlats=flatKeys.indexOf(keySig)>=0||keySig==="C";
+  var blacks=useFlats?
+    [{n:"D",a:-1,l:"D\u266D",x:"11.5%"},{n:"E",a:-1,l:"E\u266D",x:"25%"},{n:"G",a:-1,l:"G\u266D",x:"53.5%"},{n:"A",a:-1,l:"A\u266D",x:"67.5%"},{n:"B",a:-1,l:"B\u266D",x:"81.5%"}]:
+    [{n:"C",a:1,l:"C\u266F",x:"11.5%"},{n:"D",a:1,l:"D\u266F",x:"25%"},{n:"F",a:1,l:"F\u266F",x:"53.5%"},{n:"G",a:1,l:"G\u266F",x:"67.5%"},{n:"A",a:1,l:"A\u266F",x:"81.5%"}];
+
   return React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:8}},
-    // 1. Bar indicator
-    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10,padding:"6px 10px",background:"#F5F4F0",borderRadius:8}},
-      React.createElement("span",{style:{fontSize:10,color:mu,fontFamily:"monospace",letterSpacing:1}},"BAR "+cBar),
-      React.createElement("span",{style:{fontSize:14,color:ac,fontFamily:"'Instrument Serif',serif",minWidth:60}},"Beat "+cBeat),
-      React.createElement("div",{style:{display:"flex",gap:4,flex:1}},Array.from({length:tsN},function(_,i){return React.createElement("div",{key:i,style:{flex:1,height:4,borderRadius:2,background:i<cBeat-1?ac:i===cBeat-1?"rgba(99,102,241,0.35)":"#E8E7E3"}});})),
-      items.length>0&&React.createElement("button",{onClick:function(){sIt(function(p){return p.slice(0,-1);});},style:{fontSize:10,color:mu,background:"#E8E7E3",border:"none",borderRadius:6,padding:"3px 8px",cursor:"pointer",fontFamily:"monospace"}},"\u21A9"),
-      items.length>0&&React.createElement("button",{onClick:function(){sIt([]);sChords({});},style:{fontSize:10,color:"#E53935",background:"rgba(229,57,53,0.06)",border:"none",borderRadius:6,padding:"3px 8px",cursor:"pointer",fontFamily:"monospace"}},"\u2715")),
-    // 2. Duration picker
-    React.createElement("div",{style:{display:"flex",gap:4,alignItems:"center"}},
-      DURS.map(function(dd,i){return React.createElement("button",{key:i,onClick:function(){sCD(i);},style:{padding:"4px 6px",borderRadius:8,border:"1px solid "+(cD===i?"rgba(99,102,241,0.2)":"#E8E7E3"),cursor:"pointer",background:cD===i?"rgba(99,102,241,0.04)":"#fff",color:cD===i?ac:"#888",display:"flex",flexDirection:"column",alignItems:"center",gap:1,minWidth:36}},noteIcon(i,cD===i?ac:"#888"),React.createElement("span",{style:{fontSize:7,letterSpacing:0.5,fontFamily:"monospace"}},dd.name));}),
-      React.createElement("div",{style:{width:1,height:28,background:"#E8E7E3"}}),
-      React.createElement("button",{onClick:function(){sDt(!dt);},style:{padding:"4px 10px",borderRadius:8,border:"1px solid "+(dt?"rgba(99,102,241,0.2)":"#E8E7E3"),cursor:"pointer",background:dt?"rgba(99,102,241,0.04)":"#fff",color:dt?ac:"#888",fontSize:18,fontWeight:700}},"\u00B7"),
-      React.createElement("button",{onClick:function(){sTri(!tri);},style:{padding:"4px 8px",borderRadius:8,border:"1px solid "+(tri?"rgba(99,102,241,0.2)":"#E8E7E3"),cursor:"pointer",background:tri?"rgba(99,102,241,0.04)":"#fff",color:tri?ac:"#888",fontSize:11,fontWeight:700,fontFamily:"'JetBrains Mono',monospace"}},"3")),
-    // 3. Chord lane
-    chordLaneEl,
-    // Slot: notation preview
+    // 1. Notation preview (always visible, on top)
     previewEl,
-    // 4. Octave selector + Rest
+    // 2. Minimal player
+    playerEl,
+    // 3. Note strip (scrollable, tap-to-select)
+    React.createElement("div",{ref:sR,style:{display:"flex",gap:3,overflowX:"auto",scrollbarWidth:"none",padding:"4px 2px",minHeight:56,alignItems:"center",background:"#FAFAF8",borderRadius:10,border:"1px solid #E8E7E3"}},
+      items.length===0?React.createElement("span",{style:{fontSize:11,color:"#CCC",fontFamily:"'Inter',sans-serif",padding:"0 12px"}},"Tap keys below to add notes\u2026"):
+      items.map(function(item,idx){return renderItem(item,idx);})),
+    // 4. Action bar: Undo, Redo, Delete
+    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4}},
+      React.createElement("button",{onClick:undo,disabled:!canUndo,style:{padding:"4px 10px",borderRadius:7,border:"1px solid #E8E7E3",background:canUndo?"#fff":"#F5F4F0",color:canUndo?"#444":"#CCC",fontSize:11,cursor:canUndo?"pointer":"default",fontFamily:"monospace"}},"\u21A9 Undo"),
+      React.createElement("button",{onClick:redo,disabled:!canRedo,style:{padding:"4px 10px",borderRadius:7,border:"1px solid #E8E7E3",background:canRedo?"#fff":"#F5F4F0",color:canRedo?"#444":"#CCC",fontSize:11,cursor:canRedo?"pointer":"default",fontFamily:"monospace"}},"\u21AA Redo"),
+      React.createElement("div",{style:{flex:1}}),
+      selIdx!==null&&React.createElement("button",{onClick:function(){setSelIdx(null);},style:{padding:"4px 10px",borderRadius:7,border:"1px solid rgba(99,102,241,0.2)",background:"rgba(99,102,241,0.04)",color:ac,fontSize:10,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},"Deselect"),
+      React.createElement("button",{onClick:deleteNote,disabled:items.length===0,style:{padding:"4px 10px",borderRadius:7,border:"1px solid "+(items.length>0?"rgba(229,57,53,0.2)":"#E8E7E3"),background:items.length>0?"rgba(229,57,53,0.04)":"#F5F4F0",color:items.length>0?"#E53935":"#CCC",fontSize:10,cursor:items.length>0?"pointer":"default",fontFamily:"monospace"}},selIdx!==null?"\uD83D\uDDD1 Delete":"\u21A9 Last"),
+      items.length>1&&selIdx===null&&React.createElement("button",{onClick:function(){mutate([],{});setSelIdx(null);},style:{padding:"4px 10px",borderRadius:7,border:"1px solid rgba(229,57,53,0.15)",background:"rgba(229,57,53,0.04)",color:"#E53935",fontSize:10,cursor:"pointer",fontFamily:"monospace"}},"\u2715 All")),
+    // Edit mode indicator
+    selIdx!==null&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,padding:"4px 10px",background:"rgba(99,102,241,0.06)",borderRadius:8,border:"1px solid rgba(99,102,241,0.15)"}},
+      React.createElement("span",{style:{fontSize:10,fontWeight:600,color:ac,fontFamily:"'Inter',sans-serif"}},"\u270E Editing note "+(selIdx+1)),
+      selItem&&selItem.type==="note"&&React.createElement("span",{style:{fontSize:10,color:mu,fontFamily:"monospace"}},(selItem.acc===1?"\u266F":selItem.acc===-1?"\u266D":"")+selItem.note+selItem.oct+" "+DURS[selItem.dur].name)),
+    // 5. Duration picker
+    React.createElement("div",{style:{display:"flex",gap:4,alignItems:"center"}},
+      DURS.map(function(dd,i){return React.createElement("button",{key:i,onClick:function(){changeDur(i);},style:{padding:"4px 6px",borderRadius:8,border:"1px solid "+(effDur===i?"rgba(99,102,241,0.2)":"#E8E7E3"),cursor:"pointer",background:effDur===i?"rgba(99,102,241,0.04)":"#fff",color:effDur===i?ac:"#888",display:"flex",flexDirection:"column",alignItems:"center",gap:1,minWidth:36}},noteIcon(i,effDur===i?ac:"#888"),React.createElement("span",{style:{fontSize:7,letterSpacing:0.5,fontFamily:"monospace"}},dd.name));}),
+      React.createElement("div",{style:{width:1,height:28,background:"#E8E7E3"}}),
+      React.createElement("button",{onClick:toggleDot,style:{padding:"4px 10px",borderRadius:8,border:"1px solid "+(effDot?"rgba(99,102,241,0.2)":"#E8E7E3"),cursor:"pointer",background:effDot?"rgba(99,102,241,0.04)":"#fff",color:effDot?ac:"#888",fontSize:18,fontWeight:700}},"\u00B7"),
+      React.createElement("button",{onClick:toggleTri,style:{padding:"4px 8px",borderRadius:8,border:"1px solid "+(effTri?"rgba(99,102,241,0.2)":"#E8E7E3"),cursor:"pointer",background:effTri?"rgba(99,102,241,0.04)":"#fff",color:effTri?ac:"#888",fontSize:11,fontWeight:700,fontFamily:"'JetBrains Mono',monospace"}},"3")),
+    // 6. Chord lane
+    chordLaneEl,
+    // 7. Octave + Rest
     React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4}},
       React.createElement("span",{style:{fontSize:9,color:mu,fontFamily:"monospace"}},"OCT"),
-      React.createElement("button",{onClick:function(){sCO(function(o){return Math.max(2,o-1);});},style:{width:26,height:26,borderRadius:6,border:"1px solid #E8E7E3",background:"#fff",color:"#444",fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"\u2212"),
-      React.createElement("span",{style:{fontSize:16,color:ac,fontFamily:"'Instrument Serif',serif",minWidth:20,textAlign:"center"}},cO),
-      React.createElement("button",{onClick:function(){sCO(function(o){return Math.min(7,o+1);});},style:{width:26,height:26,borderRadius:6,border:"1px solid #E8E7E3",background:"#fff",color:"#444",fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"+"),
+      React.createElement("button",{onClick:function(){changeOct(-1);},style:{width:26,height:26,borderRadius:6,border:"1px solid #E8E7E3",background:"#fff",color:"#444",fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"\u2212"),
+      React.createElement("span",{style:{fontSize:16,color:ac,fontFamily:"'Instrument Serif',serif",minWidth:20,textAlign:"center"}},effOct),
+      React.createElement("button",{onClick:function(){changeOct(1);},style:{width:26,height:26,borderRadius:6,border:"1px solid #E8E7E3",background:"#fff",color:"#444",fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"+"),
       React.createElement("div",{style:{width:1,height:20,background:"#E8E7E3",marginLeft:4,marginRight:4}}),
-      React.createElement("button",{onClick:function(){sIt(function(p){return p.concat([{type:"rest",dur:cD,dotted:dt,tri:tri}]);});},style:{padding:"4px 10px",borderRadius:8,border:"1px solid #E0DFD8",background:"#F5F4F0",color:mu,fontSize:10,cursor:"pointer",fontFamily:"monospace"}},"Rest")),
-    // 5. Piano keyboard
+      React.createElement("button",{onClick:addRest,style:{padding:"4px 10px",borderRadius:8,border:"1px solid #E0DFD8",background:"#F5F4F0",color:mu,fontSize:10,cursor:"pointer",fontFamily:"monospace"}},selIdx!==null?"Set Rest":"Rest")),
+    // 8. Piano keyboard
     React.createElement("div",{style:{position:"relative",height:110,userSelect:"none"}},
       React.createElement("div",{style:{display:"flex",height:"100%",gap:2}},
-        ["C","D","E","F","G","A","B"].map(function(n){return React.createElement("button",{key:n,onClick:function(){prevNote(n,cO,0);sIt(function(p){return p.concat([{type:"note",note:n,acc:0,oct:cO,dur:cD,dotted:dt,tri:tri}]);});},style:{flex:1,height:"100%",borderRadius:8,border:"1px solid #D5D4CE",cursor:"pointer",background:"#fff",color:"#1A1A1A",fontSize:15,fontWeight:600,fontFamily:"'Instrument Serif',Georgia,serif",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",paddingBottom:8,position:"relative",zIndex:1}},n);})),
-      (function(){var flatKeys=["F","Bb","Eb","Ab","Db","Gb"];var useFlats=flatKeys.indexOf(keySig)>=0||keySig==="C";
-        var blacks=useFlats?
-          [{n:"D",a:-1,l:"D\u266D",x:"11.5%"},{n:"E",a:-1,l:"E\u266D",x:"25%"},{n:"G",a:-1,l:"G\u266D",x:"53.5%"},{n:"A",a:-1,l:"A\u266D",x:"67.5%"},{n:"B",a:-1,l:"B\u266D",x:"81.5%"}]:
-          [{n:"C",a:1,l:"C\u266F",x:"11.5%"},{n:"D",a:1,l:"D\u266F",x:"25%"},{n:"F",a:1,l:"F\u266F",x:"53.5%"},{n:"G",a:1,l:"G\u266F",x:"67.5%"},{n:"A",a:1,l:"A\u266F",x:"81.5%"}];
-        return blacks.map(function(k){return React.createElement("button",{key:k.l,onClick:function(e){e.stopPropagation();prevNote(k.n,cO,k.a);sIt(function(p){return p.concat([{type:"note",note:k.n,acc:k.a,oct:cO,dur:cD,dotted:dt,tri:tri}]);});},style:{position:"absolute",top:0,left:k.x,width:"10%",height:"62%",borderRadius:"0 0 6px 6px",border:"1px solid #333",cursor:"pointer",background:"linear-gradient(180deg,#2A2A2A,#111)",color:"#ccc",fontSize:9,fontWeight:600,fontFamily:"'Inter',sans-serif",display:"flex",alignItems:"flex-end",justifyContent:"center",paddingBottom:5,zIndex:2,boxShadow:"0 2px 4px rgba(0,0,0,0.3)"}},k.l);});}())),
-    // Slot: player/metronome
-    playerEl);}
+        ["C","D","E","F","G","A","B"].map(function(n){return React.createElement("button",{key:n,onClick:function(){addNote(n,0);},style:{flex:1,height:"100%",borderRadius:8,border:"1px solid #D5D4CE",cursor:"pointer",background:"#fff",color:"#1A1A1A",fontSize:15,fontWeight:600,fontFamily:"'Instrument Serif',Georgia,serif",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",paddingBottom:8,position:"relative",zIndex:1}},n);})),
+      blacks.map(function(k){return React.createElement("button",{key:k.l,onClick:function(e){e.stopPropagation();addNote(k.n,k.a);},style:{position:"absolute",top:0,left:k.x,width:"10%",height:"62%",borderRadius:"0 0 6px 6px",border:"1px solid #333",cursor:"pointer",background:"linear-gradient(180deg,#2A2A2A,#111)",color:"#ccc",fontSize:9,fontWeight:600,fontFamily:"'Inter',sans-serif",display:"flex",alignItems:"flex-end",justifyContent:"center",paddingBottom:5,zIndex:2,boxShadow:"0 2px 4px rgba(0,0,0,0.3)"}},k.l);})));}
 
 // ============================================================
 // SHEET FOCUS — fullscreen notation overlay
@@ -1831,7 +1981,7 @@ function EarTrainer({licks,onLike,onOpen,likedSet,th,userInst:userInst}){
         !isRevealed?React.createElement("h2",{style:{fontSize:20,fontWeight:700,color:t.subtle,margin:"0 0 4px",fontFamily:t.titleFont,fontStyle:"italic"}},"Can you hear it?")
         :React.createElement("div",{style:{animation:"fadeIn 0.4s ease"}},
           React.createElement("h2",{style:{fontSize:20,fontWeight:700,color:t.text,margin:"0 0 4px",fontFamily:t.titleFont}},lick.title),
-          React.createElement("div",{style:{fontSize:12,color:t.muted,fontFamily:"'JetBrains Mono',monospace",marginBottom:2}},lick.artist)),
+          React.createElement("div",{style:{fontSize:12,color:t.muted,fontFamily:"'JetBrains Mono',monospace",marginBottom:2}},lick.artist+(lick.tune?" \u2013 "+lick.tune:""))),
 
         // HINTS — shown as chips
         React.createElement("div",{"data-coach":"ear-hints",style:{display:"flex",gap:6,marginTop:10,marginBottom:14}},
@@ -3641,8 +3791,7 @@ function PolyrhythmTrainer({th,sharedInput,sharedMicSilent}){
 // EDITOR — themed
 // ============================================================
 function Editor({onClose,onSubmit,onSubmitPrivate,th}){const t=th||TH.classic;const isStudio=t===TH.studio;
-  const[title,sT]=useState("");const[artist,sA]=useState("");const[inst,sI]=useState("Alto Sax");const[cat,sC]=useState("ii-V-I");const[keySig,sK]=useState("C");const[timeSig,sTS]=useState("4/4");const[tempo,sTm]=useState("120");const[abc,sAbc]=useState("X:1\nT:My Lick\nM:4/4\nL:1/8\nQ:1/4=120\nK:C\n");const[mode,setMode]=useState("visual");const[feel,setFeel]=useState("straight");const[yu,sYu]=useState("");const[tm,sTmn]=useState("");const[ts,sTs]=useState("");const[sp,sSp]=useState("");const[desc,sD]=useState("");const[tags,sTg]=useState("");const[extrasOpen,setExtrasOpen]=useState(false);
-  // Pre-init audio on editor open for instant feedback
+  const[title,sT]=useState("");const[artist,sA]=useState("");const[tune,sTune]=useState("");const[inst,sI]=useState("Alto Sax");const[cat,sC]=useState("ii-V-I");const[keySig,sK]=useState("C");const[timeSig,sTS]=useState("4/4");const[tempo,sTm]=useState("120");const[abc,sAbc]=useState("X:1\nT:My Lick\nM:4/4\nL:1/8\nQ:1/4=120\nK:C\n");const[feel,setFeel]=useState("straight");const[yu,sYu]=useState("");const[tm,sTmn]=useState("");const[ts,sTs]=useState("");const[sp,sSp]=useState("");const[desc,sD]=useState("");const[tags,sTg]=useState("");const[extrasOpen,setExtrasOpen]=useState(false);
   useEffect(function(){try{Tone.start();}catch(e){}preloadPiano();preloadChordPiano();_ensurePreviewSynth();},[]);
   const KEYS=["C","Db","D","Eb","E","F","F#","G","Ab","A","Bb","B"];const TS=["4/4","3/4","6/8","5/4","7/8"];const yt=parseYT(yu);const tSec=(parseInt(tm)||0)*60+(parseInt(ts)||0);
   const lb={fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5,display:"block",marginBottom:4};
@@ -3650,9 +3799,9 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th}){const t=th||TH.classic;co
   const hasNotes=abc.split("\n").length>6||abc.includes("|");
   const noteCount=useMemo(()=>countAbcNotes(abc),[abc]);
   const titleOk=title.trim().length>=3;
+  const artistOk=artist.trim().length>=1;
   const notesOk=noteCount>=4;
-  const canPublish=titleOk&&notesOk;
-  const step1Done=titleOk;const step2Done=notesOk;
+  const canPublish=titleOk&&artistOk&&notesOk;
   const extrasCount=(yu&&yt.videoId?1:0)+(sp&&parseSpotify(sp)?1:0)+(desc?1:0)+(tags?1:0);
 
   // Section wrapper
@@ -3661,6 +3810,15 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th}){const t=th||TH.classic;co
       React.createElement("div",{style:{width:22,height:22,borderRadius:7,background:done?(isStudio?t.accentBg:t.accent+"15"):t.filterBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:done?11:10,fontWeight:700,color:done?t.accent:t.subtle,fontFamily:"'JetBrains Mono',monospace",border:"1px solid "+(done?t.accentBorder:t.border),transition:"all 0.3s"}},done?"\u2713":num),
       React.createElement("span",{style:{fontSize:13,fontWeight:600,color:t.text,fontFamily:"'Inter',sans-serif"}},label)),
     children);
+
+  // Compact select helper
+  const cSel=(val,opts,onChange,w)=>React.createElement("select",{value:val,onChange:e=>onChange(e.target.value),style:{background:t.inputBg,border:"1px solid "+t.inputBorder,borderRadius:8,padding:"7px 6px",color:t.text,fontSize:12,fontFamily:"'Inter',sans-serif",outline:"none",appearance:"none",cursor:"pointer",width:w||"auto",textAlign:"center"}},opts.map(o=>React.createElement("option",{key:o,value:o,style:{background:t.card}},o)));
+
+  // Feel buttons inline
+  const feelBtns=["straight","swing","hard-swing"].map(v=>React.createElement("button",{key:v,onClick:()=>setFeel(v),style:{padding:"6px 10px",borderRadius:7,border:feel===v?"1.5px solid "+t.accent:"1px solid "+t.border,background:feel===v?(isStudio?t.accentBg:t.accent+"10"):t.inputBg,color:feel===v?t.accent:t.muted,fontSize:10,fontWeight:feel===v?600:400,fontFamily:"'Inter',sans-serif",cursor:"pointer",transition:"all 0.15s",whiteSpace:"nowrap"}},v==="straight"?"Straight":v==="swing"?"Swing":"Hard Swing"));
+
+  // Submit data builder
+  const buildData=()=>({title,artist,tune,instrument:inst,category:cat,key:keySig,tempo:parseInt(tempo),feel,abc,youtubeId:yt.videoId,youtubeStart:tSec,spotifyId:parseSpotify(sp),description:desc,tags:tags.split(",").map(tg2=>tg2.trim()).filter(Boolean)});
 
   return React.createElement("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:1000,background:t.bg,display:"flex",flexDirection:"column"}},
     // Scrollable content
@@ -3674,61 +3832,67 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th}){const t=th||TH.classic;co
               React.createElement("p",{style:{margin:"3px 0 0",fontSize:11,color:t.muted,fontFamily:"'Inter',sans-serif"}},"Add notation, preview it, publish.")),
             React.createElement("button",{onClick:onClose,style:{background:t.filterBg,border:"1px solid "+t.border,color:t.muted,width:32,height:32,borderRadius:10,fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"\u00D7"))),
 
-        // STEP 1 — Identity
-        sec("1","Name it",step1Done,
-          React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:12}},
-            React.createElement("div",null,
-              React.createElement("label",{style:lb},"TITLE *"),
-              React.createElement("input",{style:{...ip,fontSize:16,fontWeight:600,padding:"12px 14px"},value:title,onChange:e=>sT(e.target.value),placeholder:'e.g. "Bird\'s ii-V-I in C"',autoFocus:true})),
-            React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}},
-              React.createElement("div",null,
-                React.createElement("label",{style:lb},"ARTIST"),
-                React.createElement("input",{style:ip,value:artist,onChange:e=>sA(e.target.value),placeholder:"Charlie Parker"})),
-              React.createElement("div",null,
-                React.createElement("label",{style:lb},"INSTRUMENT"),
-                React.createElement("select",{style:{...ip,appearance:"none",cursor:"pointer"},value:inst,onChange:e=>sI(e.target.value)},INST_LIST.filter(i=>i!=="All").map(i=>React.createElement("option",{key:i,value:i,style:{background:t.card}},i))))),
-            React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8}},
-              React.createElement("div",null,
-                React.createElement("label",{style:lb},"CATEGORY"),
-                React.createElement("select",{style:{...ip,appearance:"none",cursor:"pointer",fontSize:12,padding:"10px 8px"},value:cat,onChange:e=>sC(e.target.value)},CAT_LIST.filter(c=>c!=="All").map(c=>React.createElement("option",{key:c,value:c,style:{background:t.card}},c)))),
-              React.createElement("div",null,
-                React.createElement("label",{style:lb},"KEY"),
-                React.createElement("select",{style:{...ip,appearance:"none",cursor:"pointer",fontSize:12,padding:"10px 8px"},value:keySig,onChange:e=>sK(e.target.value)},KEYS.map(k=>React.createElement("option",{key:k,value:k,style:{background:t.card}},k)))),
-              React.createElement("div",null,
-                React.createElement("label",{style:lb},"TIME"),
-                React.createElement("select",{style:{...ip,appearance:"none",cursor:"pointer",fontSize:12,padding:"10px 8px"},value:timeSig,onChange:e=>sTS(e.target.value)},TS.map(ts2=>React.createElement("option",{key:ts2,value:ts2,style:{background:t.card}},ts2)))),
-              React.createElement("div",null,
-                React.createElement("label",{style:lb},"BPM"),
-                React.createElement("input",{style:{...ip,fontSize:12,padding:"10px 8px"},type:"number",value:tempo,onChange:e=>sTm(e.target.value)}))),
-            // Feel selector
-            React.createElement("div",null,
-              React.createElement("label",{style:lb},"FEEL"),
-              React.createElement("div",{style:{display:"flex",gap:4}},
-                ["straight","swing","hard-swing"].map(v=>React.createElement("button",{key:v,onClick:()=>setFeel(v),style:{flex:1,padding:"8px 0",borderRadius:8,border:feel===v?"1.5px solid "+t.accent:"1px solid "+t.border,background:feel===v?(isStudio?t.accentBg:t.accent+"10"):t.inputBg,color:feel===v?t.accent:t.muted,fontSize:11,fontWeight:feel===v?600:400,fontFamily:"'Inter',sans-serif",cursor:"pointer",transition:"all 0.15s"}},v==="straight"?"Straight":v==="swing"?"Swing":"Hard Swing")))))),
+        // STEP 1 — Quick Setup (compact bar)
+        sec("1","Setup",true,
+          React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:10}},
+            // Row: Key, Time, BPM
+            React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}},
+              React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4}},
+                React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"monospace",fontWeight:600}},"Key"),
+                cSel(keySig,KEYS,sK,"60px")),
+              React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4}},
+                React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"monospace",fontWeight:600}},"Time"),
+                cSel(timeSig,TS,sTS,"56px")),
+              React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4}},
+                React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"monospace",fontWeight:600}},"\u2669="),
+                React.createElement("input",{type:"number",value:tempo,onChange:e=>sTm(e.target.value),style:{background:t.inputBg,border:"1px solid "+t.inputBorder,borderRadius:8,padding:"7px 6px",color:t.text,fontSize:12,fontFamily:"'JetBrains Mono',monospace",outline:"none",width:48,textAlign:"center"}}))),
+            // Row: Feel
+            React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
+              React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"monospace",fontWeight:600}},"Feel"),
+              feelBtns))),
 
-        // STEP 2 — Notation
-        sec("2","Write the notes",step2Done,
+        // STEP 2 — Write the Notes (main area)
+        sec("2","Write the notes",notesOk,
           React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:12}},
-            // Input — NoteBuilder only
             React.createElement("div",{style:{borderRadius:12,padding:14,border:"1px solid "+t.border}},
               React.createElement(NoteBuilder,{onAbcChange:sAbc,keySig,timeSig,tempo:parseInt(tempo)||120,
                 previewEl:hasNotes?React.createElement("div",{style:{background:t.noteBg,borderRadius:10,padding:10,border:"1px solid "+t.borderSub}},
                   React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}},
                     React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,fontWeight:600}},"PREVIEW"),
-                    React.createElement("span",{style:{fontSize:9,color:t.accent,fontFamily:"monospace"}},"\u2713")),
+                    noteCount>0&&React.createElement("span",{style:{fontSize:9,color:t.accent,fontFamily:"monospace"}},noteCount+" notes")),
                   React.createElement(Notation,{abc,compact:false,th:t})):null,
                 playerEl:React.createElement(Player,{abc,tempo:parseInt(tempo)||120,th:t,initFeel:feel,editorMode:true})})))),
 
-        // STEP 3 — Extras (collapsible)
+        // STEP 3 — Describe it
+        sec("3","Describe it",titleOk&&artistOk,
+          React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:12}},
+            React.createElement("div",null,
+              React.createElement("label",{style:lb},"TITLE *"),
+              React.createElement("input",{style:{...ip,fontSize:16,fontWeight:600,padding:"12px 14px"},value:title,onChange:e=>sT(e.target.value),placeholder:'e.g. "Bird\'s ii-V-I in C"'})),
+            React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}},
+              React.createElement("div",null,
+                React.createElement("label",{style:lb},"ARTIST *"),
+                React.createElement("input",{style:ip,value:artist,onChange:e=>sA(e.target.value),placeholder:"Charlie Parker"})),
+              React.createElement("div",null,
+                React.createElement("label",{style:lb},"TUNE"),
+                React.createElement("input",{style:ip,value:tune,onChange:e=>sTune(e.target.value),placeholder:"Confirmation"}))),
+            React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}},
+              React.createElement("div",null,
+                React.createElement("label",{style:lb},"INSTRUMENT"),
+                React.createElement("select",{style:{...ip,appearance:"none",cursor:"pointer"},value:inst,onChange:e=>sI(e.target.value)},INST_LIST.filter(i=>i!=="All").map(i=>React.createElement("option",{key:i,value:i,style:{background:t.card}},i)))),
+              React.createElement("div",null,
+                React.createElement("label",{style:lb},"CATEGORY"),
+                React.createElement("select",{style:{...ip,appearance:"none",cursor:"pointer"},value:cat,onChange:e=>sC(e.target.value)},CAT_LIST.filter(c=>c!=="All").map(c=>React.createElement("option",{key:c,value:c,style:{background:t.card}},c))))))),
+
+        // Extras (collapsible)
         React.createElement("div",{style:{background:t.card,borderRadius:14,border:"1px solid "+t.border,marginBottom:16,overflow:"hidden"}},
           React.createElement("button",{onClick:()=>setExtrasOpen(!extrasOpen),style:{width:"100%",background:"none",border:"none",padding:"14px 16px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between"}},
             React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
-              React.createElement("div",{style:{width:22,height:22,borderRadius:7,background:extrasCount>0?(isStudio?t.accentBg:t.accent+"15"):t.filterBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:extrasCount>0?t.accent:t.subtle,fontFamily:"'JetBrains Mono',monospace",border:"1px solid "+(extrasCount>0?t.accentBorder:t.border)}},extrasCount>0?extrasCount:"3"),
               React.createElement("span",{style:{fontSize:13,fontWeight:600,color:t.text,fontFamily:"'Inter',sans-serif"}},"Extras"),
+              extrasCount>0&&React.createElement("span",{style:{fontSize:10,color:t.accent,fontFamily:"'JetBrains Mono',monospace",background:t.accentBg,padding:"1px 6px",borderRadius:6}},extrasCount),
               React.createElement("span",{style:{fontSize:10,color:t.subtle,fontFamily:"'Inter',sans-serif",fontWeight:400}},"optional")),
             React.createElement("span",{style:{fontSize:14,color:t.subtle,transition:"transform 0.2s",transform:extrasOpen?"rotate(180deg)":"rotate(0)"}},"\u25BE")),
           extrasOpen&&React.createElement("div",{style:{padding:"0 16px 16px",display:"flex",flexDirection:"column",gap:14,animation:"fadeIn 0.2s ease"}},
-            // Reference Audio
             React.createElement("div",null,
               React.createElement("label",{style:{...lb,fontSize:9,opacity:0.7}},"YOUTUBE URL"),
               React.createElement("input",{style:{...ip,fontSize:13},value:yu,onChange:e=>sYu(e.target.value),placeholder:"https://youtube.com/watch?v=..."}),
@@ -3755,18 +3919,19 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th}){const t=th||TH.classic;co
               React.createElement("label",{style:lb},"TAGS"),
               React.createElement("input",{style:{...ip,fontSize:13},value:tags,onChange:e=>sTg(e.target.value),placeholder:"bebop, essential, blues"})))),
 
-        // Spacer for sticky button
+        // Spacer
         React.createElement("div",{style:{height:80}}))),
 
     // Sticky publish bar
     React.createElement("div",{style:{position:"sticky",bottom:0,background:t.headerBg,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",borderTop:"1px solid "+t.border,padding:"12px 16px",paddingBottom:"max(12px, env(safe-area-inset-bottom))"}},
       React.createElement("div",{style:{maxWidth:520,margin:"0 auto",display:"flex",alignItems:"center",gap:8}},
         !canPublish&&React.createElement("div",{style:{flex:1,display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}},
-          !titleOk&&React.createElement("span",{style:{fontSize:10,color:t.subtle,fontFamily:"'Inter',sans-serif",background:t.filterBg,padding:"3px 8px",borderRadius:6}},title.length>0?"\u2460 title too short (min 3)":"\u2460 needs a title"),
-          titleOk&&!notesOk&&React.createElement("span",{style:{fontSize:10,color:t.subtle,fontFamily:"'Inter',sans-serif",background:t.filterBg,padding:"3px 8px",borderRadius:6}},noteCount>0?"\u2461 min 4 notes ("+noteCount+" so far)":"\u2461 add some notes")),
+          !notesOk&&React.createElement("span",{style:{fontSize:10,color:t.subtle,fontFamily:"'Inter',sans-serif",background:t.filterBg,padding:"3px 8px",borderRadius:6}},noteCount>0?"min 4 notes ("+noteCount+" so far)":"add some notes"),
+          notesOk&&!titleOk&&React.createElement("span",{style:{fontSize:10,color:t.subtle,fontFamily:"'Inter',sans-serif",background:t.filterBg,padding:"3px 8px",borderRadius:6}},title.length>0?"title too short (min 3)":"needs a title"),
+          notesOk&&titleOk&&!artistOk&&React.createElement("span",{style:{fontSize:10,color:t.subtle,fontFamily:"'Inter',sans-serif",background:t.filterBg,padding:"3px 8px",borderRadius:6}},"needs an artist")),
         canPublish&&React.createElement("div",{style:{flex:1}}),
-        React.createElement("button",{onClick:()=>{if(!canPublish)return;var d={title,artist,instrument:inst,category:cat,key:keySig,tempo:parseInt(tempo),feel,abc,youtubeId:yt.videoId,youtubeStart:tSec,spotifyId:parseSpotify(sp),description:desc,tags:tags.split(",").map(tg2=>tg2.trim()).filter(Boolean)};onSubmitPrivate(d);},disabled:!canPublish,style:{padding:"12px 20px",background:canPublish?t.card:t.border,color:canPublish?t.text:t.subtle,border:canPublish?"1.5px solid "+t.accent:"none",borderRadius:12,fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:canPublish?"pointer":"default",transition:"all 0.2s"}},"\uD83D\uDD12 Private"),
-        React.createElement("button",{onClick:()=>{if(!canPublish)return;var d={title,artist,instrument:inst,category:cat,key:keySig,tempo:parseInt(tempo),feel,abc,youtubeId:yt.videoId,youtubeStart:tSec,spotifyId:parseSpotify(sp),description:desc,tags:tags.split(",").map(tg2=>tg2.trim()).filter(Boolean)};onSubmit(d);},disabled:!canPublish,style:{padding:"12px 24px",background:canPublish?(isStudio?t.playBg:t.accent):t.border,color:canPublish?"#fff":t.subtle,border:"none",borderRadius:12,fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:canPublish?"pointer":"default",boxShadow:canPublish?"0 4px 16px "+t.accentGlow:"none",transition:"all 0.2s"}},"Publish"))));}
+        React.createElement("button",{onClick:()=>{if(!canPublish)return;onSubmitPrivate(buildData());},disabled:!canPublish,style:{padding:"12px 20px",background:canPublish?t.card:t.border,color:canPublish?t.text:t.subtle,border:canPublish?"1.5px solid "+t.accent:"none",borderRadius:12,fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:canPublish?"pointer":"default",transition:"all 0.2s"}},"\uD83D\uDD12 Private"),
+        React.createElement("button",{onClick:()=>{if(!canPublish)return;onSubmit(buildData());},disabled:!canPublish,style:{padding:"12px 24px",background:canPublish?(isStudio?t.playBg:t.accent):t.border,color:canPublish?"#fff":t.subtle,border:"none",borderRadius:12,fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:canPublish?"pointer":"default",boxShadow:canPublish?"0 4px 16px "+t.accentGlow:"none",transition:"all 0.2s"}},"Publish"))));}
 
 
 // ============================================================
