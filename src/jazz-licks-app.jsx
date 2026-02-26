@@ -437,6 +437,7 @@ return[root,fifth,third,approach||fifth];}
 // BACKING STYLES
 const BACKING_STYLES=[
 {id:"piano",label:"Piano Only",emoji:"\uD83C\uDFB9"},
+{id:"rhodes",label:"Rhodes Only",emoji:"\uD83C\uDF1F"},
 {id:"jazz",label:"Jazz Trio",emoji:"\uD83C\uDFB7"},
 {id:"bossa",label:"Bossa Nova",emoji:"\uD83C\uDF34"},
 {id:"ballad",label:"Ballad",emoji:"\uD83C\uDF19"}
@@ -709,6 +710,11 @@ function preloadChordPiano(){if(_chordSamplerPromise)return _chordSamplerPromise
 // Bass sampler — Salamander piano pitched low + heavy filtering = upright bass
 let _bassSampler=null,_bassSamplerReady=false,_bassSamplerPromise=null;
 function preloadBassSampler(){if(_bassSamplerPromise)return _bassSamplerPromise;_bassSamplerPromise=new Promise(res=>{try{_bassSampler=new Tone.Sampler({urls:SAL_MAP,baseUrl:SAL_BASE,release:0.4,volume:-6,onload:()=>{_bassSamplerReady=true;res(true);},onerror:()=>{res(false);}});setTimeout(()=>{if(!_bassSamplerReady)res(false);},15000);}catch(e){res(false);}});return _bassSamplerPromise;}
+// Rhodes sampler — real Rhodes samples from Supabase
+const RHODES_BASE="https://edhsqycbglkaqbzzhcmp.supabase.co/storage/v1/object/public/Samples/rhodes/";
+const RHODES_MAP={"C1":"C1.mp3","F1":"F1.mp3","C2":"C2.mp3","F2":"F2.mp3","C3":"C3.mp3","F3":"F3.mp3","C4":"C4.mp3","F4":"F4.mp3","C5":"C5.mp3"};
+let _rhodesChordSampler=null,_rhodesChordReady=false,_rhodesChordPromise=null;
+function preloadRhodesChord(){if(_rhodesChordPromise)return _rhodesChordPromise;_rhodesChordPromise=new Promise(res=>{try{_rhodesChordSampler=new Tone.Sampler({urls:RHODES_MAP,baseUrl:RHODES_BASE,release:1.0,volume:-12,onload:()=>{_rhodesChordReady=true;res(true);},onerror:()=>{res(false);}});setTimeout(()=>{if(!_rhodesChordReady)res(false);},20000);}catch(e){res(false);}});return _rhodesChordPromise;}
 function makeChordSynth(bag){
   // Use pre-loaded piano sampler for warm comping sound
   if(_chordSamplerReady&&_chordSampler){
@@ -723,6 +729,22 @@ function makeChordSynth(bag){
   const rev=new Tone.Reverb({decay:3,wet:0.22}).toDestination();const ch=new Tone.Chorus({frequency:0.4,delayTime:6,depth:0.22,wet:0.22}).connect(rev);ch.start();const tr=new Tone.Tremolo({frequency:2.2,depth:0.12,wet:0.18}).connect(ch);tr.start();const flt=new Tone.Filter({frequency:1800,type:"lowpass",rolloff:-24}).connect(tr);const s=new Tone.PolySynth(Tone.FMSynth,{harmonicity:3,modulationIndex:0.6,oscillator:{type:"fatsine2",spread:15,count:3},modulation:{type:"sine"},envelope:{attack:0.015,decay:1.0,sustain:0.3,release:1.5},modulationEnvelope:{attack:0.008,decay:0.6,sustain:0,release:0.6},volume:-18}).connect(flt);bag.push(s,flt,tr,ch,rev);return s;
 }
 function makeClick(bag){const rev=new Tone.Reverb({decay:0.2,wet:0.06}).toDestination();const flt=new Tone.Filter({frequency:7000,type:"bandpass",Q:2}).connect(rev);const hi=new Tone.NoiseSynth({noise:{type:"white"},envelope:{attack:0.001,decay:0.035,sustain:0,release:0.015},volume:-10}).connect(flt);const lo=new Tone.NoiseSynth({noise:{type:"pink"},envelope:{attack:0.001,decay:0.02,sustain:0,release:0.01},volume:-16}).connect(flt);bag.push(hi,lo,flt,rev);return{hi,lo};}
+// Rhodes chord synth — uses real Rhodes samples with warm processing
+function makeRhodesChordSynth(bag){
+  if(_rhodesChordReady&&_rhodesChordSampler){
+    const rev=new Tone.Reverb({decay:2.2,wet:0.18}).toDestination();
+    const ch=new Tone.Chorus({frequency:0.6,delayTime:4,depth:0.18,wet:0.15}).connect(rev);ch.start();
+    const tr=new Tone.Tremolo({frequency:2.8,depth:0.15,wet:0.2}).connect(ch);tr.start();
+    const comp=new Tone.Compressor({threshold:-22,ratio:3,attack:0.008,release:0.12}).connect(tr);
+    const flt=new Tone.Filter({frequency:3500,type:"lowpass",rolloff:-12}).connect(comp);
+    try{_rhodesChordSampler.disconnect();}catch(e){}
+    _rhodesChordSampler.connect(flt);
+    bag.push(flt,comp,tr,ch,rev);
+    return _rhodesChordSampler;
+  }
+  // Fallback: reuse piano chord synth
+  return makeChordSynth(bag);
+}
 let _pS=null,_pR=null,_pReady=false;
 function _ensurePreviewSynth(){
   if(_pReady&&_pS)return;
@@ -983,7 +1005,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
   const setLc=v=>{if(lcDispRef.current){lcDispRef.current.textContent=v;lcDispRef.current.parentElement.style.display=v>1?"flex":"none";}};
   const scheduledTimers=useRef([]);
   const clearScheduled=()=>{for(const tid of scheduledTimers.current)clearTimeout(tid);scheduledTimers.current=[];};
-  const disposeBag=()=>{clearScheduled();if(_sampler&&_samplerReady)try{_sampler.releaseAll();_sampler.disconnect();}catch(e){}if(_chordSampler&&_chordSamplerReady)try{_chordSampler.releaseAll();_chordSampler.disconnect();}catch(e){}if(_bassSampler&&_bassSamplerReady)try{_bassSampler.releaseAll();_bassSampler.disconnect();}catch(e){}for(const n of bagRef.current){try{n.releaseAll&&n.releaseAll();}catch(e){}try{n.stop&&n.stop();}catch(e){}try{n.dispose();}catch(e){}}bagRef.current=[];};
+  const disposeBag=()=>{clearScheduled();if(_sampler&&_samplerReady)try{_sampler.releaseAll();_sampler.disconnect();}catch(e){}if(_chordSampler&&_chordSamplerReady)try{_chordSampler.releaseAll();_chordSampler.disconnect();}catch(e){}if(_bassSampler&&_bassSamplerReady)try{_bassSampler.releaseAll();_bassSampler.disconnect();}catch(e){}if(_rhodesChordSampler&&_rhodesChordReady)try{_rhodesChordSampler.releaseAll();_rhodesChordSampler.disconnect();}catch(e){}for(const n of bagRef.current){try{n.releaseAll&&n.releaseAll();}catch(e){}try{n.stop&&n.stop();}catch(e){}try{n.dispose();}catch(e){}}bagRef.current=[];};
   const metroCtrlRef=useRef({});// MiniMetronome writes start/stop here
   const clr=useCallback(()=>{sT.current=true;if(aR.current)cancelAnimationFrame(aR.current);disposeBag();sPl(false);setPr(0);setLc(0);setLoading(false);lcR.current=0;curNoteR.current=-1;if(onCurNoteR.current)onCurNoteR.current(-1);try{metroCtrlRef.current.stop&&metroCtrlRef.current.stop();}catch(e){}},[]);
   // Live restart at new BPM (called when user changes BPM during playback)
@@ -1018,7 +1040,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
   const sch=(parsed,doCi,refNow)=>{disposeBag();const bag=[];const sw=fR.current==="straight"?0:fR.current==="swing"?1:2;
     const{scheduled:notes,totalDur,chordTimes}=applyTiming(parsed,sw);dR.current=totalDur;
     const mel=makeMelSynth(soR.current,bag);const click=makeClick(bag);
-    const cs=makeChordSynth(bag);bagRef.current=bag;const now=refNow||Tone.now();
+    const cs=(bR.current&&bStyleR.current==="rhodes")?makeRhodesChordSynth(bag):makeChordSynth(bag);bagRef.current=bag;const now=refNow||Tone.now();
     let cOff=doCi?parsed.spb*parsed.tsNum:0;
     const abActive=abOnR.current;const abS=abActive?abAR.current*totalDur:0;const abE=abActive?abBR.current*totalDur:totalDur;
     const timers=[];const LA=0.04;
@@ -1029,7 +1051,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
     // Schedule backing — style-aware: piano comping + bass + drums
     if(bR.current){
       var _bStyle=bStyleR.current;var _muteK=muteKeysR.current;var _muteB=muteBassR.current;var _muteD=muteDrumsR.current;
-      var hasBass=_bStyle!=="piano"&&!_muteB;var hasDrums=(_bStyle==="jazz"||_bStyle==="bossa")&&!_muteD;var hasKeys=!_muteK;
+      var hasBass=_bStyle!=="piano"&&_bStyle!=="rhodes"&&!_muteB;var hasDrums=(_bStyle==="jazz"||_bStyle==="bossa")&&!_muteD;var hasKeys=!_muteK;
       // Create instruments
       var bassInst=null;var drumsInst=null;
       if(hasBass){try{bassInst=makeBass(bag);}catch(e){console.warn("Bass init:",e);}}
@@ -1037,7 +1059,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
       var spb=parsed.spb;var tsN=parsed.tsNum;
       // --- PIANO COMPING ---
       if(hasKeys){for(let ci=0;ci<chordTimes.length;ci++){const c=chordTimes[ci];if(abActive&&(c.time<abS-0.001||c.time>=abE-0.001))continue;const cn=chordToNotes(c.name);if(!cn.length)continue;const ct=abActive?c.time-abS:c.time;const nextTime=ci<chordTimes.length-1?chordTimes[ci+1].time:totalDur;const chordDur=abActive?Math.min(nextTime,abE)-c.time:nextTime-c.time;
-        if(_bStyle==="piano"||_bStyle==="ballad"){
+        if(_bStyle==="piano"||_bStyle==="rhodes"||_bStyle==="ballad"){
           // Sustained chord, legato
           const dur=Math.max(0.3,chordDur*0.95);const fireMs=Math.max(0,ct*1000-LA*1000);const _dur=dur;
           timers.push(setTimeout(()=>{if(sT.current)return;cs.triggerAttackRelease(cn,_dur,baseTime+ct,0.35);},fireMs));
@@ -1119,6 +1141,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
     setLoading(true);
     if(!_samplerReady&&!_samplerFailed){await preloadPiano();setSamplesOk(_samplerReady);}
     if(!_chordSamplerReady)await preloadChordPiano();
+    if(!_rhodesChordReady)preloadRhodesChord(); // fire-and-forget, fallback to piano synth
     if(!_bassSamplerReady)preloadBassSampler(); // fire-and-forget, synth fallback works immediately
     const p=parseAbc(abcR.current,pTR.current);
     // Capture ONE time reference — shared by lick notes AND metronome
