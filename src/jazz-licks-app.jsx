@@ -425,7 +425,7 @@ const KEY_NAMES=["C","Db","D","Eb","E","F","F#","G","Ab","A","Bb","B"];
 const FLAT_ROOTS=new Set([1,3,5,8,10]);
 const SHARP_ABC=[{n:"C",a:""},{n:"C",a:"^"},{n:"D",a:""},{n:"D",a:"^"},{n:"E",a:""},{n:"F",a:""},{n:"F",a:"^"},{n:"G",a:""},{n:"G",a:"^"},{n:"A",a:""},{n:"A",a:"^"},{n:"B",a:""}];
 const FLAT_ABC=[{n:"C",a:""},{n:"D",a:"_"},{n:"D",a:""},{n:"E",a:"_"},{n:"E",a:""},{n:"F",a:""},{n:"G",a:"_"},{n:"G",a:""},{n:"A",a:"_"},{n:"A",a:""},{n:"B",a:"_"},{n:"B",a:""}];
-function chordToNotes(cn){let r=cn.trim();if(!r)return[];let root=r[0].toUpperCase(),ri=1;if(ri<r.length&&(r[ri]==="b"||r[ri]==="#"))ri++;const rs=r.substring(0,ri),q=r.substring(ri).toLowerCase();let st=N2M[rs[0]]||0;if(rs.includes("b"))st--;if(rs.includes("#"))st++;st=((st%12)+12)%12;let iv;if(q.includes("maj7"))iv=[0,4,7,11];else if(q.includes("m7b5"))iv=[0,3,6,10];else if(q.includes("dim"))iv=[0,3,6,9];else if(q.includes("m7"))iv=[0,3,7,10];else if(q.includes("m"))iv=[0,3,7];else if(q.includes("9"))iv=[0,4,7,10,14];else if(q.includes("7"))iv=[0,4,7,10];else if(q.includes("6"))iv=[0,4,7,9];else if(q.includes("sus4"))iv=[0,5,7];else iv=[0,4,7];const nn=["C","C#","D","Eb","E","F","F#","G","Ab","A","Bb","B"];return iv.map(i=>{const pc=((st+i)%12+12)%12;const oct=i>=12?5:4;return nn[pc]+oct;});}
+function chordToNotes(cn,baseOct){let r=cn.trim();if(!r)return[];let root=r[0].toUpperCase(),ri=1;if(ri<r.length&&(r[ri]==="b"||r[ri]==="#"))ri++;const rs=r.substring(0,ri),q=r.substring(ri).toLowerCase();let st=N2M[rs[0]]||0;if(rs.includes("b"))st--;if(rs.includes("#"))st++;st=((st%12)+12)%12;let iv;if(q.includes("maj7"))iv=[0,4,7,11];else if(q.includes("m7b5"))iv=[0,3,6,10];else if(q.includes("dim"))iv=[0,3,6,9];else if(q.includes("m7"))iv=[0,3,7,10];else if(q.includes("m"))iv=[0,3,7];else if(q.includes("9"))iv=[0,4,7,10,14];else if(q.includes("7"))iv=[0,4,7,10];else if(q.includes("6"))iv=[0,4,7,9];else if(q.includes("sus4"))iv=[0,5,7];else iv=[0,4,7];const bo=baseOct||4;const nn=["C","C#","D","Eb","E","F","F#","G","Ab","A","Bb","B"];return iv.map(i=>{const pc=((st+i)%12+12)%12;const oct=i>=12?bo+1:bo;return nn[pc]+oct;});}
 // Bass note: root of chord in octave 2
 function chordBassNote(cn){let r=cn.trim();if(!r)return null;let ri=1;if(ri<r.length&&(r[ri]==="b"||r[ri]==="#"))ri++;const rs=r.substring(0,ri);let st=N2M[rs[0].toUpperCase()]||0;if(rs.includes("b"))st--;if(rs.includes("#"))st++;st=((st%12)+12)%12;const nn=["C","C#","D","Eb","E","F","F#","G","Ab","A","Bb","B"];return nn[st]+"2";}
 // Walking bass: root, 5th, approach note patterns
@@ -714,7 +714,7 @@ function preloadBassSampler(){if(_bassSamplerPromise)return _bassSamplerPromise;
 const RHODES_BASE="https://edhsqycbglkaqbzzhcmp.supabase.co/storage/v1/object/public/Samples/rhodes/";
 const RHODES_MAP={"C1":"C1.mp3","F1":"F1.mp3","C2":"C2.mp3","F2":"F2.mp3","C3":"C3.mp3","F3":"F3.mp3","C4":"C4.mp3","F4":"F4.mp3","C5":"C5.mp3"};
 let _rhodesChordSampler=null,_rhodesChordReady=false,_rhodesChordPromise=null;
-function preloadRhodesChord(){if(_rhodesChordPromise)return _rhodesChordPromise;_rhodesChordPromise=new Promise(res=>{try{_rhodesChordSampler=new Tone.Sampler({urls:RHODES_MAP,baseUrl:RHODES_BASE,release:1.0,volume:-12,onload:()=>{_rhodesChordReady=true;res(true);},onerror:()=>{res(false);}});setTimeout(()=>{if(!_rhodesChordReady)res(false);},20000);}catch(e){res(false);}});return _rhodesChordPromise;}
+function preloadRhodesChord(){if(_rhodesChordPromise)return _rhodesChordPromise;_rhodesChordPromise=new Promise(res=>{try{_rhodesChordSampler=new Tone.Sampler({urls:RHODES_MAP,baseUrl:RHODES_BASE,release:2.5,volume:-10,onload:()=>{_rhodesChordReady=true;res(true);},onerror:()=>{res(false);}});setTimeout(()=>{if(!_rhodesChordReady)res(false);},20000);}catch(e){res(false);}});return _rhodesChordPromise;}
 function makeChordSynth(bag){
   // Use pre-loaded piano sampler for warm comping sound
   if(_chordSamplerReady&&_chordSampler){
@@ -1058,11 +1058,12 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
       if(hasDrums){try{drumsInst=makeDrums(bag);}catch(e){console.warn("Drums init:",e);}}
       var spb=parsed.spb;var tsN=parsed.tsNum;
       // --- PIANO COMPING ---
-      if(hasKeys){for(let ci=0;ci<chordTimes.length;ci++){const c=chordTimes[ci];if(abActive&&(c.time<abS-0.001||c.time>=abE-0.001))continue;const cn=chordToNotes(c.name);if(!cn.length)continue;const ct=abActive?c.time-abS:c.time;const nextTime=ci<chordTimes.length-1?chordTimes[ci+1].time:totalDur;const chordDur=abActive?Math.min(nextTime,abE)-c.time:nextTime-c.time;
+      if(hasKeys){var _chordOct=(_bStyle==="rhodes")?3:4;for(let ci=0;ci<chordTimes.length;ci++){const c=chordTimes[ci];if(abActive&&(c.time<abS-0.001||c.time>=abE-0.001))continue;const cn=chordToNotes(c.name,_chordOct);if(!cn.length)continue;const ct=abActive?c.time-abS:c.time;const nextTime=ci<chordTimes.length-1?chordTimes[ci+1].time:totalDur;const chordDur=abActive?Math.min(nextTime,abE)-c.time:nextTime-c.time;
         if(_bStyle==="piano"||_bStyle==="rhodes"||_bStyle==="ballad"){
-          // Sustained chord, legato
-          const dur=Math.max(0.3,chordDur*0.95);const fireMs=Math.max(0,ct*1000-LA*1000);const _dur=dur;
-          timers.push(setTimeout(()=>{if(sT.current)return;cs.triggerAttackRelease(cn,_dur,baseTime+ct,0.35);},fireMs));
+          // Sustained chord, legato — hold until next chord
+          const dur=Math.max(0.5,chordDur);const fireMs=Math.max(0,ct*1000-LA*1000);const _dur=dur;
+          const vel=_bStyle==="rhodes"?0.5:0.35;
+          timers.push(setTimeout(()=>{if(sT.current)return;cs.triggerAttackRelease(cn,_dur,baseTime+ct,vel);},fireMs));
         }else if(_bStyle==="jazz"){
           // Rhythmic comping — hits on beat 2 and beat 4 (classic Freddie Green)
           var compBeats=[];var barStart=Math.floor(c.time/spb/tsN)*spb*tsN;
