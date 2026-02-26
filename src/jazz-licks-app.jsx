@@ -1891,8 +1891,8 @@ function Metronome({th}){
   const[bpm,setBpm]=useState(120);
   const[playing,setPlaying]=useState(false);
   const[timeSig,setTimeSig]=useState([4,4]); // [beats, noteValue]
-  const[subdivision,setSubdivision]=useState(1); // 1=quarter,2=8th,3=triplet,4=16th
-  const[swing,setSwing]=useState(0); // 0-100, only applies to 8th subdivisions
+  const subdivision=1;
+  const swing=0;
   // Per-beat state: 0=normal, 1=accent, 2=muted — click cycles through
   const[beatStates,setBeatStates]=useState(()=>{const a=new Array(4).fill(0);a[0]=1;return a;});
   const[currentBeat,setCurrentBeat]=useState(-1);
@@ -2086,7 +2086,6 @@ function Metronome({th}){
   useEffect(()=>()=>{if(timerRef.current)clearInterval(timerRef.current);},[]);
 
   const TIME_SIGS=[[4,4],[3,4],[5,4],[6,8],[7,8],[2,4]];
-  const SUB_OPTS=[{v:1,l:"\u2669"},{v:2,l:"\u266A"},{v:3,l:"3"},{v:4,l:"\u266C"}];
   const SOUNDS=[{v:"click",l:"Click"},{v:"wood",l:"Wood"},{v:"cowbell",l:"Bell"}];
 
   // Trainer computed values
@@ -2193,19 +2192,6 @@ function Metronome({th}){
         React.createElement("div",{style:{display:"flex",gap:6,flexWrap:"wrap"}},
           TIME_SIGS.map(ts=>React.createElement("button",{key:ts[0]+"/"+ts[1],onClick:()=>{setTimeSig(ts);if(playing){currentSubRef.current=0;}},style:{padding:"6px 14px",borderRadius:8,border:"1px solid "+(timeSig[0]===ts[0]&&timeSig[1]===ts[1]?t.accent:t.border),background:timeSig[0]===ts[0]&&timeSig[1]===ts[1]?(isStudio?t.accent+"20":t.accent+"10"):t.filterBg,color:timeSig[0]===ts[0]&&timeSig[1]===ts[1]?t.accent:t.muted,fontSize:13,fontFamily:"'JetBrains Mono',monospace",fontWeight:timeSig[0]===ts[0]&&timeSig[1]===ts[1]?700:400,cursor:"pointer"}},ts[0]+"/"+ts[1])))),
 
-      // Subdivision
-      React.createElement("div",{style:{marginBottom:14}},
-        React.createElement("div",{style:{fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5,marginBottom:8}},"SUBDIVISION"),
-        React.createElement("div",{style:{display:"flex",gap:6}},
-          SUB_OPTS.map(s=>React.createElement("button",{key:s.v,onClick:()=>setSubdivision(s.v),style:{flex:1,padding:"8px",borderRadius:8,border:"1px solid "+(subdivision===s.v?t.accent:t.border),background:subdivision===s.v?(isStudio?t.accent+"20":t.accent+"10"):t.filterBg,color:subdivision===s.v?t.accent:t.muted,fontSize:16,cursor:"pointer",fontWeight:subdivision===s.v?700:400}},s.l)))),
-
-      // Swing (only when subdivision = 2)
-      subdivision===2&&React.createElement("div",{style:{marginBottom:14}},
-        React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}},
-          React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5}},"SWING"),
-          React.createElement("span",{style:{fontSize:11,color:swing>0?t.accent:t.muted,fontFamily:"'JetBrains Mono',monospace",fontWeight:swing>0?700:400}},swing>0?swing+"%":"Off")),
-        React.createElement("input",{type:"range",min:0,max:100,value:swing,onChange:e=>setSwing(parseInt(e.target.value)),style:{width:"100%",cursor:"pointer",height:4,accentColor:isStudio?t.accent:"#6366F1"}})),
-
       // Sound
       React.createElement("div",null,
         React.createElement("div",{style:{fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5,marginBottom:8}},"SOUND"),
@@ -2228,7 +2214,7 @@ function MiniMetronome({th,initBpm,syncPlaying,ctrlRef,onBpmChange,lickTempo,onS
   var[timeSig,setTimeSig]=useState(lickTimeSig||[4,4]);
   // Auto-sync time sig from lick
   useEffect(function(){if(lickTimeSig){setTimeSig(lickTimeSig);}},[lickTimeSig?lickTimeSig[0]:0,lickTimeSig?lickTimeSig[1]:0]);
-  var[subdivision,setSubdivision]=useState(1);
+  var subdivision=1;
   var[swing,setSwing]=useState(0);
   var[beatStates,setBeatStates]=useState(function(){var a=[1,0,0,0];return a;});
   var[currentBeat,setCurrentBeat]=useState(-1);
@@ -2386,7 +2372,6 @@ function MiniMetronome({th,initBpm,syncPlaying,ctrlRef,onBpmChange,lickTempo,onS
   useEffect(function(){return function(){if(timerRef.current)clearInterval(timerRef.current);};},[]);
 
   var TIME_SIGS=[[4,4],[3,4],[5,4],[6,8],[7,8],[2,4]];
-  var SUB_OPTS=[{v:1,l:"\u2669"},{v:2,l:"\u266A"},{v:3,l:"3"},{v:4,l:"\u266C"}];
   var SOUNDS=[{v:"click",l:"Click"},{v:"wood",l:"Wood"},{v:"cowbell",l:"Bell"}];
   var chip=function(active,label,onClick){return React.createElement("button",{onClick:function(e){e.stopPropagation();onClick();},style:{padding:"3px 8px",borderRadius:6,border:"1px solid "+(active?t.accent:t.border),background:active?(isStudio?t.accent+"20":t.accent+"10"):t.filterBg,color:active?t.accent:t.muted,fontSize:10,fontFamily:"'JetBrains Mono',monospace",fontWeight:active?700:400,cursor:"pointer"}},label);};
 
@@ -2418,9 +2403,7 @@ function MiniMetronome({th,initBpm,syncPlaying,ctrlRef,onBpmChange,lickTempo,onS
           isMut&&React.createElement("span",{style:{fontSize:8,color:t.subtle,fontWeight:700}},"\u00D7"),
           isAcc&&!active&&React.createElement("span",{style:{fontSize:6,color:t.accent,fontWeight:700}},"\u25B2"));
       }),
-      React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace",marginLeft:4}},timeSig[0]+"/"+timeSig[1]),
-      // Subdivision pills inline
-      SUB_OPTS.map(function(s){return React.createElement("button",{key:s.v,onClick:function(e){e.stopPropagation();setSubdivision(s.v);},style:{width:22,height:22,borderRadius:6,border:"1px solid "+(subdivision===s.v?t.accent:t.border),background:subdivision===s.v?(isStudio?t.accent+"20":t.accent+"10"):"transparent",color:subdivision===s.v?t.accent:t.subtle,fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}},s.l);})),
+      React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace",marginLeft:4}},timeSig[0]+"/"+timeSig[1])),
 
     // MORE panel: time sig, swing, sound, progressive
     moreOpen&&React.createElement("div",{style:{padding:"8px 0",display:"flex",flexDirection:"column",gap:8}},
@@ -2432,11 +2415,6 @@ function MiniMetronome({th,initBpm,syncPlaying,ctrlRef,onBpmChange,lickTempo,onS
       React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4}},
         React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5}},"SOUND"),
         SOUNDS.map(function(s){return chip(sound===s.v,s.l,function(){setSound(s.v);});})),
-      // Swing (when subdivision=2)
-      subdivision===2&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
-        React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5}},"SWING"),
-        React.createElement("input",{type:"range",min:0,max:100,value:swing,onClick:function(e){e.stopPropagation();},onChange:function(e){e.stopPropagation();setSwing(parseInt(e.target.value));},style:{flex:1,height:3,accentColor:t.accent}}),
-        React.createElement("span",{style:{fontSize:10,color:swing>0?t.accent:t.muted,fontFamily:"'JetBrains Mono',monospace",fontWeight:swing>0?600:400,minWidth:28}},swing>0?swing+"%":"Off")),
       // Progressive
       React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}},
         chip(progOn,"Progressive",function(){var nv=!progOn;setProgOn(nv);if(nv&&isSynced&&onSetLoop)onSetLoop(true);}),
