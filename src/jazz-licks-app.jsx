@@ -714,12 +714,12 @@ function preloadBassSampler(){if(_bassSamplerPromise)return _bassSamplerPromise;
 const RHODES_BASE="https://edhsqycbglkaqbzzhcmp.supabase.co/storage/v1/object/public/Samples/rhodes/";
 const RHODES_MAP={"C1":"C1.mp3","F1":"F1.mp3","C2":"C2.mp3","F2":"F2.mp3","C3":"C3.mp3","F3":"F3.mp3","C4":"C4.mp3","F4":"F4.mp3","C5":"C5.mp3"};
 let _rhodesChordSampler=null,_rhodesChordReady=false,_rhodesChordPromise=null;
-function preloadRhodesChord(){if(_rhodesChordPromise)return _rhodesChordPromise;_rhodesChordPromise=new Promise(res=>{try{console.log("[etudy] Loading Rhodes samples from:",RHODES_BASE);_rhodesChordSampler=new Tone.Sampler({urls:RHODES_MAP,baseUrl:RHODES_BASE,release:2.5,volume:-10,onload:()=>{_rhodesChordReady=true;console.log("[etudy] Rhodes samples loaded OK");res(true);},onerror:(e)=>{console.warn("[etudy] Rhodes samples FAILED:",e);res(false);}});setTimeout(()=>{if(!_rhodesChordReady){console.warn("[etudy] Rhodes samples timeout");res(false);}},20000);}catch(e){res(false);}});return _rhodesChordPromise;}
+function preloadRhodesChord(){if(_rhodesChordPromise)return _rhodesChordPromise;_rhodesChordPromise=new Promise(res=>{try{console.log("[etudy] Loading Rhodes samples from:",RHODES_BASE);_rhodesChordSampler=new Tone.Sampler({urls:RHODES_MAP,baseUrl:RHODES_BASE,release:2.5,volume:-4,onload:()=>{_rhodesChordReady=true;console.log("[etudy] Rhodes samples loaded OK");res(true);},onerror:(e)=>{console.warn("[etudy] Rhodes samples FAILED:",e);res(false);}});setTimeout(()=>{if(!_rhodesChordReady){console.warn("[etudy] Rhodes samples timeout");res(false);}},20000);}catch(e){res(false);}});return _rhodesChordPromise;}
 // Custom piano sampler — real piano samples from Supabase
 const CPIANO_BASE="https://edhsqycbglkaqbzzhcmp.supabase.co/storage/v1/object/public/Samples/piano/";
 const CPIANO_MAP={"C1":"C1.mp3","F1":"F1.mp3","C2":"C2.mp3","F2":"F2.mp3","C3":"C3.mp3","F3":"F3.mp3","C4":"C4.mp3","F4":"F4.mp3"};
 let _cPianoChordSampler=null,_cPianoChordReady=false,_cPianoChordPromise=null;
-function preloadCustomPianoChord(){if(_cPianoChordPromise)return _cPianoChordPromise;_cPianoChordPromise=new Promise(res=>{try{console.log("[etudy] Loading custom piano samples from:",CPIANO_BASE);_cPianoChordSampler=new Tone.Sampler({urls:CPIANO_MAP,baseUrl:CPIANO_BASE,release:2.0,volume:-12,onload:()=>{_cPianoChordReady=true;console.log("[etudy] Custom piano samples loaded OK");res(true);},onerror:(e)=>{console.warn("[etudy] Custom piano samples FAILED:",e);res(false);}});setTimeout(()=>{if(!_cPianoChordReady){console.warn("[etudy] Custom piano samples timeout");res(false);}},20000);}catch(e){res(false);}});return _cPianoChordPromise;}
+function preloadCustomPianoChord(){if(_cPianoChordPromise)return _cPianoChordPromise;_cPianoChordPromise=new Promise(res=>{try{console.log("[etudy] Loading custom piano samples from:",CPIANO_BASE);_cPianoChordSampler=new Tone.Sampler({urls:CPIANO_MAP,baseUrl:CPIANO_BASE,release:2.0,volume:-4,onload:()=>{_cPianoChordReady=true;console.log("[etudy] Custom piano samples loaded OK");res(true);},onerror:(e)=>{console.warn("[etudy] Custom piano samples FAILED:",e);res(false);}});setTimeout(()=>{if(!_cPianoChordReady){console.warn("[etudy] Custom piano samples timeout");res(false);}},20000);}catch(e){res(false);}});return _cPianoChordPromise;}
 function makeChordSynth(bag){
   // Priority 1: Custom piano samples from Supabase
   if(_cPianoChordReady&&_cPianoChordSampler){
@@ -1129,12 +1129,14 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
       if(hasKeys){var _chordOct=(_bStyle==="jazz"||_bStyle==="bossa")?4:3;for(let ci=0;ci<chordTimes.length;ci++){const c=chordTimes[ci];if(abActive&&(c.time<abS-0.001||c.time>=abE-0.001))continue;const cn=chordToNotes(c.name,_chordOct);if(!cn.length)continue;const ct=abActive?c.time-abS:c.time;const nextTime=ci<chordTimes.length-1?chordTimes[ci+1].time:totalDur;const chordDur=abActive?Math.min(nextTime,abE)-c.time:nextTime-c.time;
         if(_bStyle==="piano"||_bStyle==="rhodes"||_bStyle==="ballad"){
           // Sustained chord — use attack/release separately for full sustain on Samplers
-          const dur=Math.max(0.5,chordDur);const fireMs=Math.max(0,ct*1000-LA*1000);
+          // SAMPLE_PRE: compensate for attack latency in samples (schedule slightly early)
+          var SAMPLE_PRE=0.04;
+          const dur=Math.max(0.5,chordDur);const fireMs=Math.max(0,(ct-SAMPLE_PRE)*1000-LA*1000);
           const vel=_bStyle==="rhodes"?0.5:0.5;
           const releaseMs=Math.max(0,(ct+dur-0.05)*1000-LA*1000);
           for(let ni=0;ni<cn.length;ni++){const _note=cn[ni];
-            // Attack
-            timers.push(setTimeout(()=>{if(sT.current)return;try{backingCs.triggerAttack(_note,baseTime+ct,vel);}catch(e){}},fireMs));
+            // Attack — fired SAMPLE_PRE earlier to land on beat
+            timers.push(setTimeout(()=>{if(sT.current)return;try{backingCs.triggerAttack(_note,baseTime+ct-SAMPLE_PRE,vel);}catch(e){}},fireMs));
             // Release just before next chord
             timers.push(setTimeout(()=>{if(sT.current)return;try{backingCs.triggerRelease(_note,baseTime+ct+dur-0.05);}catch(e){}},releaseMs));
           }
