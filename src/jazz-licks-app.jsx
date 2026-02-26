@@ -1450,7 +1450,42 @@ function noteIcon(idx,color,sz){var c=color||"#666",s=sz||22,h=s,w=Math.round(s*
 const NOTE_NMS=["C","D","E","F","G","A","B"];const CHORD_PR=["maj7","m7","7","m7b5","dim7","6","9","sus4"];
 function e2s(e){if(e===1)return"";if(e===0.5)return"/2";if(e===0.75)return"3/4";if(e===1.5)return"3/2";if(e===3)return"3";if(e===6)return"6";if(e===12)return"12";if(Number.isInteger(e))return String(e);return String(Math.round(e*2))+"/2";}
 var KEY_SIG_ACC={"C":{},"G":{F:1},"D":{F:1,C:1},"A":{F:1,C:1,G:1},"E":{F:1,C:1,G:1,D:1},"B":{F:1,C:1,G:1,D:1,A:1},"F#":{F:1,C:1,G:1,D:1,A:1,E:1},"Gb":{B:-1,E:-1,A:-1,D:-1,G:-1,C:-1},"F":{B:-1},"Bb":{B:-1,E:-1},"Eb":{B:-1,E:-1,A:-1},"Ab":{B:-1,E:-1,A:-1,D:-1},"Db":{B:-1,E:-1,A:-1,D:-1,G:-1}};
-function buildAbc(items,keySig,timeSig,tempo,chords){const[tsN,tsD]=timeSig.split("/").map(Number);const bE=tsN*(8/tsD);const beatE=8/tsD;const bG=tsD===8?3:2;let abc="X:1\nT:My Lick\nM:"+timeSig+"\nL:1/8\nQ:1/4="+tempo+"\nK:"+keySig+"\n";const ksMap=KEY_SIG_ACC[keySig]||{};let pos=0,ns=false,nc=0;var barAlts={};var triCount=0;var chObj=chords||{};var emittedCh={};for(var ii=0;ii<items.length;ii++){var item=items[ii];if(item.type==="chord")continue;const ei=DURS[item.dur].eighths*(item.dotted?1.5:1);var effEi=item.tri?ei*(2/3):ei;if(pos>0){const bN=pos/bE;if(Math.abs(bN-Math.round(bN))<0.01&&Math.round(bN)>0){abc+=" | ";ns=false;barAlts={};}}if(nc>0&&ns)abc+=" ";var beatIdx=Math.floor(pos/beatE+0.01);if(chObj[beatIdx]&&!emittedCh[beatIdx]){abc+='"'+chObj[beatIdx]+'"';emittedCh[beatIdx]=true;}if(item.tri&&triCount%3===0)abc+="(3";if(item.tri)triCount++;else triCount=0;if(item.type==="rest")abc+="z"+e2s(ei);else if(item.type==="note"){var ksA=ksMap[item.note]||0;var prevA=barAlts.hasOwnProperty(item.note)?barAlts[item.note]:ksA;var needsAcc=false;if(item.acc!==prevA){needsAcc=true;}else if(item.acc===ksA&&barAlts.hasOwnProperty(item.note)&&barAlts[item.note]!==ksA){needsAcc=true;}if(needsAcc){if(item.acc===1)abc+="^";else if(item.acc===-1)abc+="_";else abc+="=";}barAlts[item.note]=item.acc;if(item.oct>=5){abc+=item.note.toLowerCase();for(let o=6;o<=item.oct;o++)abc+="'";}else{abc+=item.note.toUpperCase();for(let o=3;o>=item.oct;o--)abc+=",";}abc+=e2s(ei);}const eP=pos+effEi;ns=effEi>=2||Math.floor((eP-0.001)/bG)>Math.floor(pos/bG)||Math.floor((eP-0.001)/bE)>Math.floor(pos/bE);pos=eP;nc++;}if(nc>0)abc+=" |";return abc;}
+function buildAbc(items,keySig,timeSig,tempo,chords){const[tsN,tsD]=timeSig.split("/").map(Number);const bE=tsN*(8/tsD);const beatE=8/tsD;
+  // Beam groups: how many eighths per beam group
+  // 4/4: [2,2,2,2] with half-bar at 4  |  3/4: [2,2,2]  |  6/8: [3,3]  |  5/4: [2,2,2,2,2]  |  7/8: [2,2,3] or [3,2,2]
+  var beamBreaks=[];var p2=0;
+  if(tsD===8){
+    // Compound: group by 3 eighths
+    for(var g=0;g<tsN;g+=3){beamBreaks.push(p2+3);p2+=3;}
+  }else{
+    // Simple: group by beat (2 eighths per beat for x/4)
+    for(var g2=0;g2<tsN;g2++){beamBreaks.push(p2+beatE);p2+=beatE;}
+  }
+  // Half-bar break position (stronger grouping boundary)
+  var halfBar=tsN>=4&&tsD===4?Math.floor(tsN/2)*beatE:tsD===8&&tsN>=6?Math.floor(tsN/6)*3*Math.ceil(tsN/6):0;
+  let abc="X:1\nT:My Lick\nM:"+timeSig+"\nL:1/8\nQ:1/4="+tempo+"\nK:"+keySig+"\n";const ksMap=KEY_SIG_ACC[keySig]||{};let pos=0,nc=0;var barAlts={};var triCount=0;var chObj=chords||{};var emittedCh={};
+  for(var ii=0;ii<items.length;ii++){var item=items[ii];if(item.type==="chord")continue;
+    const ei=DURS[item.dur].eighths*(item.dotted?1.5:1);var effEi=item.tri?ei*(2/3):ei;
+    // Bar line
+    if(pos>0){const bN=pos/bE;if(Math.abs(bN-Math.round(bN))<0.01&&Math.round(bN)>0){abc+=" | ";barAlts={};}}
+    // Beam break: insert space if we crossed a beam group boundary or note is quarter+
+    if(nc>0){
+      var posInBar=pos%bE;var needSpace=false;
+      // Quarter notes or longer always break
+      if(effEi>=2)needSpace=true;
+      // Check if current position sits on a beam group boundary
+      else{for(var bb=0;bb<beamBreaks.length;bb++){var bp=beamBreaks[bb]%bE;if(bp>0&&Math.abs(posInBar-bp)<0.05){needSpace=true;break;}}}
+      if(needSpace)abc+=" ";
+    }
+    // Chord symbol
+    var beatIdx=Math.floor(pos/beatE+0.01);if(chObj[beatIdx]&&!emittedCh[beatIdx]){abc+='"'+chObj[beatIdx]+'"';emittedCh[beatIdx]=true;}
+    // Triplet marker
+    if(item.tri&&triCount%3===0)abc+="(3";if(item.tri)triCount++;else triCount=0;
+    // Note/rest
+    if(item.type==="rest")abc+="z"+e2s(ei);
+    else if(item.type==="note"){var ksA=ksMap[item.note]||0;var prevA=barAlts.hasOwnProperty(item.note)?barAlts[item.note]:ksA;var needsAcc=false;if(item.acc!==prevA){needsAcc=true;}else if(item.acc===ksA&&barAlts.hasOwnProperty(item.note)&&barAlts[item.note]!==ksA){needsAcc=true;}if(needsAcc){if(item.acc===1)abc+="^";else if(item.acc===-1)abc+="_";else abc+="=";}barAlts[item.note]=item.acc;if(item.oct>=5){abc+=item.note.toLowerCase();for(let o=6;o<=item.oct;o++)abc+="'";}else{abc+=item.note.toUpperCase();for(let o=3;o>=item.oct;o--)abc+=",";}abc+=e2s(ei);}
+    pos+=effEi;nc++;}
+  if(nc>0)abc+=" |";return abc;}
 function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl}){
   const[items,sIt]=useState([]);const[cO,sCO]=useState(5);const[cD,sCD]=useState(2);const[dt,sDt]=useState(false);const[tri,sTri]=useState(false);
   const[chords,sChords]=useState({});const[chEd,sChEd]=useState(null);const[chRoot,sChRoot]=useState("C");const[chQual,sChQual]=useState("maj7");
