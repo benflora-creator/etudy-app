@@ -721,7 +721,8 @@ function makeBass(bag){
     const comp=new Tone.Compressor({threshold:-16,ratio:4,attack:0.005,release:0.1}).toDestination();
     const flt=new Tone.Filter({frequency:400,type:"lowpass",rolloff:-24}).connect(comp);
     const warmth=new Tone.Filter({frequency:120,type:"lowshelf",gain:6}).connect(flt);
-    _bassSampler.disconnect();_bassSampler.connect(warmth);
+    try{_bassSampler.disconnect();}catch(e){}
+    _bassSampler.connect(warmth);
     bag.push(warmth,flt,comp);
     return{play:(n,d,t,v)=>{try{_bassSampler.triggerAttackRelease(n,d,t,v);}catch(e){}}};
   }
@@ -1110,9 +1111,12 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
     const{scheduled:notes,totalDur,chordTimes}=applyTiming(parsed,sw);dR.current=totalDur;
     const mel=makeMelSynth(soR.current,bag);const click=makeClick(bag);
     const cs=makeChordSynth(bag);
-    // Only create bass & drums when backing is actually enabled
+    // Only create bass & drums when backing is actually enabled — separate try-catches!
     let bassInst=null,drumsInst=null;
-    if(bR.current){try{bassInst=makeBass(bag);drumsInst=makeDrums(bag);}catch(e){console.warn("Backing synth init error:",e);}}
+    if(bR.current){
+      try{bassInst=makeBass(bag);}catch(e){console.warn("Bass init error:",e);}
+      try{drumsInst=makeDrums(bag);}catch(e){console.warn("Drums init error:",e);}
+    }
     bagRef.current=bag;const now=refNow||Tone.now();
     let cOff=doCi?parsed.spb*parsed.tsNum:0;
     const abActive=abOnR.current;const abS=abActive?abAR.current*totalDur:0;const abE=abActive?abBR.current*totalDur:totalDur;
