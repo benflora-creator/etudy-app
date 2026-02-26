@@ -1356,7 +1356,6 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
       React.createElement("div",{style:{display:"flex",gap:5,flexWrap:"wrap"}},
         sBtn(ci,"Count-in "+(ci?"\u2713":"\u2717"),()=>setCi(!ci)))));
 
-  const dispBpm=pT||tempo;
   const curSoundLabel=(SOUND_PRESETS.find(p=>p.id===sound)||{}).label||"Piano";
   const curBackObj=BACKING_STYLES.find(s=>s.id===backingStyle)||BACKING_STYLES[0];
   const curFeelLabel=fl==="straight"?"Straight":fl==="swing"?"Swing":"Hard Swing";
@@ -1373,21 +1372,10 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
       pill(lp,"\u221E",()=>sLp(!lp),"Loop"),
       setAbOn&&React.createElement("span",{"data-coach":"ab-loop"},pill(abOn,"\u2759\u2759",()=>{setAbOn(!abOn);if(!abOn){setAbA(0);setAbB(1);}},"A\u2009\u00B7\u2009B"))),
 
-    // ROW 2: Metronome — BPM(tap) + ± + TAP + mute + dots + ▸More (wraps for expand)
-    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:5,marginTop:8,flexWrap:"wrap"}},
-      React.createElement("button",{onClick:e=>{e.stopPropagation();parentTapTempo();},style:{...bb,padding:"2px 4px",borderRadius:6,background:"transparent",flexShrink:0}},
-        React.createElement("span",{style:{fontSize:18,fontWeight:700,color:pl?t.accent:t.text,fontFamily:"'JetBrains Mono',monospace",letterSpacing:-0.5}},dispBpm)),
-      React.createElement("div",{style:{display:"flex",gap:2,flexShrink:0}},
-        React.createElement("button",{onClick:e=>{e.stopPropagation();parentChangeBpm(-5);},style:{...bb,width:22,height:22,borderRadius:5,border:"1px solid "+t.border,background:t.filterBg,color:t.text,fontSize:11}},"\u2212"),
-        React.createElement("button",{onClick:e=>{e.stopPropagation();parentChangeBpm(5);},style:{...bb,width:22,height:22,borderRadius:5,border:"1px solid "+t.border,background:t.filterBg,color:t.text,fontSize:11}},"+"),
-        lickTempo&&dispBpm!==lickTempo&&React.createElement("button",{onClick:e=>{e.stopPropagation();parentChangeBpm(lickTempo-dispBpm);},style:{...bb,padding:"2px 5px",borderRadius:5,background:"none",color:t.subtle,fontSize:8}},"\u21A9")),
-      React.createElement("button",{onClick:e=>{e.stopPropagation();parentTapTempo();},style:{...bb,padding:"3px 7px",borderRadius:6,border:"1.5px solid "+t.border,background:t.card,color:t.text,fontSize:9,fontWeight:600,flexShrink:0}},"TAP"),
-      // Mute + beat dots rendered inline by MiniMetronome (display:contents)
-      React.createElement(MiniMetronome,{th:t,initBpm:pT||tempo,syncPlaying:pl,ctrlRef:metroCtrlRef,onBpmChange:function(v){pTR.current=v;if(sPT)sPT(v);if(!sT.current)liveRestart(v);},lickTempo:lickTempo||tempo,onSetLoop:function(v){if(v)sLp(true);},lickTimeSig:lickTS,headless:true,expandOpen:metroExpand}),
-      React.createElement("button",{onClick:e=>{e.stopPropagation();setMetroExpand(!metroExpand);},style:{...bb,padding:"3px 7px",borderRadius:6,background:metroExpand?t.filterBg:"transparent",color:metroExpand?t.text:t.subtle,fontSize:9,flexShrink:0,marginLeft:"auto"}},metroExpand?"\u25B4":"\u25BE"),
-      // Count-in (only when expanded, wraps to new line)
-      metroExpand&&React.createElement("div",{style:{width:"100%",display:"flex",alignItems:"center",gap:6,marginTop:2}},
-        sBtn(ci,"Count-in "+(ci?"\u2713":"\u2717"),()=>setCi(!ci)))),
+    // ROW 2: Metronome bar (self-contained) with expand button
+    React.createElement("div",{style:{position:"relative",marginTop:8}},
+      React.createElement(MiniMetronome,{th:t,initBpm:pT||tempo,syncPlaying:pl,ctrlRef:metroCtrlRef,onBpmChange:function(v){pTR.current=v;if(sPT)sPT(v);if(!sT.current)liveRestart(v);},lickTempo:lickTempo||tempo,onSetLoop:function(v){if(v)sLp(true);},lickTimeSig:lickTS,headless:true,expandOpen:metroExpand,ciProp:ci,setCiProp:setCi}),
+      React.createElement("button",{onClick:e=>{e.stopPropagation();setMetroExpand(!metroExpand);},style:{...bb,position:"absolute",top:4,right:4,width:28,height:28,borderRadius:7,background:metroExpand?t.accentBg:t.filterBg,border:"1px solid "+(metroExpand?t.accent:t.border),color:metroExpand?t.accent:t.muted,fontSize:12}},metroExpand?"\u2715":"\u2699")),
 
     // ROW 3: Melody [Sound▾] | Backing [Style▾]
     React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginTop:8,position:"relative"}},
@@ -2219,7 +2207,7 @@ function Metronome({th}){
 // MINI METRONOME — compact inline metronome for Player Practice mode
 // Same Web Audio scheduler as full Metronome, compact UI
 // ============================================================
-function MiniMetronome({th,initBpm,syncPlaying,ctrlRef,onBpmChange,lickTempo,onSetLoop,lickTimeSig,headless,expandOpen}){
+function MiniMetronome({th,initBpm,syncPlaying,ctrlRef,onBpmChange,lickTempo,onSetLoop,lickTimeSig,headless,expandOpen,ciProp,setCiProp}){
   var t=th||TH.classic;var isStudio=t===TH.studio;
   var bb={border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.15s",fontFamily:"'Inter',sans-serif"};
   var[bpm,setBpm]=useState(initBpm||120);
@@ -2395,23 +2383,36 @@ function MiniMetronome({th,initBpm,syncPlaying,ctrlRef,onBpmChange,lickTempo,onS
   var isSynced=!!ctrlRef;
 
   // HEADLESS MODE: mute+dots always visible; sound/progressive/count-in only when expandOpen
-  if(headless)return React.createElement("div",{style:{display:"contents"}},
-    // Inline items: mute toggle + beat dots (participate in parent flex row)
-    React.createElement("button",{onClick:function(e){e.stopPropagation();setMuted(!muted);},style:{padding:"3px 7px",borderRadius:6,border:"1px solid "+(muted?t.border:t.accent),background:muted?t.filterBg:(isStudio?t.accent+"20":t.accent+"10"),color:muted?t.muted:t.accent,fontSize:10,fontFamily:"'Inter',sans-serif",fontWeight:500,cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}},muted?"\u2715":"\u266A"),
-    beatStates.map(function(bs,i){
-        var active=playing&&currentBeat===i;var isAcc=bs===1;var isMut=bs===2;
-        var bg=isMut?(isStudio?"rgba(255,255,255,0.05)":"#F3F3F3"):active?(isAcc?t.accent:"#F59E0B"):isAcc?(isStudio?t.accent+"40":t.accent+"25"):(isStudio?t.border+"60":t.border);
-        return React.createElement("button",{key:i,onClick:function(e){e.stopPropagation();cycleBeat(i);},style:{width:18,height:18,borderRadius:"50%",background:bg,border:isAcc?"2px solid "+t.accent:isMut?"2px dashed "+t.border:"2px solid "+(isStudio?t.border:t.borderSub||t.border),transform:active?"scale(1.15)":"scale(1)",transition:"all 0.06s",cursor:"pointer",padding:0,display:"flex",alignItems:"center",justifyContent:"center"}},
-          isMut&&React.createElement("span",{style:{fontSize:7,color:t.subtle,fontWeight:700}},"\u00D7"),
-          isAcc&&!active&&React.createElement("span",{style:{fontSize:5,color:t.accent,fontWeight:700}},"\u25B2"));
-      }),
-      React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'JetBrains Mono',monospace"}},timeSig[0]+"/"+timeSig[1]),
-    // Expand panel: rendered as sibling, breaks out of parent flex row via display:contents
-    expandOpen&&React.createElement("div",{style:{width:"100%",display:"flex",flexDirection:"column",gap:6,marginTop:6}},
-      // Click sound
-      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4}},
-        React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600}},"Click"),
-        SOUNDS.map(function(s){return React.createElement("button",{key:s.v,onClick:function(e){e.stopPropagation();setSound(s.v);},style:{padding:"2px 6px",borderRadius:4,border:"none",background:sound===s.v?t.accentBg:t.filterBg,color:sound===s.v?t.accent:t.subtle,fontSize:9,cursor:"pointer"}},s.l);})),
+  if(headless)return React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:0}},
+    // Main metronome bar
+    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",paddingRight:36,background:t.settingsBg||t.filterBg,borderRadius:expandOpen?"10px 10px 0 0":10,border:"1px solid "+t.border}},
+      // Left: BPM (tappable) + ±
+      React.createElement("button",{onClick:function(e){e.stopPropagation();if(onBpmChange)onBpmChange(bpmRef.current);},style:{background:"transparent",border:"none",padding:0,cursor:"pointer",flexShrink:0}},
+        React.createElement("span",{style:{fontSize:20,fontWeight:700,color:playing&&!muted?t.accent:t.text,fontFamily:"'JetBrains Mono',monospace",letterSpacing:-0.5}},bpm)),
+      React.createElement("div",{style:{display:"flex",gap:2,flexShrink:0}},
+        React.createElement("button",{onClick:function(e){e.stopPropagation();changeBpm(function(b){return b-5;});},style:{width:26,height:26,borderRadius:6,border:"1px solid "+t.border,background:t.card,color:t.text,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"\u2212"),
+        React.createElement("button",{onClick:function(e){e.stopPropagation();changeBpm(function(b){return b+5;});},style:{width:26,height:26,borderRadius:6,border:"1px solid "+t.border,background:t.card,color:t.text,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"+")),
+      React.createElement("button",{onClick:function(e){e.stopPropagation();tapTempo();},style:{padding:"4px 10px",borderRadius:7,border:"1.5px solid "+t.border,background:t.card,color:t.text,fontSize:10,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer",flexShrink:0}},"TAP"),
+      lickTempo&&bpm!==lickTempo&&React.createElement("button",{onClick:function(e){e.stopPropagation();changeBpm(lickTempo);},style:{padding:"2px 6px",borderRadius:5,border:"none",background:"none",color:t.subtle,fontSize:9,cursor:"pointer",flexShrink:0}},"\u21A9"+lickTempo),
+      // Divider
+      React.createElement("div",{style:{width:1,height:22,background:t.border,flexShrink:0}}),
+      // Right: Mute + beat dots + expand
+      React.createElement("button",{onClick:function(e){e.stopPropagation();setMuted(!muted);},style:{width:28,height:28,borderRadius:7,border:muted?"1.5px dashed "+t.border:"1.5px solid "+t.accent,background:muted?t.filterBg:(isStudio?t.accent+"20":t.accent+"12"),color:muted?t.muted:t.accent,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.15s"}},muted?"\u2715":"\u266A"),
+      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4,flex:1,justifyContent:"center"}},
+        beatStates.map(function(bs,i){
+          var active=playing&&currentBeat===i;var isAcc=bs===1;var isMut=bs===2;
+          var bg=isMut?(isStudio?"rgba(255,255,255,0.05)":"#F3F3F3"):active?(isAcc?t.accent:"#F59E0B"):isAcc?(isStudio?t.accent+"40":t.accent+"25"):(isStudio?t.border+"60":t.border);
+          return React.createElement("button",{key:i,onClick:function(e){e.stopPropagation();cycleBeat(i);},style:{width:22,height:22,borderRadius:"50%",background:bg,border:isAcc?"2px solid "+t.accent:isMut?"2px dashed "+t.border:"2px solid "+(isStudio?t.border:t.borderSub||t.border),transform:active?"scale(1.2)":"scale(1)",transition:"all 0.06s",cursor:"pointer",padding:0,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:active&&!isMut?"0 0 8px "+(isAcc?t.accentGlow:"rgba(245,158,11,0.4)"):"none"}},
+            isMut&&React.createElement("span",{style:{fontSize:8,color:t.subtle,fontWeight:700}},"\u00D7"),
+            isAcc&&!active&&React.createElement("span",{style:{fontSize:6,color:t.accent,fontWeight:700}},"\u25B2"));
+        }),
+        React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace",marginLeft:2}},timeSig[0]+"/"+timeSig[1]))),
+    // Expand panel
+    expandOpen&&React.createElement("div",{style:{padding:"8px 10px",background:t.settingsBg||t.filterBg,borderRadius:"0 0 10px 10px",border:"1px solid "+t.border,borderTop:"none",display:"flex",flexDirection:"column",gap:6}},
+      // Count-in + Click sound
+      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}},
+        React.createElement("button",{onClick:function(e){e.stopPropagation();},style:{padding:"3px 8px",borderRadius:6,border:"1px solid "+(isSynced?"transparent":t.border),background:"transparent",color:t.muted,fontSize:10,fontFamily:"'Inter',sans-serif",fontWeight:500,cursor:"default"}},"Click:"),
+        SOUNDS.map(function(s){return React.createElement("button",{key:s.v,onClick:function(e){e.stopPropagation();setSound(s.v);},style:{padding:"3px 8px",borderRadius:6,border:"1px solid "+(sound===s.v?t.accent:t.border),background:sound===s.v?(isStudio?t.accent+"20":t.accent+"10"):t.filterBg,color:sound===s.v?t.accent:t.muted,fontSize:10,fontFamily:"'Inter',sans-serif",fontWeight:sound===s.v?600:400,cursor:"pointer"}},s.l);})),
       // Progressive trainer
       React.createElement("div",{style:{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}},
         chip(progOn,"Progressive",function(){var nv=!progOn;setProgOn(nv);if(nv&&isSynced&&onSetLoop)onSetLoop(true);}),
@@ -2423,7 +2424,8 @@ function MiniMetronome({th,initBpm,syncPlaying,ctrlRef,onBpmChange,lickTempo,onS
         progOn&&React.createElement("input",{type:"number",value:progBars,onClick:function(e){e.stopPropagation();},onChange:function(e){e.stopPropagation();setProgBars(Math.max(1,parseInt(e.target.value)||1));},style:{width:24,padding:"3px 4px",borderRadius:5,border:"1px solid "+t.border,background:t.filterBg,color:t.text,fontSize:10,fontFamily:"'JetBrains Mono',monospace",textAlign:"center"}}),
         progOn&&React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'JetBrains Mono',monospace"}},isSynced?"loops":"bars")),
       progOn&&playing&&React.createElement("div",{style:{fontSize:10,color:progDone?"#22D89E":t.accent,fontFamily:"'Inter',sans-serif",fontWeight:500}},
-        progDone?"\u2713 Target reached! "+progTarget+" BPM":(isSynced?"Loop ":"Bar ")+(progBarInStep+1)+"/"+progBars+" \u00B7 "+progCurBpm+" BPM")));
+        progDone?"\u2713 Target reached! "+progTarget+" BPM":(isSynced?"Loop ":"Bar ")+(progBarInStep+1)+"/"+progBars+" \u00B7 "+progCurBpm+" BPM"),
+      setCiProp&&React.createElement("button",{onClick:function(e){e.stopPropagation();setCiProp(!ciProp);},style:{padding:"4px 10px",borderRadius:6,border:"1px solid "+(ciProp?t.accent:t.border),background:ciProp?(isStudio?t.accent+"20":t.accent+"10"):t.filterBg,color:ciProp?t.accent:t.muted,fontSize:10,fontFamily:"'Inter',sans-serif",fontWeight:500,cursor:"pointer"}},"Count-in "+(ciProp?"\u2713":"\u2717"))));
 
   // Full-mode (non-headless) rendering below
   return React.createElement("div",{style:{padding:"10px 0"}},
