@@ -2197,7 +2197,25 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteCl
   };
 
   // ABC generation
-  useEffect(function(){onAbcChange(buildAbc(items,keySig,timeSig,tempo,chords));},[items,keySig,timeSig,tempo,chords]);
+  var currentAbc=useMemo(function(){return buildAbc(items,keySig,timeSig,tempo,chords);},[items,keySig,timeSig,tempo,chords]);
+  useEffect(function(){onAbcChange(currentAbc);},[currentAbc]);
+  // Chord refinement suggestions from scale detection
+  var editorSuggestions=useMemo(function(){
+    if(items.length<4||Object.keys(chords).length===0)return[];
+    try{
+      var analysis=analyzeTheory(currentAbc);
+      if(!analysis||!analysis.chordScales)return[];
+      var sugs=[];
+      analysis.chordScales.forEach(function(cs){
+        if(!cs.scale||cs.noteCount<3)return;
+        var refined=refineChordName(cs.chord,cs.scale);
+        if(refined!==cs.chord){
+          sugs.push({original:cs.chord,refined:refined,scale:cs.scale});
+        }
+      });
+      return sugs;
+    }catch(e){return[];}
+  },[currentAbc]);
   // Auto-scroll note strip
   useEffect(function(){if(sR.current&&selIdx===null)sR.current.scrollLeft=sR.current.scrollWidth;},[items]);
   // Scroll to selected note
@@ -2351,6 +2369,20 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteCl
       selIdx!==null&&items[selIdx]&&items[selIdx].type==="note"&&React.createElement("button",{onClick:toggleTie,style:{padding:"4px 8px",borderRadius:8,border:"1px solid "+(effTie?"rgba(99,102,241,0.2)":"#E8E7E3"),cursor:"pointer",background:effTie?"rgba(99,102,241,0.04)":"#fff",color:effTie?ac:"#888",fontSize:12,fontWeight:700,fontFamily:"'Instrument Serif',serif"}},"\u2040 tie")),
     // 6. Chord lane
     chordLaneEl,
+    // 6b. Chord refinement suggestions
+    editorSuggestions.length>0&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap",padding:"6px 8px",background:"rgba(194,123,26,0.04)",borderRadius:8,border:"1px solid rgba(194,123,26,0.12)"}},
+      React.createElement("span",{style:{fontSize:9,color:"#C27B1A",fontFamily:"'Inter',sans-serif",fontWeight:600,flexShrink:0}},"\u2728 Implied:"),
+      editorSuggestions.map(function(sug,idx){
+        return React.createElement("button",{key:idx,onClick:function(){
+          // Find beat index with original chord and replace
+          var nc=Object.assign({},chords);
+          Object.keys(nc).forEach(function(k){if(nc[k]===sug.original)nc[k]=sug.refined;});
+          mutate(items,nc);
+        },style:{display:"inline-flex",alignItems:"center",gap:3,padding:"3px 8px",borderRadius:6,fontSize:10,fontFamily:"'JetBrains Mono',monospace",background:"rgba(194,123,26,0.06)",border:"1px solid rgba(194,123,26,0.15)",cursor:"pointer",transition:"all 0.15s"}},
+          React.createElement("span",{style:{color:"#888",fontWeight:500}},sug.original),
+          React.createElement("span",{style:{color:"#C27B1A",fontWeight:400}},"\u2192"),
+          React.createElement("span",{style:{color:"#C27B1A",fontWeight:700}},sug.refined));
+      })),
     // 7. Rest button
     React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4}},
       React.createElement("button",{onClick:addRest,style:{padding:"5px 12px",borderRadius:8,border:"1px solid #E0DFD8",background:"#F5F4F0",color:mu,fontSize:11,cursor:"pointer",fontFamily:"monospace"}},selIdx!==null?"Set Rest":"+ Rest"),
@@ -2494,17 +2526,8 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
   const lc=lick.likes;
   const[burst,sBurst]=useState(null);const burstKeyRef=useRef(0);
   const instOff=INST_TRANS[trInst]||0;
-  const[chordOverrides,setChordOverrides]=useState({});// {originalChord: refinedChord}
-  const applyChordOverrides=function(abc,overrides){
-    if(!overrides||Object.keys(overrides).length===0)return abc;
-    var result=abc;
-    Object.keys(overrides).forEach(function(orig){
-      result=result.split('"'+orig+'"').join('"'+overrides[orig]+'"');
-    });
-    return result;
-  };
-  const notationAbc=useMemo(function(){return applyChordOverrides(transposeAbc(lick.abc,instOff+trMan),chordOverrides);},[lick.abc,instOff,trMan,chordOverrides]);
-  const soundAbc=useMemo(function(){return applyChordOverrides(trMan?transposeAbc(lick.abc,trMan):lick.abc,chordOverrides);},[lick.abc,trMan,chordOverrides]);
+  const notationAbc=transposeAbc(lick.abc,instOff+trMan);
+  const soundAbc=trMan?transposeAbc(lick.abc,trMan):lick.abc;
   // ── THEORY MODE ──
   const[theoryMode,setTheoryMode]=useState(false);
   const[scalePopup,setScalePopup]=useState(null);
@@ -2512,22 +2535,6 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
     if(!theoryMode)return null;
     return analyzeTheory(notationAbc);
   },[theoryMode,notationAbc]);
-  // Chord refinement suggestions from scale detection
-  const chordSuggestions=useMemo(function(){
-    if(!theoryAnalysis||!theoryAnalysis.chordScales)return[];
-    var sugs=[];
-    theoryAnalysis.chordScales.forEach(function(cs){
-      if(!cs.scale||cs.noteCount<3)return;
-      var refined=refineChordName(cs.chord,cs.scale);
-      if(refined!==cs.chord&&!chordOverrides[cs.chord]){
-        sugs.push({original:cs.chord,refined:refined,scale:cs.scale});
-      }
-    });
-    return sugs;
-  },[theoryAnalysis,chordOverrides]);
-  // Reset overrides when transposition changes
-  const prevTrRef=useRef(instOff+trMan);
-  useEffect(function(){if(prevTrRef.current!==(instOff+trMan)){prevTrRef.current=instOff+trMan;setChordOverrides({});}},[instOff,trMan]);
   
   const keyDisplay=lick.key+((instOff+trMan)?" \u2192 "+trKeyName(lick.key.split(" ")[0],instOff+trMan):"");
   const catC=getCatColor(lick.category,t);const instC=getInstColor(lick.instrument,t);
@@ -2581,23 +2588,6 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
               return React.createElement("span",{key:idx,onClick:function(e){e.stopPropagation();var sn=getScaleNotes(cs.chord,cs.scale);if(sn)setScalePopup(sn);},style:{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 8px",borderRadius:6,fontSize:10,fontFamily:"'JetBrains Mono',monospace",background:isStudio?t.accent+"10":"rgba(99,102,241,0.06)",border:"1px solid "+(isStudio?t.accent+"18":"rgba(99,102,241,0.1)"),cursor:"pointer",transition:"all 0.15s"}},
                 React.createElement("span",{style:{fontWeight:700,color:t.chordFill}},cs.chord),
                 React.createElement("span",{style:{fontWeight:500,color:t.text,opacity:0.75,fontFamily:"'Inter',sans-serif",fontSize:10}},cs.scale));}))),
-          // ── Chord refinement suggestions ──
-          chordSuggestions.length>0&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginTop:8,paddingTop:8,borderTop:"1px solid "+(isStudio?t.border:t.borderSub||t.border),flexWrap:"wrap"}},
-            React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,flexShrink:0}},"Implied:"),
-            chordSuggestions.map(function(sug,idx){
-              return React.createElement("button",{key:idx,onClick:function(e){e.stopPropagation();setChordOverrides(function(prev){var next=Object.assign({},prev);next[sug.original]=sug.refined;return next;});},style:{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 8px",borderRadius:6,fontSize:10,fontFamily:"'JetBrains Mono',monospace",background:isStudio?"rgba(251,191,36,0.1)":"rgba(194,123,26,0.06)",border:"1px solid "+(isStudio?"rgba(251,191,36,0.2)":"rgba(194,123,26,0.15)"),cursor:"pointer",transition:"all 0.15s"}},
-                React.createElement("span",{style:{color:t.muted,fontWeight:500}},sug.original),
-                React.createElement("span",{style:{color:isStudio?"#FBBF24":"#C27B1A",fontWeight:400}},"\u2192"),
-                React.createElement("span",{style:{color:isStudio?"#FBBF24":"#C27B1A",fontWeight:700}},sug.refined));
-            })),
-          // ── Active overrides: undo chips ──
-          Object.keys(chordOverrides).length>0&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginTop:6,flexWrap:"wrap"}},
-            React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,flexShrink:0}},"Applied:"),
-            Object.keys(chordOverrides).map(function(orig){
-              return React.createElement("button",{key:orig,onClick:function(e){e.stopPropagation();setChordOverrides(function(prev){var next=Object.assign({},prev);delete next[orig];return next;});},title:"Undo",style:{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 8px",borderRadius:6,fontSize:10,fontFamily:"'JetBrains Mono',monospace",background:isStudio?t.accent+"12":t.accent+"08",border:"1px solid "+(isStudio?t.accent+"25":t.accent+"15"),cursor:"pointer"}},
-                React.createElement("span",{style:{color:t.chordFill,fontWeight:700}},chordOverrides[orig]),
-                React.createElement("span",{style:{color:t.muted,fontSize:9}},"\u2715"));
-            }))),
         theoryMode&&(!theoryAnalysis||!theoryAnalysis.hasChords)&&React.createElement("div",{style:{marginTop:8,padding:"10px 14px",borderRadius:10,background:isStudio?"#F59E0B15":"#FEF3C7",border:"1px solid "+(isStudio?"#F59E0B30":"#FDE68A")}},
           React.createElement("span",{style:{fontSize:12,color:isStudio?"#FBBF24":"#92400E",fontFamily:"'Inter',sans-serif"}},"No chord symbols found in this lick. X-Ray needs chord annotations (e.g. \"Dm7\") to analyze intervals.")),
         abOn&&React.createElement("div",{style:{borderTop:"1px solid "+t.border,marginTop:8,paddingTop:8}},
