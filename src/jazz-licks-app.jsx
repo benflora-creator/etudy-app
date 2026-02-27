@@ -576,8 +576,22 @@ function classifyInterval(semi,chordParsed){
 }
 
 // Full interval label (e.g. "b9", "3", "#11", etc.)
-function getIntervalLabel(semi){
+function getIntervalLabel(semi,chordParsed){
   var iv=((semi%12)+12)%12;
+  if(chordParsed){
+    var q=chordParsed.quality||"";
+    var isMinor=q==="m"||q==="m7"||q==="m9"||q==="m6"||q==="m7b5"||q==="dim"||q==="dim7";
+    // Over major/dom chords: b3→#9, #5→b13, b5→#11
+    if(!isMinor){
+      if(iv===3)return"#9";
+      if(iv===8)return"b13";
+      if(iv===6)return"#11";
+    }
+    // Over minor chords: #5→b6 (or b13), b5 stays b5
+    if(isMinor){
+      if(iv===8)return"b6";
+    }
+  }
   return INTERVAL_LABELS[iv]||"?";
 }
 
@@ -633,7 +647,7 @@ function analyzeTheory(abcStr){
           var tn=ev.tn[ni];
           if(activeRegion&&activeRegion.parsed){
             var semi=getNoteInterval(tn,activeRegion.parsed);
-            var label=getIntervalLabel(semi);
+            var label=getIntervalLabel(semi,activeRegion.parsed);
             var type=classifyInterval(semi,activeRegion.parsed);
             entries.push({note:tn,interval:semi,label:label,type:type,chord:activeRegion.chord});
             chordNotes[activeIdx].add(semi);
