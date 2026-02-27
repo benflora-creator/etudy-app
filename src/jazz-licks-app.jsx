@@ -1592,9 +1592,9 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl}){
   // Scroll to selected note
   useEffect(function(){if(sR.current&&selIdx!==null){var el=sR.current.querySelector("[data-nidx='"+selIdx+"']");if(el)el.scrollIntoView({block:"nearest",inline:"center",behavior:"smooth"});}},[selIdx]);
   // Auto-scroll piano to current octave
-  useEffect(function(){if(pianoRef.current){var el=pianoRef.current.querySelector("[data-oct='"+effOct+"']");if(el){var container=pianoRef.current;var scrollTo=el.offsetLeft-container.clientWidth/2+el.clientWidth*3.5;container.scrollTo({left:Math.max(0,scrollTo),behavior:"smooth"});}}},[effOct]);
+  useEffect(function(){if(pianoRef.current){var el=pianoRef.current.querySelector("[data-oct='"+effOct+"']");if(el){var container=pianoRef.current;container.scrollTo({left:el.offsetLeft-container.clientWidth/2+el.clientWidth/2,behavior:"smooth"});}}},[effOct]);
   // Initial piano scroll (no animation)
-  useEffect(function(){if(pianoRef.current){var el=pianoRef.current.querySelector("[data-oct='4']");if(el){var container=pianoRef.current;var scrollTo=el.offsetLeft-container.clientWidth/2+el.clientWidth*3.5;container.scrollLeft=Math.max(0,scrollTo);}}},[]);
+  useEffect(function(){requestAnimationFrame(function(){if(pianoRef.current){var el=pianoRef.current.querySelector("[data-oct='4']");if(el){var container=pianoRef.current;container.scrollLeft=el.offsetLeft-container.clientWidth/2+el.clientWidth/2;}}});},[]);
 
   const[tsN,tsD]=timeSig.split("/").map(Number);const bE=tsN*(8/tsD);const beatE=8/tsD;
   var tE=0;for(var ii=0;ii<items.length;ii++){var it=items[ii];if(it.type==="note"||it.type==="rest")tE+=DURS[it.dur].eighths*(it.dotted?1.5:1)*(it.tri?2/3:1);}
