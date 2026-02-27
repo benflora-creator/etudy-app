@@ -1544,7 +1544,7 @@ function ABRangeBar({abc,abA,abB,setAbA,setAbB,onReset,th}){
 // ============================================================
 // PLAYER — themed, 3-tier
 // ============================================================
-function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,trInst,setTrInst,trMan,setTrMan,onCurNote,th,onLoopComplete,forceLoop,autoPlay,hideControls,ctrlRef,initFeel,editorMode}){
+function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,trInst,setTrInst,trMan,setTrMan,onCurNote,th,onLoopComplete,forceLoop,autoPlay,hideControls,ctrlRef,initFeel,editorMode,headless,onStateChange}){
   const t=th||TH.classic;
   const[pl,sPl]=useState(false);const[lp,sLp]=useState(forceLoop||editorMode||false);const[bk,sBk]=useState(true);const[ml,sMl]=useState(true);const[fl,sFl]=useState(initFeel||"straight");
   const[backingStyle,setBackingStyle]=useState("piano");const[muteKeys,setMuteKeys]=useState(false);const[muteBass,setMuteBass]=useState(false);const[muteDrums,setMuteDrums]=useState(false);
@@ -1816,10 +1816,20 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
       }
       aR.current=requestAnimationFrame(an);};aR.current=requestAnimationFrame(an);};
   const tgRef=useRef(null);tgRef.current=tg;
-  useEffect(function(){if(ctrlRef)ctrlRef.current={toggle:function(){tgRef.current&&tgRef.current();},playing:pl};},[pl]);
+  useEffect(function(){if(ctrlRef)ctrlRef.current={toggle:function(){tgRef.current&&tgRef.current();},playing:pl,loading:loading,
+    looping:lp,setLooping:sLp,melody:ml,setMelody:sMl,backing:bk,setBacking:sBk,
+    sound:sound,setSound:setSound,backingStyle:backingStyle,setBackingStyle:setBackingStyle,
+    feel:fl,setFeel:sFl,ci:ci,setCi:setCi,muteKeys:muteKeys,setMuteKeys:setMuteKeys,
+    muteBass:muteBass,setMuteBass:setMuteBass,muteDrums:muteDrums,setMuteDrums:setMuteDrums,
+    metroCtrlRef:metroCtrlRef,prBarRef:prBarRef,changeBpm:parentChangeBpm,tapTempo:parentTapTempo,
+    liveRestart:liveRestart,setPr:setPr};},[pl,loading,lp,ml,bk,sound,backingStyle,fl,ci,muteKeys,muteBass,muteDrums]);
+  useEffect(function(){if(onStateChange)onStateChange({playing:pl,loading:loading,looping:lp,melody:ml,backing:bk,sound:sound,backingStyle:backingStyle,feel:fl,ci:ci,muteKeys:muteKeys,muteBass:muteBass,muteDrums:muteDrums});},[pl,loading,lp,ml,bk,sound,backingStyle,fl,ci,muteKeys,muteBass,muteDrums]);
   const autoPlayPrev=useRef(false);
   useEffect(function(){if(autoPlay&&!autoPlayPrev.current&&tgRef.current){var t2=setTimeout(function(){tgRef.current();},50);autoPlayPrev.current=true;return function(){clearTimeout(t2);};}
     if(!autoPlay&&autoPlayPrev.current){autoPlayPrev.current=false;clr();}},[autoPlay]);
+  // HEADLESS MODE: render only hidden MiniMetronome for audio sync, no visible UI
+  if(headless)return React.createElement("div",{style:{position:"absolute",width:0,height:0,overflow:"hidden",pointerEvents:"none"}},
+    React.createElement(MiniMetronome,{th:t,initBpm:pT||tempo,syncPlaying:pl,ctrlRef:metroCtrlRef,onBpmChange:function(v){pTR.current=v;if(sPT)sPT(v);if(!sT.current)liveRestart(v);},lickTempo:lickTempo||tempo,onSetLoop:function(v){if(v)sLp(true);},lickTimeSig:lickTS,headless:true,expandOpen:false,ciProp:ci,setCiProp:setCi}));
   const bb={border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.15s",fontFamily:"'Inter',sans-serif"};
   const pill=(a,ic,fn,label)=>React.createElement("button",{onClick:e=>{e.stopPropagation();fn();},style:{...bb,gap:4,padding:"5px 12px",fontSize:11,fontWeight:a?600:500,borderRadius:20,background:a?t.accentBg:t.pillBg,color:a?t.accent:t.subtle,border:a?"1.5px solid "+t.accentBorder:"1.5px solid "+t.pillBorder,boxShadow:a?"0 0 8px "+t.accentGlow:"none",letterSpacing:0.2}},ic,label?" "+label:"");
   const sBtn=(a,l,fn)=>React.createElement("button",{onClick:e=>{e.stopPropagation();fn();},style:{...bb,gap:4,padding:"6px 12px",fontSize:11,fontWeight:500,borderRadius:8,background:a?t.accentBg:t.filterBg,color:a?t.accent:t.muted}},l);
@@ -2450,6 +2460,9 @@ function ScalePopup({data,th,isStudio,onClose}){
             React.createElement("span",{style:{fontSize:9,fontWeight:600,color:col,fontFamily:"'JetBrains Mono',monospace"}},ivLabel));}))));
 }
 
+// ── DRAWER CONSTANTS ──
+var DRAWER_PEEK=134,DRAWER_HALF=420,DRAWER_FULL_OFF=80;
+
 function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDone,onReShowTips,defaultInst,onDeletePrivate,onReport}){
   const t=th||TH.classic;const isStudio=t===TH.studio;
   const[trInst,setTrInst]=useState(defaultInst||"Concert");const[trMan,setTrMan]=useState(0);
@@ -2470,15 +2483,77 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
     if(!theoryMode)return null;
     return analyzeTheory(notationAbc);
   },[theoryMode,notationAbc]);
-  
   const keyDisplay=lick.key+((instOff+trMan)?" \u2192 "+trKeyName(lick.key.split(" ")[0],instOff+trMan):"");
   const catC=getCatColor(lick.category,t);const instC=getInstColor(lick.instrument,t);
 
-  return React.createElement("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:1000,background:t.bg,overflowY:"auto",WebkitOverflowScrolling:"touch"}},
-    React.createElement("div",{style:{maxWidth:520,margin:"0 auto",padding:"0 16px 100px"}},
+  // ── DRAWER STATE ──
+  const[drawerSnap,setDrawerSnap]=useState(0);// 0=peek,1=half,2=full
+  const[drawerH,setDrawerH]=useState(DRAWER_PEEK);
+  const[dragging,setDragging]=useState(false);
+  const dragRef=useRef({startY:0,startH:0,active:false});
+  const winH=typeof window!=="undefined"?window.innerHeight:800;
+  const snapPts=[DRAWER_PEEK,DRAWER_HALF,winH-DRAWER_FULL_OFF];
 
-      // HEADER
-      React.createElement("div",{style:{position:"sticky",top:0,zIndex:100,background:t.headerBg,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",padding:"12px 0 10px",paddingTop:"calc(env(safe-area-inset-top, 0px) + 12px)",borderBottom:"1px solid "+t.border}},
+  const snapTo=useCallback(function(h){
+    var closest=0,minD=Infinity;
+    snapPts.forEach(function(sp,i){var d=Math.abs(h-sp);if(d<minD){minD=d;closest=i;}});
+    setDrawerH(snapPts[closest]);setDrawerSnap(closest);
+  },[winH]);
+  useEffect(function(){setDrawerH(snapPts[drawerSnap]);},[drawerSnap]);
+
+  var onDragStart=function(e){
+    var y=e.touches?e.touches[0].clientY:e.clientY;
+    dragRef.current={startY:y,startH:drawerH,active:true};setDragging(true);
+  };
+  var onDragMove=function(e){
+    if(!dragRef.current.active)return;
+    var y=e.touches?e.touches[0].clientY:e.clientY;
+    var dy=dragRef.current.startY-y;
+    var nh=Math.max(snapPts[0],Math.min(winH-DRAWER_FULL_OFF,dragRef.current.startH+dy));
+    setDrawerH(nh);
+  };
+  var onDragEnd=function(){
+    if(!dragRef.current.active)return;
+    dragRef.current.active=false;setDragging(false);snapTo(drawerH);
+  };
+  // Mouse drag (for desktop)
+  var onMouseDown=function(e){
+    e.preventDefault();onDragStart(e);
+    var mv=function(ev){onDragMove(ev);};
+    var up=function(){dragRef.current.active=false;setDragging(false);snapTo(drawerH);window.removeEventListener("mousemove",mv);window.removeEventListener("mouseup",up);};
+    window.addEventListener("mousemove",mv);window.addEventListener("mouseup",up);
+  };
+
+  // ── PLAYER STATE (from headless Player via onStateChange) ──
+  const[ps,setPs]=useState({playing:false,loading:false,looping:false,melody:true,backing:true,sound:"piano",backingStyle:"piano",feel:"straight",ci:true,muteKeys:false,muteBass:false,muteDrums:false});
+  // Settings toggle
+  const[settOpen,setSettOpen]=useState(false);
+  // Progress bar ref — bridge to Player's internal prBarRef
+  const prBarRef=useRef(null);
+  useEffect(function(){
+    // Connect our visible progress bar element to Player's animation loop
+    var checkInterval=setInterval(function(){
+      var c=playerCtrlRef.current;
+      if(c&&c.prBarRef&&prBarRef.current){
+        c.prBarRef.current=prBarRef.current;
+        clearInterval(checkInterval);
+      }
+    },100);
+    return function(){clearInterval(checkInterval);};
+  },[]);
+
+  var bb={border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.15s",fontFamily:"'Inter',sans-serif"};
+  var pill=function(active,label,fn,opts){var o=opts||{};return React.createElement("button",{onClick:function(e){e.stopPropagation();fn();},style:{...bb,gap:4,padding:"5px 10px",fontSize:10,fontWeight:active?600:500,borderRadius:8,background:active?(o.warmActive?("#F59E0B14"):t.accentBg):"transparent",border:"1.5px solid "+(active?(o.warmActive?"#F59E0B40":t.accentBorder):t.border),color:active?(o.warmActive?"#F59E0B":t.accent):t.subtle,whiteSpace:"nowrap",letterSpacing:0.2}},label);};
+  var sBtn=function(a,l,fn){return React.createElement("button",{onClick:function(e){e.stopPropagation();fn();},style:{...bb,gap:4,padding:"5px 10px",fontSize:10,fontWeight:500,borderRadius:7,background:a?t.accentBg:t.filterBg,color:a?t.accent:t.muted}},l);};
+
+  // Helper: call Player ctrl
+  var pc=function(){return playerCtrlRef.current||{};};
+
+  return React.createElement("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:1000,background:t.bg}},
+
+    // ═══════ HEADER (sticky) ═══════
+    React.createElement("div",{style:{position:"fixed",top:0,left:0,right:0,zIndex:200,background:t.headerBg,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",borderBottom:"1px solid "+t.border}},
+      React.createElement("div",{style:{maxWidth:520,margin:"0 auto",padding:"12px 16px 10px",paddingTop:"calc(env(safe-area-inset-top, 0px) + 12px)"}},
         React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10}},
           React.createElement("button",{onClick:onBack,style:{background:"none",border:"none",cursor:"pointer",color:isStudio?t.accent:t.muted,fontSize:22,padding:"4px 8px 4px 0",display:"flex",alignItems:"center"}},"\u2039"),
           React.createElement("div",{style:{flex:1,minWidth:0}},
@@ -2486,38 +2561,36 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
             lick.status==="pending"&&React.createElement("span",{style:{fontSize:9,color:"#F59E0B",fontFamily:"'Inter',sans-serif",fontWeight:600,background:"#F59E0B15",padding:"2px 8px",borderRadius:6,border:"1px solid #F59E0B30",marginTop:2,display:"inline-block"}},"\u23F3 Pending review"),
             React.createElement("p",{style:{fontSize:11,color:t.muted,margin:"2px 0 0",fontFamily:"'JetBrains Mono',monospace"}},lick.artist)),
           React.createElement("div",{style:{display:"flex",gap:8,flexShrink:0,alignItems:"center"}},
-            React.createElement("button",{onClick:e=>{onLike(lick.id);if(!liked&&isStudio){const r=e.target.closest("button").getBoundingClientRect();burstKeyRef.current++;sBurst({x:r.left+r.width/2,y:r.top+r.height/2,k:burstKeyRef.current});const b=e.target.closest("button");b.style.animation="none";void b.offsetHeight;b.style.animation="firePop 0.35s ease";}},style:{background:"none",border:"none",cursor:"pointer",padding:"4px",display:"flex",alignItems:"center",gap:5,transition:"all 0.15s"}},isStudio?(liked?IC.flame(22,"#F97316",true):IC.flameOff(22)):React.createElement("span",{style:{fontSize:22,color:liked?"#EF4444":t.muted}},liked?"\u2665":"\u2661"),React.createElement("span",{style:{fontSize:12,fontWeight:600,fontFamily:"'JetBrains Mono',monospace",color:liked?(isStudio?"#F97316":"#EF4444"):t.muted}},lc)),
-            React.createElement("button",{onClick:e=>{onSave(lick.id);if(!saved&&isStudio&&e.target.closest("button")){const b=e.target.closest("button");b.style.animation="none";void b.offsetHeight;b.style.animation="firePop 0.35s ease";}},style:{background:"none",border:"none",cursor:"pointer",padding:"4px",display:"flex",alignItems:"center",transition:"all 0.15s"}},isStudio?IC.target(22,saved?"#22D89E":"#55556A"):React.createElement("span",{style:{fontSize:22,color:saved?"#F59E0B":t.muted}},saved?"\u2605":"\u2606")),
-            !showTips&&onReShowTips&&React.createElement("button",{onClick:onReShowTips,style:{width:20,height:20,borderRadius:10,border:"1px solid "+t.border,background:t.filterBg,color:t.subtle,fontSize:10,fontFamily:"'Inter',sans-serif",fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,marginLeft:2,animation:"helpGlow 0.8s ease"}},"?"))),
+            React.createElement("button",{onClick:function(e){onLike(lick.id);if(!liked&&isStudio){var r=e.target.closest("button").getBoundingClientRect();burstKeyRef.current++;sBurst({x:r.left+r.width/2,y:r.top+r.height/2,k:burstKeyRef.current});var b=e.target.closest("button");b.style.animation="none";void b.offsetHeight;b.style.animation="firePop 0.35s ease";}},style:{background:"none",border:"none",cursor:"pointer",padding:"4px",display:"flex",alignItems:"center",gap:5,transition:"all 0.15s"}},isStudio?(liked?IC.flame(22,"#F97316",true):IC.flameOff(22)):React.createElement("span",{style:{fontSize:22,color:liked?"#EF4444":t.muted}},liked?"\u2665":"\u2661"),React.createElement("span",{style:{fontSize:12,fontWeight:600,fontFamily:"'JetBrains Mono',monospace",color:liked?(isStudio?"#F97316":"#EF4444"):t.muted}},lc)),
+            React.createElement("button",{onClick:function(e){onSave(lick.id);if(!saved&&isStudio&&e.target.closest("button")){var b=e.target.closest("button");b.style.animation="none";void b.offsetHeight;b.style.animation="firePop 0.35s ease";}},style:{background:"none",border:"none",cursor:"pointer",padding:"4px",display:"flex",alignItems:"center",transition:"all 0.15s"}},isStudio?IC.target(22,saved?"#22D89E":"#55556A"):React.createElement("span",{style:{fontSize:22,color:saved?"#F59E0B":t.muted}},saved?"\u2605":"\u2606")),
+            !showTips&&onReShowTips&&React.createElement("button",{onClick:onReShowTips,style:{width:20,height:20,borderRadius:10,border:"1px solid "+t.border,background:t.filterBg,color:t.subtle,fontSize:10,fontFamily:"'Inter',sans-serif",fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,marginLeft:2,animation:"helpGlow 0.8s ease"}},"?"))))),
 
-      // META chips — colorful in Studio
-      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginTop:28,marginBottom:14,flexWrap:"wrap"}},
-        React.createElement("span",{style:{fontSize:10,display:"flex",alignItems:"center",gap:4,color:instC,fontWeight:600,fontFamily:"'JetBrains Mono',monospace",background:instC+"18",padding:"4px 10px",borderRadius:8,border:isStudio?"1px solid "+instC+"30":"none"}},lick.instrument),
-        React.createElement("span",{style:{fontSize:10,color:catC,fontWeight:isStudio?600:400,fontFamily:"'JetBrains Mono',monospace",background:isStudio?catC+"18":t.card,padding:"4px 10px",borderRadius:8,border:isStudio?"1px solid "+catC+"30":"1px solid "+t.border}},lick.category),
-        React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace",background:t.card,padding:"4px 10px",borderRadius:8,border:"1px solid "+t.border}},keyDisplay),
-        React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace",background:t.card,padding:"4px 10px",borderRadius:8,border:"1px solid "+t.border,display:"flex",alignItems:"center",gap:3}},isStudio&&lick.tempo>=160&&IC.flame(11,"#F97316",true),isStudio&&lick.tempo<=100&&IC.slow(11,"#8888A0"),"\u2669="+lick.tempo)),
-
-      // NOTATION + PLAYER — edge to edge, no card
-      React.createElement("div",{"data-coach":"player",style:{marginBottom:12,marginLeft:-16,marginRight:-16,paddingLeft:16,paddingRight:16,position:"relative"}},
-        React.createElement("div",{onClick:()=>!theoryMode&&setFocus(true),style:{cursor:theoryMode?"default":"zoom-in"}},
-          React.createElement(Notation,{abc:notationAbc,compact:false,abRange:abOn?[abA,abB]:null,curNoteRef,th:t,theoryMode:theoryMode,theoryAnalysis:theoryAnalysis})),
-        // X-Ray toggle + Fullscreen
-        React.createElement("div",{style:{position:"absolute",top:10,right:26,display:"flex",gap:6,alignItems:"center"}},
-          React.createElement("button",{onClick:()=>setTheoryMode(!theoryMode),title:"X-Ray: Theory Analysis",style:{width:32,height:32,borderRadius:8,background:theoryMode?(isStudio?t.accent+"25":t.accent+"15"):t.accentBg,display:"flex",alignItems:"center",justifyContent:"center",border:theoryMode?"1.5px solid "+(isStudio?t.accent+"60":t.accent):("1px solid "+t.accentBorder),cursor:"pointer",transition:"all 0.2s",boxShadow:theoryMode?("0 0 12px "+(isStudio?t.accent+"30":"rgba(99,102,241,0.15)")):"none"}},IC.xray(15,theoryMode?t.accent:(isStudio?t.subtle:t.muted),theoryMode)),
-          !theoryMode&&React.createElement("button",{onClick:()=>setFocus(true),style:{width:28,height:28,borderRadius:7,background:t.accentBg,display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid "+t.accentBorder,cursor:"pointer"}},React.createElement("span",{style:{fontSize:12,color:t.accent}},"\u26F6"))),
-        // ── THEORY INFO PANEL ──
+    // ═══════ NOTATION AREA (fills space between header and drawer) ═══════
+    React.createElement("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:drawerH,paddingTop:"calc(env(safe-area-inset-top, 0px) + 60px)",overflowY:"auto",WebkitOverflowScrolling:"touch"}},
+      React.createElement("div",{style:{maxWidth:520,margin:"0 auto",padding:"12px 16px 20px"}},
+        // Meta chips
+        React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:12,flexWrap:"wrap"}},
+          React.createElement("span",{style:{fontSize:10,display:"flex",alignItems:"center",gap:4,color:instC,fontWeight:600,fontFamily:"'JetBrains Mono',monospace",background:instC+"18",padding:"4px 10px",borderRadius:8,border:isStudio?"1px solid "+instC+"30":"none"}},lick.instrument),
+          React.createElement("span",{style:{fontSize:10,color:catC,fontWeight:isStudio?600:400,fontFamily:"'JetBrains Mono',monospace",background:isStudio?catC+"18":t.card,padding:"4px 10px",borderRadius:8,border:isStudio?"1px solid "+catC+"30":"1px solid "+t.border}},lick.category),
+          React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace",background:t.card,padding:"4px 10px",borderRadius:8,border:"1px solid "+t.border}},keyDisplay),
+          React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace",background:t.card,padding:"4px 10px",borderRadius:8,border:"1px solid "+t.border,display:"flex",alignItems:"center",gap:3}},isStudio&&lick.tempo>=160&&IC.flame(11,"#F97316",true),isStudio&&lick.tempo<=100&&IC.slow(11,"#8888A0"),"\u2669="+lick.tempo)),
+        // Notation
+        React.createElement("div",{style:{position:"relative",background:isStudio?t.cardRaised||t.card:t.card,borderRadius:16,padding:"16px 12px 12px",border:"1px solid "+t.border,boxShadow:isStudio?"0 4px 24px rgba(0,0,0,0.3)":"0 2px 12px rgba(0,0,0,0.06)"}},
+          React.createElement("div",{onClick:function(){if(!theoryMode)setFocus(true);},style:{cursor:theoryMode?"default":"zoom-in"}},
+            React.createElement(Notation,{abc:notationAbc,compact:false,abRange:abOn?[abA,abB]:null,curNoteRef:curNoteRef,th:t,theoryMode:theoryMode,theoryAnalysis:theoryAnalysis})),
+          // X-Ray + Fullscreen buttons
+          React.createElement("div",{style:{position:"absolute",top:10,right:14,display:"flex",gap:6,alignItems:"center"}},
+            React.createElement("button",{onClick:function(){setTheoryMode(!theoryMode);},title:"X-Ray: Theory Analysis",style:{width:32,height:32,borderRadius:8,background:theoryMode?(isStudio?t.accent+"25":t.accent+"15"):t.accentBg,display:"flex",alignItems:"center",justifyContent:"center",border:theoryMode?"1.5px solid "+(isStudio?t.accent+"60":t.accent):("1px solid "+t.accentBorder),cursor:"pointer",transition:"all 0.2s",boxShadow:theoryMode?("0 0 12px "+(isStudio?t.accent+"30":"rgba(99,102,241,0.15)")):"none"}},IC.xray(15,theoryMode?t.accent:(isStudio?t.subtle:t.muted),theoryMode)),
+            !theoryMode&&React.createElement("button",{onClick:function(){setFocus(true);},style:{width:28,height:28,borderRadius:7,background:t.accentBg,display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid "+t.accentBorder,cursor:"pointer"}},React.createElement("span",{style:{fontSize:12,color:t.accent}},"\u26F6")))),
+        // Theory info panel
         theoryMode&&theoryAnalysis&&theoryAnalysis.hasChords&&React.createElement("div",{style:{marginTop:10,padding:"10px 12px",borderRadius:12,background:isStudio?t.card:t.settingsBg,border:"1px solid "+(isStudio?t.accent+"20":t.accentBorder),transition:"all 0.2s"}},
-          // Single row: Legend dots + Scale chips
           React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}},
-            // Legend — compact dots
             React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,marginRight:4}},
               [["chord-tone","CT"],["tension","T"],["chromatic","Chr"]].map(function(pair){
                 return React.createElement("span",{key:pair[0],style:{display:"flex",alignItems:"center",gap:3,fontSize:9,fontFamily:"'JetBrains Mono',monospace"}},
                   React.createElement("span",{style:{width:7,height:7,borderRadius:"50%",background:getTheoryColor(pair[0],isStudio),display:"inline-block",flexShrink:0,boxShadow:"0 0 4px "+getTheoryColor(pair[0],isStudio)+"40"}}),
                   React.createElement("span",{style:{color:getTheoryColor(pair[0],isStudio),fontWeight:600,opacity:0.85}},pair[1]));})),
-            // Divider
             theoryAnalysis.chordScales&&theoryAnalysis.chordScales.some(function(cs){return cs.scale&&cs.noteCount>=2;})&&React.createElement("span",{style:{width:1,height:14,background:t.border,flexShrink:0}}),
-            // Scale chips
             theoryAnalysis.chordScales&&theoryAnalysis.chordScales.map(function(cs,idx){
               if(!cs.scale||cs.noteCount<2)return null;
               return React.createElement("span",{key:idx,onClick:function(e){e.stopPropagation();var sn=getScaleNotes(cs.chord,cs.scale);if(sn)setScalePopup(sn);},style:{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 8px",borderRadius:6,fontSize:10,fontFamily:"'JetBrains Mono',monospace",background:isStudio?t.accent+"10":"rgba(99,102,241,0.06)",border:"1px solid "+(isStudio?t.accent+"18":"rgba(99,102,241,0.1)"),cursor:"pointer",transition:"all 0.15s"}},
@@ -2525,56 +2598,138 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
                 React.createElement("span",{style:{fontWeight:500,color:t.text,opacity:0.75,fontFamily:"'Inter',sans-serif",fontSize:10}},cs.scale));}))),
         theoryMode&&(!theoryAnalysis||!theoryAnalysis.hasChords)&&React.createElement("div",{style:{marginTop:8,padding:"10px 14px",borderRadius:10,background:isStudio?"#F59E0B15":"#FEF3C7",border:"1px solid "+(isStudio?"#F59E0B30":"#FDE68A")}},
           React.createElement("span",{style:{fontSize:12,color:isStudio?"#FBBF24":"#92400E",fontFamily:"'Inter',sans-serif"}},"No chord symbols found in this lick. X-Ray needs chord annotations (e.g. \"Dm7\") to analyze intervals.")),
-        abOn&&React.createElement("div",{style:{borderTop:"1px solid "+t.border,marginTop:8,paddingTop:8}},
-          React.createElement(ABRangeBar,{abc:notationAbc,abA,abB,setAbA,setAbB,onReset:()=>{setAbA(0);setAbB(1);},th:t})),
-        // TRANSPOSE — above player controls
-        React.createElement("div",{style:{marginTop:10}},
-          React.createElement("button",{onClick:function(){setTrOpen(!trOpen);},style:{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",padding:"10px 14px",borderRadius:trOpen?"14px 14px 0 0":14,border:"1px solid "+t.border,borderBottom:trOpen?"none":"1px solid "+t.border,background:t.card,cursor:"pointer",boxShadow:"0 1px 4px rgba(0,0,0,0.05)"}},
-            React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
-              React.createElement("span",{style:{fontSize:11,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600}},"TRANSPOSE"),
-              (instOff+trMan)!==0&&React.createElement("span",{style:{fontSize:10,color:t.accent,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,background:t.accentBg,padding:"2px 8px",borderRadius:6}},trKeyName("C",instOff+trMan))),
-            React.createElement("span",{style:{fontSize:10,color:t.subtle,transform:trOpen?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.15s"}},"\u25BC")),
-          trOpen&&React.createElement("div",{"data-coach":"transpose",style:{background:t.card,borderRadius:"0 0 14px 14px",padding:"10px 14px 14px",border:"1px solid "+t.border,borderTop:"none",boxShadow:"0 1px 4px rgba(0,0,0,0.05)"}},
-            React.createElement(TransposeBar,{trInst,setTrInst,trMan,setTrMan,th:t}))),
-        React.createElement("div",{style:{borderTop:"1px solid "+t.border,marginTop:6,paddingTop:6}},
-          React.createElement(Player,{abc:soundAbc,tempo:pT,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo:lick.tempo,trInst:null,setTrInst:null,trMan:null,setTrMan:null,onCurNote:n=>{curNoteRef.current=n;},th:t,ctrlRef:playerCtrlRef,initFeel:lick.feel}))),
-      focus&&React.createElement(SheetFocus,{abc:notationAbc,onClose:()=>setFocus(false),abRange:abOn?[abA,abB]:null,curNoteRef,th:t,playerCtrlRef:playerCtrlRef,theoryMode:theoryMode,theoryAnalysis:theoryAnalysis}),
+        // Hint to swipe up
+        drawerSnap===0&&!theoryMode&&React.createElement("div",{onClick:function(){setDrawerSnap(1);},style:{display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginTop:16,cursor:"pointer",opacity:0.5}},
+          React.createElement("span",{style:{fontSize:9,color:t.subtle,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1.5}},"\u25B2 SWIPE UP FOR MORE")))),
 
-      // ── SCALE POPUP ──
-      scalePopup&&React.createElement(ScalePopup,{data:scalePopup,th:t,isStudio:isStudio,onClose:function(){setScalePopup(null);}}),
+    // ═══════ BOTTOM DRAWER ═══════
+    React.createElement("div",{style:{position:"fixed",bottom:0,left:0,right:0,height:drawerH,background:isStudio?t.card:t.card,borderRadius:"20px 20px 0 0",boxShadow:"0 -4px 30px rgba(0,0,0,"+(isStudio?"0.5":"0.12")+"), 0 -1px 0 "+t.border,transition:dragging?"none":"height 0.35s cubic-bezier(0.32,0.72,0,1)",zIndex:150,display:"flex",flexDirection:"column",overflow:"hidden"}},
+      // Drag handle
+      React.createElement("div",{onTouchStart:onDragStart,onTouchMove:onDragMove,onTouchEnd:onDragEnd,onMouseDown:onMouseDown,style:{padding:"8px 0 4px",cursor:"grab",display:"flex",justifyContent:"center",flexShrink:0,userSelect:"none",touchAction:"none"}},
+        React.createElement("div",{style:{width:36,height:4,borderRadius:2,background:t.subtle,opacity:0.4}})),
+      // Drawer scroll content
+      React.createElement("div",{style:{flex:1,overflowY:drawerSnap>0?"auto":"hidden",overflowX:"hidden",WebkitOverflowScrolling:"touch"}},
 
-      // MORE — Description, Tags, YouTube, Spotify collapsed
-      (lick.description||lick.youtubeId||lick.spotifyId||(lick.tags&&lick.tags.length>0))&&React.createElement("div",{style:{marginBottom:12}},
-        React.createElement("button",{onClick:function(){setMoreOpen(!moreOpen);},style:{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",padding:"10px 14px",borderRadius:moreOpen?"14px 14px 0 0":14,border:"1px solid "+t.border,borderBottom:moreOpen?"none":"1px solid "+t.border,background:t.card,cursor:"pointer"}},
-          React.createElement("span",{style:{fontSize:11,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600}},"MORE"),
-          React.createElement("span",{style:{fontSize:10,color:t.subtle,transform:moreOpen?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.15s"}},"\u25BC")),
-        moreOpen&&React.createElement("div",{style:{background:t.card,borderRadius:"0 0 14px 14px",padding:"10px 14px 14px",border:"1px solid "+t.border,borderTop:"none",display:"flex",flexDirection:"column",gap:12}},
-          lick.description&&React.createElement("p",{style:{fontSize:14,color:t.muted,lineHeight:1.7,margin:0,fontStyle:"italic",fontFamily:t.titleFont}},lick.description),
-          lick.tags&&lick.tags.length>0&&React.createElement("div",{style:{display:"flex",gap:6,flexWrap:"wrap"}},
-            lick.tags.map((tag,i)=>{const cols=Object.values(CAT_COL);const c=isStudio?cols[i%cols.length]:t.accent;
-              return React.createElement("span",{key:i,style:{fontSize:11,color:c,fontFamily:"'JetBrains Mono',monospace",background:isStudio?c+"15":t.accentBg,padding:"5px 12px",borderRadius:10,border:"1px solid "+(isStudio?c+"30":t.accentBorder),display:"flex",alignItems:"center",gap:5}},isStudio&&IC.pip(5,c),tag);})),
-          React.createElement(YTP,{videoId:lick.youtubeId,startTime:lick.youtubeStart,isActive:true,th:t}),
-          React.createElement(SpotifyEmbed,{trackId:lick.spotifyId,th:t}))),
+        // ────── PEEK: MINIBAR ──────
+        React.createElement("div",{style:{padding:"0 16px",flexShrink:0}},
+          // Progress bar
+          React.createElement("div",{style:{height:3,borderRadius:2,background:t.progressBg||t.border,marginBottom:10,overflow:"hidden",position:"relative"}},
+            abOn&&React.createElement("div",{style:{position:"absolute",left:((abA||0)*100)+"%",width:(((abB||1)-(abA||0))*100)+"%",height:"100%",background:t.accentBg}}),
+            React.createElement("div",{ref:prBarRef,style:{position:"absolute",left:0,width:"0%",height:"100%",background:t.accent,borderRadius:2,boxShadow:ps.playing?"0 0 8px "+t.accentGlow:"none"}})),
+          // Row 1: Play · BPM · spacer · Loop · Melody · Backing
+          React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:8}},
+            // Play button
+            React.createElement("button",{onClick:function(e){e.stopPropagation();var c=pc();if(c.toggle)c.toggle();},style:{width:44,height:44,borderRadius:14,flexShrink:0,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",background:ps.playing?(isStudio?"linear-gradient(135deg,#22D89E,#1AB87A)":t.accent):(ps.loading?t.filterBg:t.playBg),boxShadow:ps.playing?"0 4px 20px "+t.accentGlow:ps.loading?"none":"0 2px 12px "+t.accentGlow,transition:"all 0.2s"}},
+              ps.loading?React.createElement("div",{style:{width:14,height:14,border:"2px solid "+t.accentBg,borderTopColor:t.accent,borderRadius:"50%",animation:"spin 0.8s linear infinite"}}):
+              ps.playing?React.createElement("div",{style:{display:"flex",gap:2.5}},React.createElement("div",{style:{width:3.5,height:14,background:isStudio?"#08080F":"#fff",borderRadius:1}}),React.createElement("div",{style:{width:3.5,height:14,background:isStudio?"#08080F":"#fff",borderRadius:1}})):
+              React.createElement("div",{style:{width:0,height:0,borderTop:"8px solid transparent",borderBottom:"8px solid transparent",borderLeft:"13px solid #fff",marginLeft:2}})),
+            // BPM — click opens half drawer
+            React.createElement("button",{onClick:function(e){e.stopPropagation();if(drawerSnap<1)setDrawerSnap(1);},style:{background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"flex-start",padding:"2px 0",minWidth:44}},
+              React.createElement("div",{style:{fontSize:20,fontWeight:800,color:ps.playing?t.accent:t.text,fontFamily:"'JetBrains Mono',monospace",letterSpacing:-1,lineHeight:1}},pT),
+              React.createElement("div",{style:{fontSize:7,color:t.subtle,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,marginTop:2}},"BPM \u25BE")),
+            // Spacer
+            React.createElement("div",{style:{flex:1}}),
+            // Loop
+            pill(ps.looping,"\u221E",function(){var c=pc();if(c.setLooping)c.setLooping(!ps.looping);}),
+            // Melody
+            pill(ps.melody,"Melody",function(){var c=pc();if(c.setMelody)c.setMelody(!ps.melody);}),
+            // Backing
+            pill(ps.backing,"Backing",function(){var c=pc();if(c.setBacking)c.setBacking(!ps.backing);},{warmActive:true})),
+          // Row 2: A·B loop
+          React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,paddingTop:6,borderTop:"1px solid "+(t.border+"60")}},
+            pill(abOn,"A\u2009\u00B7\u2009B",function(){setAbOn(!abOn);if(!abOn){setAbA(0);setAbB(1);}},{warmActive:true}),
+            React.createElement("div",{style:{flex:1,opacity:abOn?1:0.3,transition:"opacity 0.2s",pointerEvents:abOn?"auto":"none"}},
+              React.createElement(ABRangeBar,{abc:notationAbc,abA:abA,abB:abB,setAbA:setAbA,setAbB:setAbB,onReset:function(){setAbA(0);setAbB(1);},th:t})))),
 
-      // ABC CODE
-//       React.createElement("details",{style:{marginTop:12}},
-//         React.createElement("summary",{style:{fontSize:11,color:t.subtle,fontFamily:"monospace",cursor:"pointer",letterSpacing:1,display:"flex",alignItems:"center",gap:5}},isStudio&&IC.code(11,t.subtle),isStudio?"ABC CODE":"VIEW ABC"),
-//         React.createElement("pre",{style:{fontSize:12,color:t.accent,background:t.card,padding:14,borderRadius:12,marginTop:8,overflow:"auto",fontFamily:"'JetBrains Mono',monospace",lineHeight:1.5,whiteSpace:"pre-wrap",border:"1px solid "+t.border}},notationAbc))),
+        // ────── HALF: CONTROLS ──────
+        React.createElement("div",{style:{padding:"12px 16px 0",opacity:drawerSnap>=1?1:0,maxHeight:drawerSnap>=1?"none":0,overflow:drawerSnap>=1?"visible":"hidden",transition:"opacity 0.3s"}},
+          // BPM controls — compact row with ±, TAP, reset
+          React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,background:t.settingsBg||t.filterBg,borderRadius:12,border:"1px solid "+t.border,padding:"8px 12px",marginBottom:10}},
+            React.createElement("span",{style:{fontSize:22,fontWeight:700,color:ps.playing?t.accent:t.text,fontFamily:"'JetBrains Mono',monospace",minWidth:36}},pT),
+            React.createElement("div",{style:{display:"flex",gap:2}},
+              React.createElement("button",{onClick:function(e){e.stopPropagation();var nv=Math.max(30,pT-1);sPT(nv);var c=pc();if(c.metroCtrlRef&&c.metroCtrlRef.current&&c.metroCtrlRef.current.setBpmLive)c.metroCtrlRef.current.setBpmLive(nv);if(c.liveRestart&&ps.playing)c.liveRestart(nv);},style:{width:28,height:28,borderRadius:7,border:"1px solid "+t.border,background:t.card,color:t.text,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"\u22121"),
+              React.createElement("button",{onClick:function(e){e.stopPropagation();var nv=Math.max(30,pT-5);sPT(nv);var c=pc();if(c.metroCtrlRef&&c.metroCtrlRef.current&&c.metroCtrlRef.current.setBpmLive)c.metroCtrlRef.current.setBpmLive(nv);if(c.liveRestart&&ps.playing)c.liveRestart(nv);},style:{width:28,height:28,borderRadius:7,border:"1px solid "+t.border,background:t.card,color:t.text,fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"\u22125"),
+              React.createElement("button",{onClick:function(e){e.stopPropagation();var nv=Math.min(300,pT+5);sPT(nv);var c=pc();if(c.metroCtrlRef&&c.metroCtrlRef.current&&c.metroCtrlRef.current.setBpmLive)c.metroCtrlRef.current.setBpmLive(nv);if(c.liveRestart&&ps.playing)c.liveRestart(nv);},style:{width:28,height:28,borderRadius:7,border:"1px solid "+t.border,background:t.card,color:t.text,fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"+5"),
+              React.createElement("button",{onClick:function(e){e.stopPropagation();var nv=Math.min(300,pT+1);sPT(nv);var c=pc();if(c.metroCtrlRef&&c.metroCtrlRef.current&&c.metroCtrlRef.current.setBpmLive)c.metroCtrlRef.current.setBpmLive(nv);if(c.liveRestart&&ps.playing)c.liveRestart(nv);},style:{width:28,height:28,borderRadius:7,border:"1px solid "+t.border,background:t.card,color:t.text,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"+1")),
+            React.createElement("button",{onClick:function(e){e.stopPropagation();var c=pc();if(c.tapTempo)c.tapTempo();},style:{padding:"5px 12px",borderRadius:8,border:"1.5px solid "+t.border,background:t.card,color:t.text,fontSize:10,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer"}},"TAP"),
+            pT!==lick.tempo&&React.createElement("button",{onClick:function(e){e.stopPropagation();sPT(lick.tempo);var c=pc();if(c.metroCtrlRef&&c.metroCtrlRef.current&&c.metroCtrlRef.current.setBpmLive)c.metroCtrlRef.current.setBpmLive(lick.tempo);if(c.liveRestart&&ps.playing)c.liveRestart(lick.tempo);},style:{padding:"3px 8px",borderRadius:6,border:"none",background:"none",color:t.muted,fontSize:9,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},"\u21A9 "+lick.tempo)),
+          // Transpose
+          React.createElement("div",{style:{marginBottom:10}},
+            React.createElement("button",{onClick:function(){setTrOpen(!trOpen);},style:{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",padding:"10px 14px",borderRadius:trOpen?"14px 14px 0 0":14,border:"1px solid "+t.border,borderBottom:trOpen?"none":"1px solid "+t.border,background:isStudio?t.cardRaised||t.card:t.card,cursor:"pointer",boxShadow:"0 1px 4px rgba(0,0,0,0.05)"}},
+              React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
+                React.createElement("span",{style:{fontSize:11,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600}},"TRANSPOSE"),
+                (instOff+trMan)!==0&&React.createElement("span",{style:{fontSize:10,color:t.accent,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,background:t.accentBg,padding:"2px 8px",borderRadius:6}},trKeyName("C",instOff+trMan))),
+              React.createElement("span",{style:{fontSize:10,color:t.subtle,transform:trOpen?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.15s"}},"\u25BC")),
+            trOpen&&React.createElement("div",{"data-coach":"transpose",style:{background:isStudio?t.cardRaised||t.card:t.card,borderRadius:"0 0 14px 14px",padding:"10px 14px 14px",border:"1px solid "+t.border,borderTop:"none",boxShadow:"0 1px 4px rgba(0,0,0,0.05)"}},
+              React.createElement(TransposeBar,{trInst:trInst,setTrInst:setTrInst,trMan:trMan,setTrMan:setTrMan,th:t}))),
+          // Sound + Backing Style + Feel row
+          React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:8,marginBottom:10}},
+            // Melody sound
+            ps.melody&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}},
+              React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5,minWidth:40}},"SOUND"),
+              SOUND_PRESETS.map(function(p){return React.createElement("button",{key:p.id,onClick:function(e){e.stopPropagation();var c=pc();if(c.setSound)c.setSound(p.id);},style:{...bb,gap:3,padding:"5px 9px",fontSize:10,borderRadius:7,whiteSpace:"nowrap",background:ps.sound===p.id?t.accentBg:t.filterBg,color:ps.sound===p.id?t.accent:t.muted}},p.label);})),
+            // Backing style
+            ps.backing&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}},
+              React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5,minWidth:40}},"STYLE"),
+              BACKING_STYLES.map(function(s){return React.createElement("button",{key:s.id,onClick:function(e){e.stopPropagation();var c=pc();if(c.setBackingStyle)c.setBackingStyle(s.id);},style:{...bb,gap:3,padding:"5px 9px",fontSize:10,borderRadius:7,whiteSpace:"nowrap",background:ps.backingStyle===s.id?t.accentBg:t.filterBg,color:ps.backingStyle===s.id?t.accent:t.muted}},s.emoji+" "+s.label);}),
+              // Mute controls for jazz/bossa
+              ps.backingStyle!=="piano"&&ps.backingStyle!=="rhodes"&&React.createElement("span",{style:{display:"flex",gap:3,marginLeft:4}},
+                React.createElement("button",{onClick:function(e){e.stopPropagation();var c=pc();if(c.setMuteKeys)c.setMuteKeys(!ps.muteKeys);},style:{...bb,padding:"3px 7px",fontSize:9,borderRadius:5,background:ps.muteKeys?t.filterBg:t.accentBg,color:ps.muteKeys?t.muted:t.accent,textDecoration:ps.muteKeys?"line-through":"none"}},"Keys"),
+                React.createElement("button",{onClick:function(e){e.stopPropagation();var c=pc();if(c.setMuteBass)c.setMuteBass(!ps.muteBass);},style:{...bb,padding:"3px 7px",fontSize:9,borderRadius:5,background:ps.muteBass?t.filterBg:t.accentBg,color:ps.muteBass?t.muted:t.accent,textDecoration:ps.muteBass?"line-through":"none"}},"Bass"),
+                (ps.backingStyle==="jazz"||ps.backingStyle==="bossa")&&React.createElement("button",{onClick:function(e){e.stopPropagation();var c=pc();if(c.setMuteDrums)c.setMuteDrums(!ps.muteDrums);},style:{...bb,padding:"3px 7px",fontSize:9,borderRadius:5,background:ps.muteDrums?t.filterBg:t.accentBg,color:ps.muteDrums?t.muted:t.accent,textDecoration:ps.muteDrums?"line-through":"none"}},"Drums"))),
+            // Feel
+            React.createElement("div",{style:{display:"flex",alignItems:"center",gap:5}},
+              React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5,minWidth:40}},"FEEL"),
+              ["straight","swing","hard-swing"].map(function(v){return sBtn(ps.feel===v,v==="straight"?"Straight":v==="swing"?"Swing":"Hard Swing",function(){var c=pc();if(c.setFeel)c.setFeel(v);});})))),
 
-      // PRIVATE LICK ACTIONS
-      lick.private&&React.createElement("div",{style:{marginTop:16,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}},
-        onDeletePrivate&&React.createElement("button",{onClick:function(){if(confirm("Delete this lick?"))onDeletePrivate(lick.id);},style:{padding:"12px 20px",borderRadius:12,border:"1.5px solid #EF4444",background:"#EF444410",color:"#EF4444",fontSize:12,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer"}},"\u2715  Delete"),
-        React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4,padding:"8px 12px",borderRadius:10,background:isStudio?"rgba(34,216,158,0.1)":"#E8F5E9"}},
-          React.createElement("span",{style:{fontSize:10,color:isStudio?"#22D89E":"#2E7D32",fontFamily:"'Inter',sans-serif",fontWeight:500}},"\uD83D\uDD12 Private \u00B7 Offline"))),
+        // ────── FULL: THEORY + MORE + REPORT ──────
+        React.createElement("div",{style:{padding:"0 16px 32px",opacity:drawerSnap>=2?1:0,maxHeight:drawerSnap>=2?"none":0,overflow:drawerSnap>=2?"visible":"hidden",transition:"opacity 0.3s"}},
+          // Theory X-Ray toggle (for convenience in drawer too)
+          React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:14}},
+            React.createElement("div",{style:{height:1,flex:1,background:t.border}}),
+            React.createElement("span",{style:{fontSize:9,color:t.subtle,fontFamily:"'JetBrains Mono',monospace",letterSpacing:2}},"THEORY"),
+            React.createElement("div",{style:{height:1,flex:1,background:t.border}})),
+          React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:14}},
+            React.createElement("button",{onClick:function(){setTheoryMode(!theoryMode);},style:{display:"flex",alignItems:"center",gap:8,padding:"10px 16px",borderRadius:12,border:"1.5px solid "+(theoryMode?t.accent:t.border),background:theoryMode?(isStudio?t.accent+"15":t.accent+"08"):t.filterBg,cursor:"pointer",transition:"all 0.2s"}},
+              IC.xray(16,theoryMode?t.accent:t.muted,theoryMode),
+              React.createElement("span",{style:{fontSize:12,fontWeight:600,color:theoryMode?t.accent:t.muted,fontFamily:"'Inter',sans-serif"}},theoryMode?"X-Ray ON":"X-Ray OFF"))),
 
-      // REPORT — prominent at bottom
-      !lick.private&&onReport&&React.createElement("div",{style:{marginTop:32,paddingTop:24,borderTop:"1px solid "+t.border,display:"flex",justifyContent:"center"}},
-        React.createElement("button",{onClick:function(){if(confirm("Report this lick as spam or inappropriate?")){onReport(lick.id);}},style:{display:"flex",alignItems:"center",gap:8,padding:"14px 32px",borderRadius:14,border:"1.5px solid "+(isStudio?"rgba(239,68,68,0.25)":"rgba(239,68,68,0.2)"),background:isStudio?"rgba(239,68,68,0.06)":"rgba(239,68,68,0.04)",color:isStudio?"#F87171":"#DC2626",fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer",transition:"all 0.15s",letterSpacing:0.3}},"\u26A0\uFE0F  Report this lick")),
-    ),
+          // More — Description, Tags, YouTube, Spotify
+          (lick.description||lick.youtubeId||lick.spotifyId||(lick.tags&&lick.tags.length>0))&&React.createElement("div",{style:{marginBottom:12}},
+            React.createElement("button",{onClick:function(){setMoreOpen(!moreOpen);},style:{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",padding:"10px 14px",borderRadius:moreOpen?"14px 14px 0 0":14,border:"1px solid "+t.border,borderBottom:moreOpen?"none":"1px solid "+t.border,background:isStudio?t.cardRaised||t.card:t.card,cursor:"pointer"}},
+              React.createElement("span",{style:{fontSize:11,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600}},"MORE"),
+              React.createElement("span",{style:{fontSize:10,color:t.subtle,transform:moreOpen?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.15s"}},"\u25BC")),
+            moreOpen&&React.createElement("div",{style:{background:isStudio?t.cardRaised||t.card:t.card,borderRadius:"0 0 14px 14px",padding:"10px 14px 14px",border:"1px solid "+t.border,borderTop:"none",display:"flex",flexDirection:"column",gap:12}},
+              lick.description&&React.createElement("p",{style:{fontSize:14,color:t.muted,lineHeight:1.7,margin:0,fontStyle:"italic",fontFamily:t.titleFont}},lick.description),
+              lick.tags&&lick.tags.length>0&&React.createElement("div",{style:{display:"flex",gap:6,flexWrap:"wrap"}},
+                lick.tags.map(function(tag,i){var cols=Object.values(CAT_COL);var c=isStudio?cols[i%cols.length]:t.accent;
+                  return React.createElement("span",{key:i,style:{fontSize:11,color:c,fontFamily:"'JetBrains Mono',monospace",background:isStudio?c+"15":t.accentBg,padding:"5px 12px",borderRadius:10,border:"1px solid "+(isStudio?c+"30":t.accentBorder),display:"flex",alignItems:"center",gap:5}},isStudio&&IC.pip(5,c),tag);})),
+              React.createElement(YTP,{videoId:lick.youtubeId,startTime:lick.youtubeStart,isActive:true,th:t}),
+              React.createElement(SpotifyEmbed,{trackId:lick.spotifyId,th:t}))),
 
-    burst&&React.createElement(FireBurst,{key:burst.k,originX:burst.x,originY:burst.y,onDone:()=>sBurst(null)}),
-    showTips&&React.createElement(CoachMarks,{tips:DETAIL_TIPS,onDone:onTipsDone,th:t})));}
+          // Private lick actions
+          lick.private&&React.createElement("div",{style:{marginTop:16,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}},
+            onDeletePrivate&&React.createElement("button",{onClick:function(){if(confirm("Delete this lick?"))onDeletePrivate(lick.id);},style:{padding:"12px 20px",borderRadius:12,border:"1.5px solid #EF4444",background:"#EF444410",color:"#EF4444",fontSize:12,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer"}},"\u2715  Delete"),
+            React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4,padding:"8px 12px",borderRadius:10,background:isStudio?"rgba(34,216,158,0.1)":"#E8F5E9"}},
+              React.createElement("span",{style:{fontSize:10,color:isStudio?"#22D89E":"#2E7D32",fontFamily:"'Inter',sans-serif",fontWeight:500}},"\uD83D\uDD12 Private \u00B7 Offline"))),
 
+          // Report
+          !lick.private&&onReport&&React.createElement("div",{style:{marginTop:24,paddingTop:20,borderTop:"1px solid "+t.border,display:"flex",justifyContent:"center"}},
+            React.createElement("button",{onClick:function(){if(confirm("Report this lick as spam or inappropriate?")){onReport(lick.id);}},style:{display:"flex",alignItems:"center",gap:8,padding:"14px 32px",borderRadius:14,border:"1.5px solid "+(isStudio?"rgba(239,68,68,0.25)":"rgba(239,68,68,0.2)"),background:isStudio?"rgba(239,68,68,0.06)":"rgba(239,68,68,0.04)",color:isStudio?"#F87171":"#DC2626",fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer",transition:"all 0.15s",letterSpacing:0.3}},"\u26A0\uFE0F  Report this lick")),
+
+          // Snap indicator dots
+          React.createElement("div",{style:{display:"flex",justifyContent:"center",gap:6,marginTop:24}},
+            [0,1,2].map(function(i){return React.createElement("button",{key:i,onClick:function(){setDrawerSnap(i);},style:{width:drawerSnap===i?20:8,height:8,borderRadius:4,background:drawerSnap===i?t.accent:(t.border),border:"none",cursor:"pointer",transition:"all 0.2s"}});}))))),
+
+    // ═══════ HEADLESS PLAYER (audio only) ═══════
+    React.createElement("div",{style:{position:"absolute",width:0,height:0,overflow:"hidden",pointerEvents:"none"}},
+      React.createElement(Player,{abc:soundAbc,tempo:pT,abOn:abOn,abA:abA,abB:abB,setAbOn:setAbOn,setAbA:setAbA,setAbB:setAbB,pT:pT,sPT:sPT,lickTempo:lick.tempo,trInst:null,setTrInst:null,trMan:null,setTrMan:null,onCurNote:function(n){curNoteRef.current=n;},th:t,ctrlRef:playerCtrlRef,initFeel:lick.feel,headless:true,onStateChange:setPs})),
+
+    // ═══════ OVERLAYS ═══════
+    focus&&React.createElement(SheetFocus,{abc:notationAbc,onClose:function(){setFocus(false);},abRange:abOn?[abA,abB]:null,curNoteRef:curNoteRef,th:t,playerCtrlRef:playerCtrlRef,theoryMode:theoryMode,theoryAnalysis:theoryAnalysis}),
+    scalePopup&&React.createElement(ScalePopup,{data:scalePopup,th:t,isStudio:isStudio,onClose:function(){setScalePopup(null);}}),
+    burst&&React.createElement(FireBurst,{key:burst.k,originX:burst.x,originY:burst.y,onDone:function(){sBurst(null);}}),
+    showTips&&React.createElement(CoachMarks,{tips:DETAIL_TIPS,onDone:onTipsDone,th:t}));}
 
 // ============================================================
 // DAILY LICK CARD — compact, themed
@@ -3191,6 +3346,7 @@ function MiniMetronome({th,initBpm,syncPlaying,ctrlRef,onBpmChange,lickTempo,onS
   useEffect(function(){subRef.current=subdivision;},[subdivision]);
   useEffect(function(){swingRef.current=swing;},[swing]);
   useEffect(function(){beatStatesRef.current=beatStates;},[beatStates]);
+  useEffect(function(){beatRef.current=currentBeat;},[currentBeat]);
   useEffect(function(){soundRef.current=sound;},[sound]);
   useEffect(function(){progOnRef.current=progOn;},[progOn]);
   useEffect(function(){progTargetRef.current=progTarget;},[progTarget]);
@@ -3292,6 +3448,11 @@ function MiniMetronome({th,initBpm,syncPlaying,ctrlRef,onBpmChange,lickTempo,onS
   useEffect(function(){
     if(ctrlRef){ctrlRef.current={start:doStart,stop:doStop,getBpm:function(){return bpmRef.current;},setBpmLive:function(v){bpmRef.current=v;setBpm(v);if(onBpmChange)onBpmChange(v);},
       tapTempo:tapTempo,changeBpm:changeBpm,
+      getCurrentBeat:function(){return{beat:beatRef.current,states:beatStatesRef.current,timeSig:timeSigRef.current,playing:playingRef.current,muted:mutedRef.current};},
+      cycleBeat:cycleBeat,setMuted:function(v){setMuted(v);mutedRef.current=v;},getMuted:function(){return mutedRef.current;},
+      getBeatStates:function(){return beatStatesRef.current;},getTimeSig:function(){return timeSigRef.current;},
+      getSound:function(){return soundRef.current;},setSound:function(v){setSound(v);soundRef.current=v;},
+      getProgState:function(){return{on:progOnRef.current,target:progTargetRef.current,inc:progIncRef.current,bars:progBarsRef.current,curBpm:progCurBpmRef.current,done:progDoneRef.current};},
       notifyLoop:function(){
         // Called by Player on each lick loop — drives synced progressive
         if(!progOnRef.current||progDoneRef.current)return null;
