@@ -657,11 +657,11 @@ function analyzeTheory(abcStr){
   }catch(e){console.warn("analyzeTheory error:",e);return{noteAnalysis:[],chordScales:[],hasChords:false};}
 }
 
-// Color for theory labels
+// Color for theory labels — integrated with theme palette
 var THEORY_COLORS={
-  "chord-tone":{light:"#16A34A",dark:"#22D89E"},// green
-  "tension":{light:"#D97706",dark:"#FBBF24"},// amber/gold
-  "chromatic":{light:"#DC2626",dark:"#F87171"},// red
+  "chord-tone":{light:"#6366F1",dark:"#22D89E"},// accent color of each theme
+  "tension":{light:"#C27B1A",dark:"#FBBF24"},// warm amber
+  "chromatic":{light:"#C2185B",dark:"#F472B6"},// rose/pink
   "unknown":{light:"#8E8E93",dark:"#8888A0"}
 };
 function getTheoryColor(type,isStudio){return isStudio?(THEORY_COLORS[type]||THEORY_COLORS["unknown"]).dark:(THEORY_COLORS[type]||THEORY_COLORS["unknown"]).light;}
@@ -1241,7 +1241,7 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
     var barInfo=getBarInfo(abc);var nBars=barInfo.nBars;
     // Force all bars on one line if <=4, otherwise 4 per line — deterministic
     var mpl=nBars<=4?nBars:4;
-    const opts={responsive:"resize",paddingtop:focus?14:2,paddingbottom:focus?14:theoryMode?28:2,paddingleft:0,paddingright:0,add_classes:true};
+    const opts={responsive:"resize",paddingtop:focus?14:theoryMode?18:2,paddingbottom:focus?14:2,paddingleft:0,paddingright:0,add_classes:true};
     if(compact){opts.staffwidth=400;opts.scale=0.85;}
     else if(focus){opts.staffwidth=500;opts.scale=1.35;opts.wrap={minSpacing:1.0,maxSpacing:1.8,preferredMeasuresPerLine:mpl};}
     else{opts.staffwidth=420;opts.scale=1.0;opts.wrap={minSpacing:1.0,maxSpacing:1.8,preferredMeasuresPerLine:mpl};}
@@ -1259,49 +1259,15 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
     svg.querySelectorAll(".abcjs-title,.abcjs-meta-top").forEach(el=>el.style.display="none");
     const noteEls=svg.querySelectorAll(".abcjs-note");if(!noteEls.length)return;
     const fracs=getNoteTimeFracs(abc);
-    // ── THEORY MODE: pill badges below notes + chord region backgrounds ──
+    // ── THEORY MODE: interval labels above notes ──
     if(theoryMode&&theoryAnalysis&&theoryAnalysis.noteAnalysis&&theoryAnalysis.noteAnalysis.length>0){
-      // Remove old elements
       svg.querySelectorAll(".theory-label,.theory-pill,.theory-region").forEach(function(el){el.remove();});
       var na=theoryAnalysis.noteAnalysis;
-      // Find staff bottom for label placement
-      var staffEls=svg.querySelectorAll(".abcjs-staff path");
-      var staffBottom=0;
-      staffEls.forEach(function(p){try{var sb=p.getBBox();if(sb.y+sb.height>staffBottom)staffBottom=sb.y+sb.height;}catch(e){}});
-      if(staffBottom<10)staffBottom=80;// fallback
-      var labelY=staffBottom+14;
-      // ── Chord region backgrounds ──
-      // Group notes by chordIdx to find x-spans
-      var regionMap={};
-      noteEls.forEach(function(noteEl,idx){
-        if(idx>=na.length)return;
-        var ci=na[idx].chordIdx;if(ci===undefined||ci<0)return;
-        try{var bb=noteEl.getBBox();
-          if(!regionMap[ci])regionMap[ci]={minX:bb.x,maxX:bb.x+bb.width,ci:ci};
-          else{regionMap[ci].minX=Math.min(regionMap[ci].minX,bb.x);regionMap[ci].maxX=Math.max(regionMap[ci].maxX,bb.x+bb.width);}
-        }catch(e){}
+      // Gather chord symbol bounding boxes for collision avoidance
+      var chordBoxes=[];
+      svg.querySelectorAll("text.abcjs-chord").forEach(function(ct){
+        try{var cb=ct.getBBox();chordBoxes.push({x:cb.x,x2:cb.x+cb.width,y:cb.y,y2:cb.y+cb.height});}catch(e){}
       });
-      var regionPad=6;
-      var regionColors=isStudio?["rgba(34,216,158,0.04)","rgba(99,102,241,0.04)"]:["rgba(99,102,241,0.04)","rgba(34,150,120,0.04)"];
-      Object.keys(regionMap).forEach(function(ci){
-        var rg=regionMap[ci];
-        try{
-          var rect=document.createElementNS("http://www.w3.org/2000/svg","rect");
-          rect.setAttribute("class","theory-region");
-          rect.setAttribute("x",rg.minX-regionPad);
-          rect.setAttribute("y",2);
-          rect.setAttribute("width",rg.maxX-rg.minX+regionPad*2);
-          rect.setAttribute("height",labelY+12);
-          rect.setAttribute("rx","6");
-          rect.setAttribute("fill",regionColors[parseInt(ci)%2]);
-          rect.setAttribute("stroke",isStudio?"rgba(34,216,158,0.08)":"rgba(99,102,241,0.06)");
-          rect.setAttribute("stroke-width","1");
-          rect.style.pointerEvents="none";
-          // Insert behind everything
-          svg.insertBefore(rect,svg.firstChild);
-        }catch(e){}
-      });
-      // ── Pill badges below each note ──
       noteEls.forEach(function(noteEl,idx){
         if(idx>=na.length)return;
         var info=na[idx];if(!info||!info.entries||!info.entries.length)return;
@@ -1309,45 +1275,39 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
         if(!entry.label)return;
         try{
           var bb=noteEl.getBBox();
-          var col=getTheoryColor(entry.type,isStudio);
           var cx=bb.x+bb.width/2;
-          // Pill background
-          var txt=entry.label;
-          var pillW=txt.length<=1?14:txt.length<=2?18:24;
-          var pillH=13;
-          var pillRect=document.createElementNS("http://www.w3.org/2000/svg","rect");
-          pillRect.setAttribute("class","theory-pill");
-          pillRect.setAttribute("x",cx-pillW/2);
-          pillRect.setAttribute("y",labelY-pillH/2);
-          pillRect.setAttribute("width",pillW);
-          pillRect.setAttribute("height",pillH);
-          pillRect.setAttribute("rx","4");
-          pillRect.setAttribute("fill",col);
-          pillRect.setAttribute("fill-opacity",isStudio?"0.15":"0.12");
-          pillRect.setAttribute("stroke",col);
-          pillRect.setAttribute("stroke-opacity","0.3");
-          pillRect.setAttribute("stroke-width","0.5");
-          pillRect.style.pointerEvents="none";
-          svg.appendChild(pillRect);
-          // Label text
+          var ly=bb.y-7;
+          // Check collision with chord symbols — if overlapping, tuck label just below the chord
+          for(var ci=0;ci<chordBoxes.length;ci++){
+            var cb=chordBoxes[ci];
+            if(cx>=cb.x-4&&cx<=cb.x2+4&&ly<=cb.y2+2){
+              ly=cb.y2+8;break;
+            }
+          }
+          var col=getTheoryColor(entry.type,isStudio);
+          // Muted note coloring — subtle tint, not full recolor
+          var noteCol=entry.type==="chord-tone"?col:(entry.type==="tension"?col:col);
+          var noteOpacity=entry.type==="chord-tone"?"1":(entry.type==="tension"?"0.8":"0.55");
+          noteEl.querySelectorAll("path,circle,ellipse").forEach(function(p){
+            p.setAttribute("fill",noteCol);p.setAttribute("stroke",noteCol);
+            p.setAttribute("fill-opacity",noteOpacity);p.setAttribute("stroke-opacity",noteOpacity);
+          });
+          // Label
           var lbl=document.createElementNS("http://www.w3.org/2000/svg","text");
           lbl.setAttribute("class","theory-label");
           lbl.setAttribute("x",cx);
-          lbl.setAttribute("y",labelY+1);
+          lbl.setAttribute("y",ly);
           lbl.setAttribute("text-anchor","middle");
-          lbl.setAttribute("dominant-baseline","central");
+          lbl.setAttribute("dominant-baseline","auto");
           lbl.setAttribute("fill",col);
-          lbl.style.fontSize="8.5px";
+          lbl.style.fontSize=entry.type==="chord-tone"?"10px":"8.5px";
           lbl.style.fontFamily="'JetBrains Mono',monospace";
           lbl.style.fontWeight=entry.type==="chord-tone"?"800":"600";
           lbl.style.letterSpacing="0.2px";
           lbl.style.pointerEvents="none";
-          lbl.textContent=txt;
+          lbl.style.opacity=entry.type==="chromatic"?"0.7":"1";
+          lbl.textContent=entry.label;
           svg.appendChild(lbl);
-          // Color the note head by theory type
-          noteEl.querySelectorAll("path,circle,ellipse").forEach(function(p){
-            p.setAttribute("fill",col);p.setAttribute("stroke",col);
-          });
         }catch(e){}
       });
     }
