@@ -432,7 +432,7 @@ const KEY_NAMES=["C","Db","D","Eb","E","F","F#","G","Ab","A","Bb","B"];
 const FLAT_ROOTS=new Set([1,3,5,8,10]);
 const SHARP_ABC=[{n:"C",a:""},{n:"C",a:"^"},{n:"D",a:""},{n:"D",a:"^"},{n:"E",a:""},{n:"F",a:""},{n:"F",a:"^"},{n:"G",a:""},{n:"G",a:"^"},{n:"A",a:""},{n:"A",a:"^"},{n:"B",a:""}];
 const FLAT_ABC=[{n:"C",a:""},{n:"D",a:"_"},{n:"D",a:""},{n:"E",a:"_"},{n:"E",a:""},{n:"F",a:""},{n:"G",a:"_"},{n:"G",a:""},{n:"A",a:"_"},{n:"A",a:""},{n:"B",a:"_"},{n:"B",a:""}];
-function chordToNotes(cn,baseOct){let r=cn.trim();if(!r)return[];let root=r[0].toUpperCase(),ri=1;if(ri<r.length&&(r[ri]==="b"||r[ri]==="#"))ri++;const rs=r.substring(0,ri),q=r.substring(ri).toLowerCase();let st=N2M[rs[0]]||0;if(rs.includes("b"))st--;if(rs.includes("#"))st++;st=((st%12)+12)%12;let iv;if(q.includes("maj7"))iv=[0,4,7,11];else if(q.includes("m7b5"))iv=[0,3,6,10];else if(q.includes("dim"))iv=[0,3,6,9];else if(q.includes("m7"))iv=[0,3,7,10];else if(q.includes("m"))iv=[0,3,7];else if(q.includes("9"))iv=[0,4,7,10,14];else if(q.includes("7"))iv=[0,4,7,10];else if(q.includes("6"))iv=[0,4,7,9];else if(q.includes("sus4"))iv=[0,5,7];else iv=[0,4,7];const bo=baseOct||4;const nn=["C","C#","D","Eb","E","F","F#","G","Ab","A","Bb","B"];return iv.map(i=>{const pc=((st+i)%12+12)%12;const oct=i>=12?bo+1:bo;return nn[pc]+oct;});}
+function chordToNotes(cn,baseOct){let r=cn.trim();if(!r)return[];let root=r[0].toUpperCase(),ri=1;if(ri<r.length&&(r[ri]==="b"||r[ri]==="#"))ri++;const rs=r.substring(0,ri),q=r.substring(ri).toLowerCase().replace(/[()]/g,"");let st=N2M[rs[0]]||0;if(rs.includes("b"))st--;if(rs.includes("#"))st++;st=((st%12)+12)%12;let iv;if(q.includes("mmaj7")||q.includes("m(maj7)")||q==="mmaj7")iv=[0,3,7,11];else if(q.includes("maj7#11"))iv=[0,4,6,7,11];else if(q.includes("maj9"))iv=[0,4,7,11,14];else if(q.includes("maj7"))iv=[0,4,7,11];else if(q.includes("m7b5"))iv=[0,3,6,10];else if(q.includes("dim7"))iv=[0,3,6,9];else if(q.includes("dim"))iv=[0,3,6,9];else if(q.includes("7alt"))iv=[0,4,6,10,13];else if(q.includes("13b9"))iv=[0,4,7,10,13,21];else if(q.includes("7b9"))iv=[0,4,7,10,13];else if(q.includes("7#9"))iv=[0,4,7,10,15];else if(q.includes("7#11"))iv=[0,4,6,7,10];else if(q.includes("7b13"))iv=[0,4,7,10,20];else if(q.includes("7#5")||q.includes("aug7"))iv=[0,4,8,10];else if(q.includes("m9"))iv=[0,3,7,10,14];else if(q.includes("m7"))iv=[0,3,7,10];else if(q.includes("m6"))iv=[0,3,7,9];else if(q.includes("m"))iv=[0,3,7];else if(q.includes("aug"))iv=[0,4,8];else if(q.includes("13"))iv=[0,4,7,10,14,21];else if(q.includes("9"))iv=[0,4,7,10,14];else if(q.includes("7"))iv=[0,4,7,10];else if(q.includes("6"))iv=[0,4,7,9];else if(q.includes("sus4"))iv=[0,5,7];else iv=[0,4,7];const bo=baseOct||4;const nn=["C","C#","D","Eb","E","F","F#","G","Ab","A","Bb","B"];return iv.map(i=>{const pc=((st+i)%12+12)%12;const oct=i>=12?bo+1:bo;return nn[pc]+oct;});}
 // Bass note: root of chord in octave 2
 function chordBassNote(cn){let r=cn.trim();if(!r)return null;let ri=1;if(ri<r.length&&(r[ri]==="b"||r[ri]==="#"))ri++;const rs=r.substring(0,ri);let st=N2M[rs[0].toUpperCase()]||0;if(rs.includes("b"))st--;if(rs.includes("#"))st++;st=((st%12)+12)%12;const nn=["C","C#","D","Eb","E","F","F#","G","Ab","A","Bb","B"];return nn[st]+"2";}
 // Walking bass: root, 5th, approach note patterns
@@ -461,9 +461,14 @@ var INTERVAL_LABELS_EXT={0:"R",1:"b9",2:"9",3:"b3",4:"3",5:"11",6:"b5",7:"5",8:"
 
 // Chord quality → set of chord tone intervals (semitones from root)
 var CHORD_TONE_MAP={
-  "maj7":[0,4,7,11],"maj9":[0,4,7,11,14],"6":[0,4,7,9],"69":[0,4,7,9,14],
-  "7":[0,4,7,10],"9":[0,4,7,10,14],"13":[0,4,7,10,14,21],"7b9":[0,4,7,10,13],"7#9":[0,4,7,10,15],"7#11":[0,4,7,10,18],"7b13":[0,4,7,10,20],"7alt":[0,4,10],
-  "m7":[0,3,7,10],"m9":[0,3,7,10,14],"m6":[0,3,7,9],"m":[0,3,7],"m7b5":[0,3,6,10],
+  "maj7":[0,4,7,11],"maj9":[0,4,7,11,14],"maj7#11":[0,4,6,7,11],"maj9#11":[0,4,6,7,11,14],
+  "6":[0,4,7,9],"69":[0,4,7,9,14],
+  "7":[0,4,7,10],"9":[0,4,7,10,14],"13":[0,4,7,10,14,21],
+  "7b9":[0,4,7,10,13],"7#9":[0,4,7,10,15],"7#11":[0,4,6,7,10],"9#11":[0,4,6,7,10,14],"13#11":[0,4,6,7,10,14,21],
+  "7b13":[0,4,7,10,20],"7#5":[0,4,8,10],"7alt":[0,4,6,10,13],"13b9":[0,4,7,10,13,21],
+  "m7":[0,3,7,10],"m9":[0,3,7,10,14],"m6":[0,3,7,9],"m":[0,3,7],
+  "mmaj7":[0,3,7,11],"m(maj7)":[0,3,7,11],
+  "m7b5":[0,3,6,10],
   "dim":[0,3,6,9],"dim7":[0,3,6,9],
   "aug":[0,4,8],"aug7":[0,4,8,10],
   "sus4":[0,5,7],"sus2":[0,2,7],"7sus4":[0,5,7,10],
@@ -495,6 +500,88 @@ var SCALE_DEFS=[
   {name:"Mixolydian b9 b13",notes:[0,1,4,5,7,8,10],ctx:["7","7b9"]},
 ];
 
+// Scale → chord refinement: when a non-default scale is detected, refine the chord symbol
+// Key = scale name, Value = {quality: new_suffix} (only for qualities that should change)
+var SCALE_CHORD_REFINE={
+  "Altered":{"7":"7alt","9":"7alt","13":"7alt"},
+  "Lydian Dominant":{"7":"7#11","9":"9#11","13":"13#11"},
+  "HW Diminished":{"7":"13b9","9":"13b9","13":"13b9"},
+  "Mixolydian b9 b13":{"7":"7b9","9":"7b9"},
+  "Whole Tone":{"7":"7#5","aug7":"aug7"},
+  "Melodic Minor":{"m7":"m(maj7)","m":"m(maj7)"},
+  "Harmonic Minor":{"m7":"m(maj7)","m":"m(maj7)"},
+  "Lydian":{"maj7":"maj7#11","maj9":"maj9#11"},
+  // Default scales = no refinement: Mixolydian/7, Dorian/m7, Ionian/maj7, Locrian/m7b5, etc.
+};
+
+function refineChordName(chordName,scaleName){
+  if(!scaleName||!chordName)return chordName;
+  var map=SCALE_CHORD_REFINE[scaleName];
+  if(!map)return chordName;
+  var parsed=parseChordName(chordName);
+  if(!parsed)return chordName;
+  var newSuffix=map[parsed.quality];
+  if(!newSuffix)return chordName;
+  // Don't refine if chord already has the extension (user wrote it explicitly)
+  var existingQ=chordName.replace(/^[A-G][b#]?/,"");
+  if(existingQ.toLowerCase().replace(/[()]/g,"")===newSuffix.toLowerCase().replace(/[()]/g,""))return chordName;
+  // Extract root part from original
+  var r=chordName.trim();var ri=1;
+  if(ri<r.length&&(r[ri]==="b"||r[ri]==="#"))ri++;
+  return r.substring(0,ri)+newSuffix;
+}
+
+// Refine all chord annotations in an ABC string based on scale detection
+function refineAbcChords(abc){
+  // Quick scale detection: parse, collect notes, detect scales, then replace
+  try{
+    var p=parseAbc(abc);
+    var events=p.events,chords=p.chords;
+    if(!chords||chords.length===0)return abc;
+    // Build regions
+    var regions=[];
+    for(var ci=0;ci<chords.length;ci++){
+      var start=chords[ci].pos;var end=ci+1<chords.length?chords[ci+1].pos:Infinity;
+      regions.push({chord:chords[ci].name,start:start,end:end,parsed:parseChordName(chords[ci].name)});
+    }
+    // Collect notes per region
+    var chordNotes={};for(var ri=0;ri<regions.length;ri++)chordNotes[ri]=new Set();
+    var pos=0;
+    for(var ei=0;ei<events.length;ei++){
+      var ev=events[ei];
+      if(ev.tn&&ev.tn.length>0){
+        var aIdx=-1;
+        for(var ri2=regions.length-1;ri2>=0;ri2--){if(pos>=regions[ri2].start-0.001){aIdx=ri2;break;}}
+        if(aIdx<0&&regions.length>0)aIdx=0;
+        if(aIdx>=0&&regions[aIdx].parsed){
+          for(var ni=0;ni<ev.tn.length;ni++){
+            chordNotes[aIdx].add(getNoteInterval(ev.tn[ni],regions[aIdx].parsed));
+          }
+        }
+      }
+      pos+=ev.rL;
+    }
+    // Detect scales and build replacement map
+    var replacements=[];// [{original, refined}]
+    for(var ri3=0;ri3<regions.length;ri3++){
+      var rg=regions[ri3];
+      if(chordNotes[ri3].size<3)continue;// need enough notes to detect scale
+      var scaleName=detectScale(chordNotes[ri3],rg.parsed);
+      var refined=refineChordName(rg.chord,scaleName);
+      if(refined!==rg.chord)replacements.push({original:rg.chord,refined:refined});
+    }
+    if(replacements.length===0)return abc;
+    // Replace chord annotations in ABC — each "original" in quotes, first occurrence only per replacement
+    var result=abc;
+    for(var rpi=0;rpi<replacements.length;rpi++){
+      var rp=replacements[rpi];
+      // Replace first occurrence of "original" with "refined"
+      result=result.replace('"'+rp.original+'"','"'+rp.refined+'"');
+    }
+    return result;
+  }catch(e){return abc;}
+}
+
 // Parse chord name → {root (0-11), quality string, chordTones set}
 function parseChordName(cn){
   if(!cn)return null;
@@ -505,25 +592,31 @@ function parseChordName(cn){
   var st=N2M[rs[0]]||0;
   if(rs.includes("b"))st--;if(rs.includes("#"))st++;
   st=((st%12)+12)%12;
-  // Normalize quality for lookup
-  var qlower=q.toLowerCase().replace(/\s/g,"");
+  // Normalize quality for lookup — order: most specific first
+  var qlower=q.toLowerCase().replace(/[\s()]/g,"");
   var ctKey="";
-  if(qlower.includes("maj7")||qlower.includes("maj9"))ctKey=qlower.includes("9")?"maj9":"maj7";
+  // Minor-major7: starts with m+maj (not just "maj7" which contains "m")
+  if(qlower.startsWith("mmaj")||qlower.startsWith("minmaj"))ctKey="mmaj7";
+  else if(qlower.includes("maj7#11")||qlower.includes("maj9#11"))ctKey=qlower.includes("9")?"maj9#11":"maj7#11";
+  else if(qlower.includes("maj7")||qlower.includes("maj9"))ctKey=qlower.includes("9")?"maj9":"maj7";
   else if(qlower.includes("m7b5")||qlower.includes("min7b5")||qlower==="ø"||qlower.includes("halfdim"))ctKey="m7b5";
   else if(qlower.includes("dim7"))ctKey="dim7";
   else if(qlower.includes("dim"))ctKey="dim";
-  else if(qlower.includes("aug7"))ctKey="aug7";
+  else if(qlower.includes("aug7")||qlower.includes("7#5"))ctKey="7#5";
   else if(qlower.includes("aug")||qlower.includes("+"))ctKey="aug";
   else if(qlower.includes("m7")||qlower.includes("min7")||qlower.includes("-7"))ctKey="m7";
   else if(qlower.includes("m9")||qlower.includes("min9"))ctKey="m9";
   else if(qlower.includes("m6")||qlower.includes("min6"))ctKey="m6";
-  else if(qlower.includes("m")||qlower.includes("min")||qlower.includes("-"))ctKey="m";
+  else if(qlower.startsWith("m")||qlower.startsWith("min")||qlower.startsWith("-"))ctKey="m";
   else if(qlower.includes("sus4"))ctKey="sus4";
   else if(qlower.includes("sus2"))ctKey="sus2";
   else if(qlower.includes("7sus"))ctKey="7sus4";
   else if(qlower.includes("7alt"))ctKey="7alt";
+  else if(qlower.includes("13b9"))ctKey="13b9";
   else if(qlower.includes("7b9"))ctKey="7b9";
   else if(qlower.includes("7#9"))ctKey="7#9";
+  else if(qlower.includes("13#11"))ctKey="13#11";
+  else if(qlower.includes("9#11"))ctKey="9#11";
   else if(qlower.includes("7#11"))ctKey="7#11";
   else if(qlower.includes("7b13"))ctKey="7b13";
   else if(qlower.includes("13"))ctKey="13";
@@ -2401,8 +2494,11 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
   const lc=lick.likes;
   const[burst,sBurst]=useState(null);const burstKeyRef=useRef(0);
   const instOff=INST_TRANS[trInst]||0;
-  const notationAbc=transposeAbc(lick.abc,instOff+trMan);
-  const soundAbc=trMan?transposeAbc(lick.abc,trMan):lick.abc;
+  const notationAbcRaw=transposeAbc(lick.abc,instOff+trMan);
+  const soundAbcRaw=trMan?transposeAbc(lick.abc,trMan):lick.abc;
+  // Refine chord symbols based on detected scales (e.g. G7 + Altered → G7alt)
+  const notationAbc=useMemo(function(){return refineAbcChords(notationAbcRaw);},[notationAbcRaw]);
+  const soundAbc=useMemo(function(){return refineAbcChords(soundAbcRaw);},[soundAbcRaw]);
   // ── THEORY MODE ──
   const[theoryMode,setTheoryMode]=useState(false);
   const[scalePopup,setScalePopup]=useState(null);// {chord,scale,rootPC,rootLetter,notes}
