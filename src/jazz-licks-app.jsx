@@ -831,10 +831,12 @@ function _ensurePreviewSynth(){
     _pReady=true;
   }catch(e){_pReady=false;}
 }
-function prevNote(n,o,a){
+function prevNote(n,o,a,semi){
   try{
     Tone.start();
     var nm=n;if(a===1)nm+="#";else if(a===-1)nm+="b";nm+=o;
+    // Transpose for concert pitch preview
+    if(semi){var midi=Tone.Frequency(nm).toMidi()+semi;nm=Tone.Frequency(midi,"midi").toNote();}
     // Use sampler if available — reconnect to destination in case effects chain was disposed
     if(_samplerReady&&_sampler){try{_sampler.toDestination();}catch(e){}_sampler.triggerAttackRelease(nm,"4n");return;}
     // Fallback: persistent synth
@@ -1592,7 +1594,7 @@ function buildAbc(items,keySig,timeSig,tempo,chords){const[tsN,tsD]=timeSig.spli
     else abc+=emitNote(item,ei,barAlts,hasTie);
     pos+=effEi;nc++;}
   if(nc>0)abc+=" |";return abc;}
-function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteClickRef,onSelChange,deselectRef}){
+function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteClickRef,onSelChange,deselectRef,previewOffset}){
   const[items,sIt]=useState([]);const[cO,sCO]=useState(4);const[cD,sCD]=useState(2);const[dt,sDt]=useState(false);const[tri,sTri]=useState(false);
   const[chords,sChords]=useState({});const[chEd,sChEd]=useState(null);const[chRoot,sChRoot]=useState("C");const[chQual,sChQual]=useState("maj7");
   const[selIdx,setSelIdx]=useState(null);
@@ -1662,10 +1664,10 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteCl
       var ni=items.map(function(x){return Object.assign({},x);});
       var newOct=explOct!==undefined?explOct:(items[selIdx].type==="note"?items[selIdx].oct:cO);
       ni[selIdx]=Object.assign({},ni[selIdx],{type:"note",note:n,acc:acc,oct:newOct});
-      sCO(newOct);prevNote(n,newOct,acc);mutate(ni);
+      sCO(newOct);prevNote(n,newOct,acc,previewOffset||0);mutate(ni);
     }else{
       var oct=explOct!==undefined?explOct:smartOct(n,items);sCO(oct);
-      prevNote(n,oct,acc);
+      prevNote(n,oct,acc,previewOffset||0);
       var newItems=items.concat([{type:"note",note:n,acc:acc,oct:oct,dur:cD,dotted:dt,tri:tri}]);
       mutate(newItems);
       if(tri){var tc=0;for(var k=newItems.length-1;k>=0&&newItems[k].tri;k--)tc++;if(tc>=3){sTri(false);}}
@@ -1709,7 +1711,7 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteCl
     var nv=Math.max(2,Math.min(7,(selIdx!==null&&items[selIdx]&&items[selIdx].type==="note"?items[selIdx].oct:cO)+delta));sCO(nv);
     if(selIdx!==null&&selIdx<items.length&&items[selIdx].type==="note"){
       var ni=items.map(function(x){return Object.assign({},x);});ni[selIdx]=Object.assign({},ni[selIdx],{oct:nv});
-      prevNote(ni[selIdx].note,nv,ni[selIdx].acc);mutate(ni);
+      prevNote(ni[selIdx].note,nv,ni[selIdx].acc,previewOffset||0);mutate(ni);
     }
   };
   const deleteNote=function(){
@@ -1722,7 +1724,7 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteCl
     if(selIdx===idx){setSelIdx(null);return;}
     setSelIdx(idx);
     if(items[idx]){var it2=items[idx];sCD(it2.dur);sDt(!!it2.dotted);sTri(!!it2.tri);
-      if(it2.type==="note"){sCO(it2.oct);prevNote(it2.note,it2.oct,it2.acc);}}
+      if(it2.type==="note"){sCO(it2.oct);prevNote(it2.note,it2.oct,it2.acc,previewOffset||0);}}
   };
   if(deselectRef)deselectRef.current=function(){setSelIdx(null);};
   // Map: notation note index → items index (skip rests)
@@ -4054,7 +4056,7 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
             edInstOff!==0&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",background:isStudio?"rgba(34,216,158,0.06)":"rgba(99,102,241,0.04)",borderRadius:8,border:"1px solid "+(isStudio?"rgba(34,216,158,0.15)":"rgba(99,102,241,0.1)")}},
               React.createElement("span",{style:{fontSize:10,color:isStudio?"#22D89E":t.accent,fontFamily:"'Inter',sans-serif"}},"Entering for "+userInst+" \u2014 will be saved in concert pitch")),
             React.createElement("div",{style:{borderRadius:12,padding:14,border:"1px solid "+t.border}},
-              React.createElement(NoteBuilder,{onAbcChange:sAbc,keySig,timeSig,tempo:parseInt(tempo)||120,noteClickRef:noteClickRef,onSelChange:setEdSelIdx,deselectRef:deselectRef,
+              React.createElement(NoteBuilder,{onAbcChange:sAbc,keySig,timeSig,tempo:parseInt(tempo)||120,noteClickRef:noteClickRef,onSelChange:setEdSelIdx,deselectRef:deselectRef,previewOffset:-edInstOff,
                 previewEl:hasNotes?React.createElement("div",{style:{marginBottom:4}},
                   React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}},
                     React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,fontWeight:600}},"PREVIEW"),
