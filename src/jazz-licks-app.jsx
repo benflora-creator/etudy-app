@@ -2005,7 +2005,7 @@ function DailyLickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:user
         React.createElement(Notation,{abc:cardAbc,compact:true,th:t,curNoteRef:prevCurNote})),
       // ACTION ROW — Instagram style
       React.createElement("div",{"data-coach":"flame",style:{display:"flex",alignItems:"center",gap:2,marginTop:isStudio?14:10,paddingTop:isStudio?12:8,borderTop:"1px solid "+t.border}},
-        React.createElement(PreviewBtn,{lickId:lick.id,abc:cardAbc,tempo:lick.tempo,th:t,size:30}),
+        React.createElement(PreviewBtn,{lickId:lick.id,abc:lick.abc,tempo:lick.tempo,th:t,size:30}),
         React.createElement("button",{onClick:e=>{e.stopPropagation();onLike(lick.id);},style:{background:"none",border:"none",cursor:"pointer",padding:"4px 2px",marginLeft:6,display:"flex",alignItems:"center",gap:4,transition:"all 0.15s"}},
           isStudio?(liked?IC.flame(20,"#F97316",true):IC.flameOff(20)):React.createElement("span",{style:{fontSize:20,color:liked?"#EF4444":t.muted}},liked?"\u2665":"\u2661")),
         React.createElement("button",{onClick:e=>{e.stopPropagation();onSave(lick.id);},style:{background:"none",border:"none",cursor:"pointer",padding:"4px 2px",display:"flex",alignItems:"center",marginLeft:4,transition:"all 0.15s"}},
@@ -2042,7 +2042,7 @@ function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst}
         React.createElement(Notation,{abc:cardAbc,compact:true,th:t,curNoteRef:prevCurNote})),
       // ACTION ROW — Instagram style
       React.createElement("div",{style:{display:"flex",alignItems:"center",gap:2,marginTop:isStudio?12:8,paddingTop:isStudio?10:6,borderTop:"1px solid "+(isStudio?t.border:t.border)}},
-        React.createElement(PreviewBtn,{lickId:lick.id,abc:cardAbc,tempo:lick.tempo,th:t,size:26}),
+        React.createElement(PreviewBtn,{lickId:lick.id,abc:lick.abc,tempo:lick.tempo,th:t,size:26}),
         React.createElement("button",{onClick:e=>{e.stopPropagation();onLike(lick.id);},style:{background:"none",border:"none",cursor:"pointer",padding:"3px 2px",marginLeft:6,display:"flex",alignItems:"center",gap:3,transition:"all 0.15s"}},
           isStudio?(liked?IC.flame(18,"#F97316",true):IC.flameOff(18)):React.createElement("span",{style:{fontSize:18,color:liked?"#EF4444":t.muted}},liked?"\u2665":"\u2661")),
         React.createElement("button",{onClick:e=>{e.stopPropagation();onSave(lick.id);},style:{background:"none",border:"none",cursor:"pointer",padding:"3px 2px",display:"flex",alignItems:"center",marginLeft:4,transition:"all 0.15s"}},
@@ -3979,12 +3979,16 @@ function PolyrhythmTrainer({th,sharedInput,sharedMicSilent}){
 // ============================================================
 // EDITOR — themed
 // ============================================================
-function Editor({onClose,onSubmit,onSubmitPrivate,th}){const t=th||TH.classic;const isStudio=t===TH.studio;
+function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.classic;const isStudio=t===TH.studio;
   const[title,sT]=useState("");const[artist,sA]=useState("");const[tune,sTune]=useState("");const[inst,sI]=useState("Alto Sax");const[cat,sC]=useState("ii-V-I");const[keySig,sK]=useState("C");const[timeSig,sTS]=useState("4/4");const[tempo,sTm]=useState("120");const[abc,sAbc]=useState("X:1\nT:My Lick\nM:4/4\nL:1/8\nQ:1/4=120\nK:C\n");const[feel,setFeel]=useState("straight");const[yu,sYu]=useState("");const[tm,sTmn]=useState("");const[ts,sTs]=useState("");const[sp,sSp]=useState("");const[desc,sD]=useState("");const[tags,sTg]=useState("");const[extrasOpen,setExtrasOpen]=useState(false);
   const edCurNoteRef=useRef(-1);
   const noteClickRef=useRef(null);
   const deselectRef=useRef(null);
   const[edSelIdx,setEdSelIdx]=useState(null);
+  var edInstOff=INST_TRANS[userInst]||0;
+  // Concert pitch abc for playback (transpose back from instrument transposition)
+  var concertAbc=edInstOff?transposeAbc(abc,-edInstOff):abc;
+  var concertKey=edInstOff?trKeyName(keySig,-edInstOff):keySig;
   useEffect(function(){try{Tone.start();}catch(e){}preloadPiano();preloadChordPiano();_ensurePreviewSynth();},[]);
   const KEYS=["C","Db","D","Eb","E","F","F#","G","Ab","A","Bb","B"];const TS=["4/4","3/4","6/8","5/4","7/8"];const yt=parseYT(yu);const tSec=(parseInt(tm)||0)*60+(parseInt(ts)||0);
   const lb={fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5,display:"block",marginBottom:4};
@@ -4011,7 +4015,7 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th}){const t=th||TH.classic;co
   const feelBtns=["straight","swing","hard-swing"].map(v=>React.createElement("button",{key:v,onClick:()=>setFeel(v),style:{padding:"6px 10px",borderRadius:7,border:feel===v?"1.5px solid "+t.accent:"1px solid "+t.border,background:feel===v?(isStudio?t.accentBg:t.accent+"10"):t.inputBg,color:feel===v?t.accent:t.muted,fontSize:10,fontWeight:feel===v?600:400,fontFamily:"'Inter',sans-serif",cursor:"pointer",transition:"all 0.15s",whiteSpace:"nowrap"}},v==="straight"?"Straight":v==="swing"?"Swing":"Hard Swing"));
 
   // Submit data builder
-  const buildData=()=>({title,artist,tune,instrument:inst,category:cat,key:keySig,tempo:parseInt(tempo),feel,abc,youtubeId:yt.videoId,youtubeStart:tSec,spotifyId:parseSpotify(sp),description:desc,tags:tags.split(",").map(tg2=>tg2.trim()).filter(Boolean)});
+  const buildData=()=>({title,artist,tune,instrument:inst,category:cat,key:concertKey,tempo:parseInt(tempo),feel,abc:concertAbc,youtubeId:yt.videoId,youtubeStart:tSec,spotifyId:parseSpotify(sp),description:desc,tags:tags.split(",").map(tg2=>tg2.trim()).filter(Boolean)});
 
   return React.createElement("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:1000,background:t.bg,display:"flex",flexDirection:"column"}},
     // Scrollable content
@@ -4047,6 +4051,8 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th}){const t=th||TH.classic;co
         // STEP 2 — Write the Notes (main area)
         sec("2","Write the notes",notesOk,
           React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:12}},
+            edInstOff!==0&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",background:isStudio?"rgba(34,216,158,0.06)":"rgba(99,102,241,0.04)",borderRadius:8,border:"1px solid "+(isStudio?"rgba(34,216,158,0.15)":"rgba(99,102,241,0.1)")}},
+              React.createElement("span",{style:{fontSize:10,color:isStudio?"#22D89E":ac,fontFamily:"'Inter',sans-serif"}},"Entering for "+userInst+" \u2014 will be saved in concert pitch")),
             React.createElement("div",{style:{borderRadius:12,padding:14,border:"1px solid "+t.border}},
               React.createElement(NoteBuilder,{onAbcChange:sAbc,keySig,timeSig,tempo:parseInt(tempo)||120,noteClickRef:noteClickRef,onSelChange:setEdSelIdx,deselectRef:deselectRef,
                 previewEl:hasNotes?React.createElement("div",{style:{marginBottom:4}},
@@ -4054,7 +4060,7 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th}){const t=th||TH.classic;co
                     React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,fontWeight:600}},"PREVIEW"),
                     noteCount>0&&React.createElement("span",{style:{fontSize:9,color:t.accent,fontFamily:"monospace"}},noteCount+" notes")),
                   React.createElement(Notation,{abc,compact:false,th:t,curNoteRef:edCurNoteRef,selNoteIdx:edSelIdx,onNoteClick:function(idx){if(noteClickRef.current)noteClickRef.current(idx);},onDeselect:function(){if(deselectRef.current)deselectRef.current();}})):null,
-                playerEl:React.createElement(Player,{abc,tempo:parseInt(tempo)||120,th:t,initFeel:feel,editorMode:true,onCurNote:function(n){edCurNoteRef.current=n;}})})))),
+                playerEl:React.createElement(Player,{abc:concertAbc,tempo:parseInt(tempo)||120,th:t,initFeel:feel,editorMode:true,onCurNote:function(n){edCurNoteRef.current=n;}})})))),
 
         // STEP 3 — Describe it
         sec("3","Describe it",titleOk&&artistOk,
@@ -6004,7 +6010,7 @@ export default function Etudy(){
     earShowTips&&view==="train"&&trainSub==="ear"&&!selectedLick&&React.createElement(CoachMarks,{tips:EAR_TIPS,onDone:markEarTipped,th:t}),
     rhythmShowTips&&view==="train"&&trainSub==="rhythm"&&React.createElement(CoachMarks,{tips:RHYTHM_TIPS,onDone:markRhythmTipped,th:t}),
     selectedLick&&React.createElement(LickDetail,{key:selectedLick.id,lick:selectedLick,onBack:closeLick,th:t,liked:likedSet.has(selectedLick.id),saved:savedSet.has(selectedLick.id),onLike:toggleLike,onSave:toggleSave,showTips:detailShowTips,onTipsDone:markDetailTipped,onReShowTips:detailTipped?function(){setDetailShowTips(true);}:null,defaultInst:userInst,onDeletePrivate:deletePrivateLick,onReport:handleReport}),
-    showEd&&React.createElement(Editor,{onClose:()=>sSE(false),onSubmit:addLick,onSubmitPrivate:addPrivateLick,th:t}),
+    showEd&&React.createElement(Editor,{onClose:()=>sSE(false),onSubmit:addLick,onSubmitPrivate:addPrivateLick,th:t,userInst:userInst}),
     runningPlan&&React.createElement(PlanRunner,{plan:runningPlan,onClose:function(){setRunningPlan(null);},th:t,licks:allLicks,userInst:userInst,keyProgress:keyProgress,onUpdateKeyProgress:onUpdateKeyProgress,onSessionSaved:function(){setHistoryRefresh(function(k){return k+1;});var s=getStg();if(s)s.get("practice-log").then(function(r){if(r&&r.value){try{var sess=JSON.parse(r.value);calcStreak(sess);calcHours(sess);}catch(e){}}}).catch(function(){});}}),
     // Settings sheet
     showSettings&&React.createElement("div",{onClick:function(){setShowSettings(false);},style:{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:2000,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"fadeIn 0.15s ease"}},
