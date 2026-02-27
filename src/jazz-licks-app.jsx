@@ -1753,11 +1753,14 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteCl
 
   // Chord lane
   var chordLaneEl=React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:4}},
+    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:2}},
+      React.createElement("span",{style:{fontSize:9,color:mu,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,fontWeight:600}},"CHORDS"),
+      React.createElement("span",{style:{fontSize:8,color:"#CCC",fontFamily:"'Inter',sans-serif"}},"tap a beat to add")),
     React.createElement("div",{style:{display:"flex",gap:2,overflow:"auto"}},
       Array.from({length:totalBeats},function(_,bi){
         var ch=chords[bi];var isEd=chEd===bi;var beatNum=(bi%tsN)+1;var isBarStart=bi%tsN===0;
-        return React.createElement("div",{key:bi,onClick:function(){if(isEd){sChEd(null);}else{if(ch){var ps=ch.match(/^([A-G][b#]?)(.*)/);if(ps){sChRoot(ps[1]);sChQual(ps[2]||"maj7");}}sChEd(bi);}},style:{flex:1,minWidth:44,padding:ch?"4px 2px":"6px 2px",borderRadius:8,border:isEd?"2px solid "+ac:"1px solid "+(ch?"rgba(99,102,241,0.2)":"#E8E7E3"),background:isEd?"rgba(99,102,241,0.06)":ch?"rgba(99,102,241,0.03)":"#FAFAF8",cursor:"pointer",textAlign:"center",position:"relative",borderLeft:isBarStart&&bi>0?"2px solid #D0CFc8":undefined}},
-          ch?React.createElement("div",{style:{fontSize:11,fontWeight:600,color:ac,fontFamily:"'Instrument Serif',serif",lineHeight:1.2}},ch):React.createElement("div",{style:{fontSize:10,color:"#CCC"}},"+"),
+        return React.createElement("div",{key:bi,onClick:function(){if(isEd){sChEd(null);}else{if(ch){var ps=ch.match(/^([A-G][b#]?)(.*)/);if(ps){sChRoot(ps[1]);sChQual(ps[2]||"maj7");}}sChEd(bi);}},style:{flex:1,minWidth:44,padding:ch?"4px 2px":"6px 2px",borderRadius:8,border:isEd?"2px solid "+ac:"1px dashed "+(ch?"rgba(99,102,241,0.3)":"#D5D4CE"),background:isEd?"rgba(99,102,241,0.06)":ch?"rgba(99,102,241,0.03)":"#FAFAF8",cursor:"pointer",textAlign:"center",position:"relative",borderLeft:isBarStart&&bi>0?"2px solid #D0CFc8":undefined}},
+          ch?React.createElement("div",{style:{fontSize:11,fontWeight:600,color:ac,fontFamily:"'Instrument Serif',serif",lineHeight:1.2}},ch):React.createElement("div",{style:{fontSize:8,color:"#BBB",fontFamily:"'Inter',sans-serif"}},"+"),
           React.createElement("div",{style:{fontSize:7,color:"#BBB",fontFamily:"monospace",lineHeight:1}},beatNum));})),
     chEd!==null&&React.createElement("div",{style:{background:"rgba(99,102,241,0.03)",border:"1px solid rgba(99,102,241,0.12)",borderRadius:10,padding:8}},
       React.createElement("div",{style:{display:"flex",gap:3,marginBottom:5,flexWrap:"wrap"}},["C","D","E","F","G","A","B","Bb","Eb","Ab","Db","F#"].map(function(r){return React.createElement("button",{key:r,onClick:function(){sChRoot(r);},style:{padding:"2px 7px",borderRadius:5,border:"none",cursor:"pointer",fontSize:11,fontFamily:"'Instrument Serif',serif",fontWeight:600,background:chRoot===r?"rgba(99,102,241,0.1)":"#F0EFE8",color:chRoot===r?ac:"#666"}},r);})),
@@ -4046,7 +4049,7 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th}){const t=th||TH.classic;co
           React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:12}},
             React.createElement("div",{style:{borderRadius:12,padding:14,border:"1px solid "+t.border}},
               React.createElement(NoteBuilder,{onAbcChange:sAbc,keySig,timeSig,tempo:parseInt(tempo)||120,noteClickRef:noteClickRef,onSelChange:setEdSelIdx,deselectRef:deselectRef,
-                previewEl:hasNotes?React.createElement("div",{style:{background:t.noteBg,borderRadius:10,padding:10,border:"1px solid "+t.borderSub}},
+                previewEl:hasNotes?React.createElement("div",{style:{marginBottom:4}},
                   React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}},
                     React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,fontWeight:600}},"PREVIEW"),
                     noteCount>0&&React.createElement("span",{style:{fontSize:9,color:t.accent,fontFamily:"monospace"}},noteCount+" notes")),
