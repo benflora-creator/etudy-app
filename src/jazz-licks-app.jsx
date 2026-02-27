@@ -2329,7 +2329,7 @@ function ScalePopup({data,th,isStudio,onClose}){
     if(!notRef.current||!data||!data.abc||!window.ABCJS)return;
     try{
       notRef.current.innerHTML="";
-      window.ABCJS.renderAbc(notRef.current,data.abc,{paddingtop:4,paddingbottom:2,paddingleft:0,paddingright:0,add_classes:true,staffwidth:600});
+      window.ABCJS.renderAbc(notRef.current,data.abc,{paddingtop:4,paddingbottom:2,paddingleft:0,paddingright:0,add_classes:true,responsive:"resize",staffwidth:320,stretchlast:false});
       // Style SVG for theme
       var svg=notRef.current.querySelector("svg");
       if(svg){
