@@ -549,17 +549,20 @@ function getNoteInterval(noteName,chordParsed){
 }
 
 // Classify: chord-tone, tension, or chromatic/passing
-function classifyInterval(semi,chordParsed){
+function classifyInterval(semi,chordParsed,scaleTones){
   // Reduce to 0-11
   var iv=((semi%12)+12)%12;
   // Check if it's a chord tone
   if(chordParsed.chordTones.has(iv))return"chord-tone";
-  // Check if it's also in a higher octave chord tone set
   if(chordParsed.chordTones.has(iv+12))return"chord-tone";
-  // Natural tensions based on chord quality
+  // If a scale was detected, it is the sole authority for tension vs chromatic
+  if(scaleTones){
+    return scaleTones.has(iv)?"tension":"chromatic";
+  }
+  // No scale — fallback: natural tensions based on chord quality
   var q=chordParsed.quality;
   if(q==="7"||q==="9"||q==="13"){
-    if(iv===2||iv===9||iv===6)return"tension";// 9, 13, #11
+    if(iv===2||iv===9||iv===6||iv===1||iv===3||iv===8)return"tension";// 9, 13, #11, b9, #9, b13
   }
   if(q==="m7"||q==="m9"){
     if(iv===2||iv===5||iv===9)return"tension";// 9, 11, 13
@@ -570,7 +573,6 @@ function classifyInterval(semi,chordParsed){
   if(q==="m7b5"){
     if(iv===2||iv===5||iv===8)return"tension";// 9, 11, b13
   }
-  // Diatonic extensions are tensions, rest are chromatic/passing
   if(iv===2||iv===5||iv===9)return"tension";
   return"chromatic";
 }
@@ -622,50 +624,68 @@ function analyzeTheory(abcStr){
     var p=parseAbc(abcStr);
     var events=p.events,chords=p.chords;
     if(!chords||chords.length===0)return{noteAnalysis:[],chordScales:[],hasChords:false};
-    // Build chord regions: each chord covers from its pos to the next chord's pos
     var regions=[];
     for(var ci=0;ci<chords.length;ci++){
       var start=chords[ci].pos;
       var end=ci+1<chords.length?chords[ci+1].pos:Infinity;
       regions.push({chord:chords[ci].name,start:start,end:end,parsed:parseChordName(chords[ci].name)});
     }
-    // For each note event, find its chord region and compute interval
-    var noteAnalysis=[];var noteIdx=0;var pos=0;
-    // Also collect notes per chord for scale detection
+    // ── Pass 1: collect notes per chord region + detect scales ──
     var chordNotes={};for(var ri=0;ri<regions.length;ri++)chordNotes[ri]=new Set();
+    var pos=0;
     for(var ei=0;ei<events.length;ei++){
       var ev=events[ei];
       if(ev.tn&&ev.tn.length>0){
-        // Find active chord
-        var activeRegion=null;var activeIdx=-1;
-        for(var ri2=regions.length-1;ri2>=0;ri2--){
-          if(pos>=regions[ri2].start-0.001){activeRegion=regions[ri2];activeIdx=ri2;break;}
-        }
-        if(!activeRegion&&regions.length>0){activeRegion=regions[0];activeIdx=0;}
-        var entries=[];
-        for(var ni=0;ni<ev.tn.length;ni++){
-          var tn=ev.tn[ni];
-          if(activeRegion&&activeRegion.parsed){
-            var semi=getNoteInterval(tn,activeRegion.parsed);
-            var label=getIntervalLabel(semi,activeRegion.parsed);
-            var type=classifyInterval(semi,activeRegion.parsed);
-            entries.push({note:tn,interval:semi,label:label,type:type,chord:activeRegion.chord});
+        var activeIdx=-1;
+        for(var ri2=regions.length-1;ri2>=0;ri2--){if(pos>=regions[ri2].start-0.001){activeIdx=ri2;break;}}
+        if(activeIdx<0&&regions.length>0)activeIdx=0;
+        if(activeIdx>=0&&regions[activeIdx].parsed){
+          for(var ni=0;ni<ev.tn.length;ni++){
+            var semi=getNoteInterval(ev.tn[ni],regions[activeIdx].parsed);
             chordNotes[activeIdx].add(semi);
+          }
+        }
+      }
+      pos+=ev.rL;
+    }
+    var chordScales=[];var regionScaleTones={};
+    for(var ri3=0;ri3<regions.length;ri3++){
+      var rg=regions[ri3];
+      var scaleName=detectScale(chordNotes[ri3],rg.parsed);
+      chordScales.push({chord:rg.chord,scale:scaleName,noteCount:chordNotes[ri3].size});
+      // Build scale tone set for this region
+      var st=null;
+      if(scaleName){
+        for(var si=0;si<SCALE_DEFS.length;si++){
+          if(SCALE_DEFS[si].name===scaleName){st=new Set(SCALE_DEFS[si].notes);break;}
+        }
+      }
+      regionScaleTones[ri3]=st;
+    }
+    // ── Pass 2: classify each note with scale awareness ──
+    var noteAnalysis=[];var noteIdx=0;pos=0;
+    for(var ei2=0;ei2<events.length;ei2++){
+      var ev2=events[ei2];
+      if(ev2.tn&&ev2.tn.length>0){
+        var activeRegion=null;var aIdx=-1;
+        for(var ri4=regions.length-1;ri4>=0;ri4--){if(pos>=regions[ri4].start-0.001){activeRegion=regions[ri4];aIdx=ri4;break;}}
+        if(!activeRegion&&regions.length>0){activeRegion=regions[0];aIdx=0;}
+        var entries=[];
+        for(var ni2=0;ni2<ev2.tn.length;ni2++){
+          var tn=ev2.tn[ni2];
+          if(activeRegion&&activeRegion.parsed){
+            var semi2=getNoteInterval(tn,activeRegion.parsed);
+            var label=getIntervalLabel(semi2,activeRegion.parsed);
+            var type=classifyInterval(semi2,activeRegion.parsed,regionScaleTones[aIdx]);
+            entries.push({note:tn,interval:semi2,label:label,type:type,chord:activeRegion.chord});
           }else{
             entries.push({note:tn,interval:null,label:"",type:"unknown",chord:""});
           }
         }
-        noteAnalysis.push({noteIdx:noteIdx,entries:entries,chordIdx:activeIdx});
+        noteAnalysis.push({noteIdx:noteIdx,entries:entries,chordIdx:aIdx});
         noteIdx++;
       }
-      pos+=ev.rL;
-    }
-    // Detect scale per chord
-    var chordScales=[];
-    for(var ri3=0;ri3<regions.length;ri3++){
-      var rg=regions[ri3];
-      var scale=detectScale(chordNotes[ri3],rg.parsed);
-      chordScales.push({chord:rg.chord,scale:scale,noteCount:chordNotes[ri3].size});
+      pos+=ev2.rL;
     }
     return{noteAnalysis:noteAnalysis,chordScales:chordScales,hasChords:true};
   }catch(e){console.warn("analyzeTheory error:",e);return{noteAnalysis:[],chordScales:[],hasChords:false};}
@@ -2325,24 +2345,23 @@ function SpotifyEmbed({trackId,th}){const t=th||TH.classic;if(!trackId)return nu
 // ── SCALE POPUP COMPONENT ──
 function ScalePopup({data,th,isStudio,onClose}){
   var t=th;var notRef=useRef(null);
+  var scaleToneSet=useMemo(function(){return new Set(data.intervals);},[data]);
   useEffect(function(){
     if(!notRef.current||!data||!data.abc||!window.ABCJS)return;
     try{
       notRef.current.innerHTML="";
       window.ABCJS.renderAbc(notRef.current,data.abc,{paddingtop:4,paddingbottom:2,paddingleft:0,paddingright:0,add_classes:true,responsive:"resize",staffwidth:320,stretchlast:false});
-      // Style SVG for theme
       var svg=notRef.current.querySelector("svg");
       if(svg){
         svg.style.maxWidth="100%";
         var stCol=isStudio?"#F2F2FA":"#1A1A1A";
         svg.querySelectorAll("path").forEach(function(p){p.setAttribute("fill",stCol);p.setAttribute("stroke",stCol);});
-        // Color notes by theory type
         var ct=parseChordName(data.chord);
         var noteEls=svg.querySelectorAll(".abcjs-note");
         noteEls.forEach(function(noteEl,ni){
           var iv=ni<data.intervals.length?data.intervals[ni]:(ni===data.intervals.length?0:-1);
           if(iv<0)return;
-          var type=ct?classifyInterval(iv,ct):"unknown";
+          var type=ct?classifyInterval(iv,ct,scaleToneSet):"unknown";
           var col=getTheoryColor(type,isStudio);
           noteEl.querySelectorAll("path,circle,ellipse").forEach(function(p){p.setAttribute("fill",col);p.setAttribute("stroke",col);});
         });
@@ -2353,20 +2372,17 @@ function ScalePopup({data,th,isStudio,onClose}){
   var ct=parseChordName(data.chord);
   return React.createElement("div",{onClick:onClose,style:{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:10000,background:"rgba(0,0,0,0.5)",backdropFilter:"blur(4px)",WebkitBackdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}},
     React.createElement("div",{onClick:function(e){e.stopPropagation();},style:{background:isStudio?t.cardRaised||t.card:t.card,borderRadius:18,padding:"22px 20px 18px",maxWidth:400,width:"100%",border:"1px solid "+(isStudio?t.accent+"25":t.border),boxShadow:isStudio?"0 20px 60px rgba(0,0,0,0.5)":"0 20px 60px rgba(0,0,0,0.15)"}},
-      // Header
       React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}},
         React.createElement("div",null,
           React.createElement("div",{style:{fontSize:18,fontWeight:700,color:t.chordFill,fontFamily:"'JetBrains Mono',monospace"}},data.chord),
           React.createElement("div",{style:{fontSize:13,fontWeight:500,color:t.text,fontFamily:"'Inter',sans-serif",marginTop:2,opacity:0.8}},data.name)),
         React.createElement("button",{onClick:onClose,style:{width:32,height:32,borderRadius:10,border:"1px solid "+t.border,background:t.filterBg||t.card,color:t.muted,fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},"\u2715")),
-      // Notation
       React.createElement("div",{ref:notRef,style:{margin:"0 -4px",minHeight:50,overflow:"hidden"}}),
-      // Note names + intervals row
       React.createElement("div",{style:{display:"flex",justifyContent:"center",gap:2,marginTop:6}},
         data.notes.concat([data.notes[0]]).map(function(note,ni){
           var iv=ni<data.intervals.length?data.intervals[ni]:0;
           var ivLabel=getIntervalLabel(iv,ct);
-          var type=ct?classifyInterval(iv,ct):"unknown";
+          var type=ct?classifyInterval(iv,ct,scaleToneSet):"unknown";
           var col=getTheoryColor(type,isStudio);
           var isRoot=iv===0;
           return React.createElement("div",{key:ni,style:{display:"flex",flexDirection:"column",alignItems:"center",flex:1,padding:"4px 0"}},
