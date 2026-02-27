@@ -750,6 +750,27 @@ function chordSpellPC(pc,chInfo,prevPC,nextPC){
   }
   return{note:letter,acc:acc};
 }
+
+// Build note names for a scale given chord name and scale name
+function getScaleNotes(chordName,scaleName){
+  var ci=getChordRootInfo(chordName);if(!ci)return null;
+  var sd=null;for(var i=0;i<SCALE_DEFS.length;i++){if(SCALE_DEFS[i].name===scaleName){sd=SCALE_DEFS[i];break;}}
+  if(!sd)return null;
+  var KEY_NAMES_S=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+  var KEY_NAMES_F=["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"];
+  // Use flat names if root is a flat key
+  var useFlat=chordName.length>1&&chordName[1]==="b";
+  var names=useFlat?KEY_NAMES_F:KEY_NAMES_S;
+  var notes=[];
+  for(var ni=0;ni<sd.notes.length;ni++){
+    var pc=(ci.pc+sd.notes[ni])%12;
+    // Try chord-aware spelling
+    var sp=chordSpellPC(pc,ci,null,null);
+    if(sp){notes.push(sp.note+(sp.acc>0?"#":sp.acc<0?"b":""));}
+    else{notes.push(names[pc]);}
+  }
+  return{notes:notes,intervals:sd.notes,root:names[ci.pc],name:scaleName,chord:chordName};
+}
 function makeBass(bag){
   if(_bassSamplerReady&&_bassSampler){
     const rev=new Tone.Reverb({decay:0.8,wet:0.06}).toDestination();
@@ -2283,6 +2304,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
   const soundAbc=trMan?transposeAbc(lick.abc,trMan):lick.abc;
   // ── THEORY MODE ──
   const[theoryMode,setTheoryMode]=useState(false);
+  const[scalePopup,setScalePopup]=useState(null);// {chord,scale,rootPC,rootLetter,notes}
   const theoryAnalysis=useMemo(function(){
     if(!theoryMode)return null;
     return analyzeTheory(notationAbc);
@@ -2337,7 +2359,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
             // Scale chips
             theoryAnalysis.chordScales&&theoryAnalysis.chordScales.map(function(cs,idx){
               if(!cs.scale||cs.noteCount<2)return null;
-              return React.createElement("span",{key:idx,style:{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 8px",borderRadius:6,fontSize:10,fontFamily:"'JetBrains Mono',monospace",background:isStudio?t.accent+"10":"rgba(99,102,241,0.06)",border:"1px solid "+(isStudio?t.accent+"18":"rgba(99,102,241,0.1)")}},
+              return React.createElement("span",{key:idx,onClick:function(e){e.stopPropagation();var sn=getScaleNotes(cs.chord,cs.scale);if(sn)setScalePopup(sn);},style:{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 8px",borderRadius:6,fontSize:10,fontFamily:"'JetBrains Mono',monospace",background:isStudio?t.accent+"10":"rgba(99,102,241,0.06)",border:"1px solid "+(isStudio?t.accent+"18":"rgba(99,102,241,0.1)"),cursor:"pointer",transition:"all 0.15s"}},
                 React.createElement("span",{style:{fontWeight:700,color:t.chordFill}},cs.chord),
                 React.createElement("span",{style:{fontWeight:500,color:t.text,opacity:0.75,fontFamily:"'Inter',sans-serif",fontSize:10}},cs.scale));}))),
         theoryMode&&(!theoryAnalysis||!theoryAnalysis.hasChords)&&React.createElement("div",{style:{marginTop:8,padding:"10px 14px",borderRadius:10,background:isStudio?"#F59E0B15":"#FEF3C7",border:"1px solid "+(isStudio?"#F59E0B30":"#FDE68A")}},
@@ -2356,6 +2378,31 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
         React.createElement("div",{style:{borderTop:"1px solid "+t.border,marginTop:6,paddingTop:6}},
           React.createElement(Player,{abc:soundAbc,tempo:pT,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo:lick.tempo,trInst:null,setTrInst:null,trMan:null,setTrMan:null,onCurNote:n=>{curNoteRef.current=n;},th:t,ctrlRef:playerCtrlRef,initFeel:lick.feel}))),
       focus&&React.createElement(SheetFocus,{abc:notationAbc,onClose:()=>setFocus(false),abRange:abOn?[abA,abB]:null,curNoteRef,th:t,playerCtrlRef:playerCtrlRef,theoryMode:theoryMode,theoryAnalysis:theoryAnalysis}),
+
+      // ── SCALE POPUP ──
+      scalePopup&&React.createElement("div",{onClick:function(){setScalePopup(null);},style:{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:10000,background:"rgba(0,0,0,0.5)",backdropFilter:"blur(4px)",WebkitBackdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",padding:20,animation:"fadeIn 0.15s ease"}},
+        React.createElement("div",{onClick:function(e){e.stopPropagation();},style:{background:isStudio?t.cardRaised||t.card:t.card,borderRadius:18,padding:"24px 20px 20px",maxWidth:360,width:"100%",border:"1px solid "+(isStudio?t.accent+"25":t.border),boxShadow:isStudio?"0 20px 60px rgba(0,0,0,0.5)":"0 20px 60px rgba(0,0,0,0.15)"}},
+          // Header
+          React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}},
+            React.createElement("div",null,
+              React.createElement("div",{style:{fontSize:18,fontWeight:700,color:t.chordFill,fontFamily:"'JetBrains Mono',monospace"}},scalePopup.chord),
+              React.createElement("div",{style:{fontSize:13,fontWeight:500,color:t.text,fontFamily:"'Inter',sans-serif",marginTop:2,opacity:0.8}},scalePopup.name)),
+            React.createElement("button",{onClick:function(){setScalePopup(null);},style:{width:32,height:32,borderRadius:10,border:"1px solid "+t.border,background:t.filterBg||t.card,color:t.muted,fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},"\u2715")),
+          // Notes grid
+          React.createElement("div",{style:{display:"flex",gap:4,flexWrap:"wrap",justifyContent:"center"}},
+            scalePopup.notes.map(function(note,ni){
+              var iv=scalePopup.intervals[ni];
+              var ivLabel=getIntervalLabel(iv,parseChordName(scalePopup.chord));
+              var isRoot=iv===0;
+              var ct=parseChordName(scalePopup.chord);
+              var type=ct?classifyInterval(iv,ct):"unknown";
+              var col=getTheoryColor(type,isStudio);
+              return React.createElement("div",{key:ni,style:{display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"8px 6px",minWidth:38,borderRadius:10,background:isRoot?(isStudio?t.accent+"15":t.accent+"10"):(isStudio?"rgba(255,255,255,0.03)":"rgba(0,0,0,0.02)"),border:isRoot?("1.5px solid "+(isStudio?t.accent+"40":t.accent+"30")):("1px solid "+(isStudio?t.border:t.borderSub||t.border))}},
+                React.createElement("span",{style:{fontSize:15,fontWeight:isRoot?800:600,color:isRoot?t.chordFill:t.text,fontFamily:"'JetBrains Mono',monospace"}},note),
+                React.createElement("span",{style:{fontSize:9,fontWeight:600,color:col,fontFamily:"'JetBrains Mono',monospace",opacity:0.9}},ivLabel));})),
+          // Interval formula
+          React.createElement("div",{style:{marginTop:14,textAlign:"center",fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace",letterSpacing:0.3}},
+            scalePopup.intervals.map(function(iv){return iv===0?"R":iv;}).join(" \u2013 ")))),
 
       // MORE — Description, Tags, YouTube, Spotify collapsed
       (lick.description||lick.youtubeId||lick.spotifyId||(lick.tags&&lick.tags.length>0))&&React.createElement("div",{style:{marginBottom:12}},
