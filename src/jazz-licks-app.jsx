@@ -2326,13 +2326,14 @@ function SpotifyEmbed({trackId,th}){const t=th||TH.classic;if(!trackId)return nu
 function ScalePopup({data,th,isStudio,onClose}){
   var t=th;var notRef=useRef(null);
   useEffect(function(){
-    if(!notRef.current||!data||!data.abc)return;
+    if(!notRef.current||!data||!data.abc||!window.ABCJS)return;
     try{
       notRef.current.innerHTML="";
-      abcjs.renderAbc(notRef.current,data.abc,{responsive:"resize",paddingtop:2,paddingbottom:2,paddingleft:0,paddingright:0,add_classes:true,staffwidth:280});
+      window.ABCJS.renderAbc(notRef.current,data.abc,{paddingtop:4,paddingbottom:2,paddingleft:0,paddingright:0,add_classes:true,staffwidth:600});
       // Style SVG for theme
       var svg=notRef.current.querySelector("svg");
       if(svg){
+        svg.style.maxWidth="100%";
         var stCol=isStudio?"#F2F2FA":"#1A1A1A";
         svg.querySelectorAll("path").forEach(function(p){p.setAttribute("fill",stCol);p.setAttribute("stroke",stCol);});
         // Color notes by theory type
@@ -2351,29 +2352,26 @@ function ScalePopup({data,th,isStudio,onClose}){
 
   var ct=parseChordName(data.chord);
   return React.createElement("div",{onClick:onClose,style:{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:10000,background:"rgba(0,0,0,0.5)",backdropFilter:"blur(4px)",WebkitBackdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}},
-    React.createElement("div",{onClick:function(e){e.stopPropagation();},style:{background:isStudio?t.cardRaised||t.card:t.card,borderRadius:18,padding:"22px 20px 18px",maxWidth:380,width:"100%",border:"1px solid "+(isStudio?t.accent+"25":t.border),boxShadow:isStudio?"0 20px 60px rgba(0,0,0,0.5)":"0 20px 60px rgba(0,0,0,0.15)"}},
+    React.createElement("div",{onClick:function(e){e.stopPropagation();},style:{background:isStudio?t.cardRaised||t.card:t.card,borderRadius:18,padding:"22px 20px 18px",maxWidth:400,width:"100%",border:"1px solid "+(isStudio?t.accent+"25":t.border),boxShadow:isStudio?"0 20px 60px rgba(0,0,0,0.5)":"0 20px 60px rgba(0,0,0,0.15)"}},
       // Header
-      React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}},
+      React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}},
         React.createElement("div",null,
           React.createElement("div",{style:{fontSize:18,fontWeight:700,color:t.chordFill,fontFamily:"'JetBrains Mono',monospace"}},data.chord),
           React.createElement("div",{style:{fontSize:13,fontWeight:500,color:t.text,fontFamily:"'Inter',sans-serif",marginTop:2,opacity:0.8}},data.name)),
         React.createElement("button",{onClick:onClose,style:{width:32,height:32,borderRadius:10,border:"1px solid "+t.border,background:t.filterBg||t.card,color:t.muted,fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},"\u2715")),
       // Notation
-      React.createElement("div",{ref:notRef,style:{margin:"0 -4px",minHeight:60}}),
+      React.createElement("div",{ref:notRef,style:{margin:"0 -4px",minHeight:50,overflow:"hidden"}}),
       // Note names + intervals row
-      React.createElement("div",{style:{display:"flex",justifyContent:"center",gap:2,marginTop:8,flexWrap:"wrap"}},
+      React.createElement("div",{style:{display:"flex",justifyContent:"center",gap:2,marginTop:6}},
         data.notes.concat([data.notes[0]]).map(function(note,ni){
           var iv=ni<data.intervals.length?data.intervals[ni]:0;
           var ivLabel=getIntervalLabel(iv,ct);
           var type=ct?classifyInterval(iv,ct):"unknown";
           var col=getTheoryColor(type,isStudio);
           var isRoot=iv===0;
-          return React.createElement("div",{key:ni,style:{display:"flex",flexDirection:"column",alignItems:"center",minWidth:32,padding:"4px 3px"}},
+          return React.createElement("div",{key:ni,style:{display:"flex",flexDirection:"column",alignItems:"center",flex:1,padding:"4px 0"}},
             React.createElement("span",{style:{fontSize:12,fontWeight:isRoot?800:600,color:isRoot?t.chordFill:t.text,fontFamily:"'JetBrains Mono',monospace"}},note),
-            React.createElement("span",{style:{fontSize:9,fontWeight:600,color:col,fontFamily:"'JetBrains Mono',monospace"}},ivLabel));})),
-      // Interval formula
-      React.createElement("div",{style:{marginTop:10,textAlign:"center",fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace",letterSpacing:0.3,opacity:0.7}},
-        data.intervals.map(function(iv){var l=getIntervalLabel(iv,ct);return l;}).join(" \u2013 "))));
+            React.createElement("span",{style:{fontSize:9,fontWeight:600,color:col,fontFamily:"'JetBrains Mono',monospace"}},ivLabel));}))));
 }
 
 function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDone,onReShowTips,defaultInst,onDeletePrivate,onReport}){
