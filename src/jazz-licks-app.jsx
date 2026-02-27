@@ -938,7 +938,7 @@ function getBarInfo(abc){
 // ============================================================
 // NOTATION — theme-aware
 // ============================================================
-function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteIdx}){
+function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteIdx,onDeselect}){
   const ref=useRef(null);const ok=useAbcjs();const prevNoteRef=useRef(-1);const rafRef=useRef(null);
   const t=th||TH.classic;
   useEffect(()=>{if(!ok||!ref.current||!window.ABCJS)return;
@@ -968,7 +968,10 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
     const noteEls=svg.querySelectorAll(".abcjs-note");if(!noteEls.length)return;
     const fracs=getNoteTimeFracs(abc);
     // Clickable notes for editor
-    if(onNoteClick){noteEls.forEach(function(el,idx){el.style.cursor="pointer";el.addEventListener("click",function(e){e.stopPropagation();onNoteClick(idx);});});}
+    if(onNoteClick){
+      // Click on SVG background = deselect
+      if(onDeselect)svg.addEventListener("click",function(e){if(e.target===svg||e.target.closest(".abcjs-staff")||e.target.closest(".abcjs-staff-extra"))onDeselect();});
+      noteEls.forEach(function(el,idx){el.style.cursor="pointer";el.addEventListener("click",function(e){e.stopPropagation();onNoteClick(idx);});});}
     const hasRange=abRange&&(abRange[0]>0.001||abRange[1]<0.999);
     if(hasRange){
       // Dim out-of-range notes
@@ -1030,25 +1033,39 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
     rafRef.current=requestAnimationFrame(tick);
     return()=>{if(rafRef.current)cancelAnimationFrame(rafRef.current);};
   },[abc,abRange,th,compact,curNoteRef]);
-  // Selection highlight (editor) — different from playback cursor
-  var prevSelRef=useRef(-1);
-  useEffect(function(){if(selNoteIdx===undefined||selNoteIdx===null||!ref.current)return;
+  // Selection highlight (editor) — rounded box around selected note
+  var prevSelRef=useRef(-1);var selBoxRef=useRef(null);
+  useEffect(function(){
+    // Remove old box
+    if(selBoxRef.current){try{selBoxRef.current.remove();}catch(e){}selBoxRef.current=null;}
+    if(!ref.current)return;
     var svg=ref.current.querySelector("svg");if(!svg)return;
     var noteEls=svg.querySelectorAll(".abcjs-note");
     var selC=t.accent||"#6366F1";
-    // Clear previous selection
+    // Clear previous selection styling
     if(prevSelRef.current>=0&&prevSelRef.current<noteEls.length){
       var pel=noteEls[prevSelRef.current];
       pel.querySelectorAll("path,circle,ellipse").forEach(function(p){p.style.fill=t.noteStroke;p.style.stroke=t.noteStroke;p.style.fillOpacity="1";p.style.strokeOpacity="1";});
       pel.style.filter="none";}
     // Apply new selection
-    if(selNoteIdx>=0&&selNoteIdx<noteEls.length){
+    if(selNoteIdx!==null&&selNoteIdx!==undefined&&selNoteIdx>=0&&selNoteIdx<noteEls.length){
       var sel=noteEls[selNoteIdx];
+      // Color the note
       sel.querySelectorAll("path,circle,ellipse").forEach(function(p){p.style.fill=selC;p.style.stroke=selC;p.style.fillOpacity="1";p.style.strokeOpacity="1";});
-      sel.style.filter="drop-shadow(0 0 6px "+selC+"80)";
+      // Draw a rounded rect behind
+      try{var box=sel.getBBox();var pad=4;
+        var rect=document.createElementNS("http://www.w3.org/2000/svg","rect");
+        rect.setAttribute("x",box.x-pad);rect.setAttribute("y",box.y-pad);
+        rect.setAttribute("width",box.width+pad*2);rect.setAttribute("height",box.height+pad*2);
+        rect.setAttribute("rx","4");rect.setAttribute("ry","4");
+        rect.setAttribute("fill",selC);rect.setAttribute("fill-opacity","0.08");
+        rect.setAttribute("stroke",selC);rect.setAttribute("stroke-opacity","0.35");
+        rect.setAttribute("stroke-width","1.5");
+        svg.insertBefore(rect,svg.firstChild);selBoxRef.current=rect;
+      }catch(e){}
       // scroll into view
-      try{var box=sel.getBBox();var svgEl=svg;var vb=svgEl.viewBox.baseVal;
-        var parent=ref.current;if(parent&&box.x>0){var ratio=parent.clientWidth/(vb.width||1);var noteX=box.x*ratio;
+      try{var box2=sel.getBBox();var vb=svg.viewBox.baseVal;
+        var parent=ref.current;if(parent&&box2.x>0){var ratio=parent.clientWidth/(vb.width||1);var noteX=box2.x*ratio;
           if(noteX<parent.scrollLeft||noteX>parent.scrollLeft+parent.clientWidth-40){parent.scrollTo({left:Math.max(0,noteX-parent.clientWidth/2),behavior:"smooth"});}}}catch(e){}}
     prevSelRef.current=selNoteIdx;
   },[selNoteIdx,abc,th]);
@@ -1575,7 +1592,7 @@ function buildAbc(items,keySig,timeSig,tempo,chords){const[tsN,tsD]=timeSig.spli
     else abc+=emitNote(item,ei,barAlts,hasTie);
     pos+=effEi;nc++;}
   if(nc>0)abc+=" |";return abc;}
-function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteClickRef,onSelChange}){
+function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteClickRef,onSelChange,deselectRef}){
   const[items,sIt]=useState([]);const[cO,sCO]=useState(4);const[cD,sCD]=useState(2);const[dt,sDt]=useState(false);const[tri,sTri]=useState(false);
   const[chords,sChords]=useState({});const[chEd,sChEd]=useState(null);const[chRoot,sChRoot]=useState("C");const[chQual,sChQual]=useState("maj7");
   const[selIdx,setSelIdx]=useState(null);
@@ -1705,8 +1722,9 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteCl
     if(selIdx===idx){setSelIdx(null);return;}
     setSelIdx(idx);
     if(items[idx]){var it2=items[idx];sCD(it2.dur);sDt(!!it2.dotted);sTri(!!it2.tri);
-      if(it2.type==="note")sCO(it2.oct);}
+      if(it2.type==="note"){sCO(it2.oct);prevNote(it2.note,it2.oct,it2.acc);}}
   };
+  if(deselectRef)deselectRef.current=function(){setSelIdx(null);};
   // Map: notation note index → items index (skip rests)
   var noteToItem=[];var itemToNote={};
   for(var mi=0;mi<items.length;mi++){if(items[mi].type==="note"){itemToNote[mi]=noteToItem.length;noteToItem.push(mi);}}
@@ -1757,15 +1775,6 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteCl
     playerEl,
     // 3. Note strip (scrollable, tap-to-select)
     // 3. Note strip — hidden, using notation click instead
-    // Compact selected-note info bar
-    selItem&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,padding:"4px 8px",background:"rgba(99,102,241,0.04)",borderRadius:8,border:"1px solid rgba(99,102,241,0.12)"}},
-      React.createElement("span",{style:{fontSize:10,fontWeight:600,color:ac,fontFamily:"'Inter',sans-serif"}},"\u270E Note "+(selIdx+1)),
-      React.createElement("span",{style:{fontSize:11,color:"#444",fontFamily:"'Instrument Serif',serif",fontWeight:600}},
-        selItem.type==="rest"?"Rest":((selItem.acc===-1?"\u266D":selItem.acc===1?"\u266F":"")+selItem.note+selItem.oct)),
-      React.createElement("span",{style:{fontSize:10,color:mu,fontFamily:"monospace"}},DURS[selItem.dur].label+(selItem.dotted?" \u00B7":"")+(selItem.tri?" \u00B3":"")),
-      selItem.tie&&React.createElement("span",{style:{fontSize:10,color:ac}},"\u2040"),
-      React.createElement("div",{style:{flex:1}}),
-      React.createElement("button",{onClick:function(){setSelIdx(null);},style:{fontSize:9,color:mu,background:"none",border:"1px solid #E8E7E3",borderRadius:6,padding:"2px 8px",cursor:"pointer"}},"Deselect")),
     !selItem&&items.length===0&&React.createElement("div",{style:{padding:"8px 12px",background:"#FAFAF8",borderRadius:8,border:"1px solid #E8E7E3"}},
       React.createElement("span",{style:{fontSize:11,color:"#CCC",fontFamily:"'Inter',sans-serif"}},"Tap keys below to add notes\u2026")),
     // 4. Action bar: Undo, Redo, Delete
@@ -3971,6 +3980,7 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th}){const t=th||TH.classic;co
   const[title,sT]=useState("");const[artist,sA]=useState("");const[tune,sTune]=useState("");const[inst,sI]=useState("Alto Sax");const[cat,sC]=useState("ii-V-I");const[keySig,sK]=useState("C");const[timeSig,sTS]=useState("4/4");const[tempo,sTm]=useState("120");const[abc,sAbc]=useState("X:1\nT:My Lick\nM:4/4\nL:1/8\nQ:1/4=120\nK:C\n");const[feel,setFeel]=useState("straight");const[yu,sYu]=useState("");const[tm,sTmn]=useState("");const[ts,sTs]=useState("");const[sp,sSp]=useState("");const[desc,sD]=useState("");const[tags,sTg]=useState("");const[extrasOpen,setExtrasOpen]=useState(false);
   const edCurNoteRef=useRef(-1);
   const noteClickRef=useRef(null);
+  const deselectRef=useRef(null);
   const[edSelIdx,setEdSelIdx]=useState(null);
   useEffect(function(){try{Tone.start();}catch(e){}preloadPiano();preloadChordPiano();_ensurePreviewSynth();},[]);
   const KEYS=["C","Db","D","Eb","E","F","F#","G","Ab","A","Bb","B"];const TS=["4/4","3/4","6/8","5/4","7/8"];const yt=parseYT(yu);const tSec=(parseInt(tm)||0)*60+(parseInt(ts)||0);
@@ -4035,12 +4045,12 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th}){const t=th||TH.classic;co
         sec("2","Write the notes",notesOk,
           React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:12}},
             React.createElement("div",{style:{borderRadius:12,padding:14,border:"1px solid "+t.border}},
-              React.createElement(NoteBuilder,{onAbcChange:sAbc,keySig,timeSig,tempo:parseInt(tempo)||120,noteClickRef:noteClickRef,onSelChange:setEdSelIdx,
+              React.createElement(NoteBuilder,{onAbcChange:sAbc,keySig,timeSig,tempo:parseInt(tempo)||120,noteClickRef:noteClickRef,onSelChange:setEdSelIdx,deselectRef:deselectRef,
                 previewEl:hasNotes?React.createElement("div",{style:{background:t.noteBg,borderRadius:10,padding:10,border:"1px solid "+t.borderSub}},
                   React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}},
                     React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,fontWeight:600}},"PREVIEW"),
                     noteCount>0&&React.createElement("span",{style:{fontSize:9,color:t.accent,fontFamily:"monospace"}},noteCount+" notes")),
-                  React.createElement(Notation,{abc,compact:false,th:t,curNoteRef:edCurNoteRef,selNoteIdx:edSelIdx,onNoteClick:function(idx){if(noteClickRef.current)noteClickRef.current(idx);}})):null,
+                  React.createElement(Notation,{abc,compact:false,th:t,curNoteRef:edCurNoteRef,selNoteIdx:edSelIdx,onNoteClick:function(idx){if(noteClickRef.current)noteClickRef.current(idx);},onDeselect:function(){if(deselectRef.current)deselectRef.current();}})):null,
                 playerEl:React.createElement(Player,{abc,tempo:parseInt(tempo)||120,th:t,initFeel:feel,editorMode:true,onCurNote:function(n){edCurNoteRef.current=n;}})})))),
 
         // STEP 3 — Describe it
