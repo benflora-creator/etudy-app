@@ -1067,7 +1067,7 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
       try{var box2=sel.getBBox();var vb=svg.viewBox.baseVal;
         var parent=ref.current;if(parent&&box2.x>0){var ratio=parent.clientWidth/(vb.width||1);var noteX=box2.x*ratio;
           if(noteX<parent.scrollLeft||noteX>parent.scrollLeft+parent.clientWidth-40){parent.scrollTo({left:Math.max(0,noteX-parent.clientWidth/2),behavior:"smooth"});}}}catch(e){}}
-    prevSelRef.current=selNoteIdx;
+    prevSelRef.current=selNoteIdx!==null&&selNoteIdx!==undefined?selNoteIdx:-1;
   },[selNoteIdx,abc,th]);
   if(!ok)return React.createElement("div",{style:{height:compact?50:80,display:"flex",alignItems:"center",justifyContent:"center",color:t.subtle,fontSize:12,fontFamily:"'Inter',sans-serif"}},"Loading...");
   const isStudio=t===TH.studio;
