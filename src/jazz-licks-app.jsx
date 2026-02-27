@@ -707,6 +707,16 @@ function chordSpellPC(pc,chInfo,prevPC,nextPC){
       if(a2>=-1&&a2<=1){letter=l2;acc=a2;}
     }
   }
+  // Dominant #9: over dom7/maj chords, 3 semitones = #9, not b3
+  // (these chords have major 3rd, so the minor 3rd interval is always #9)
+  if(iv===3){var qd=chInfo.quality;
+    var isMinor=(/^m[^a]/.test(qd)||qd==="m"||qd.indexOf("dim")>=0);
+    if(!isMinor){
+      var l3=LETTERS_ORD[(chInfo.li+1)%7];var n3=N2M[l3]||0;
+      var a3=pc-n3;if(a3>6)a3-=12;if(a3<-6)a3+=12;
+      if(a3>=-1&&a3<=1){letter=l3;acc=a3;}
+    }
+  }
   // Chromatic passing tone override (needs both prev AND next)
   if(prevPC!==null&&nextPC!==null){
     var fromPrev=(pc-prevPC+12)%12;
