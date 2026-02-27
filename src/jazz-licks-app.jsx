@@ -846,10 +846,10 @@ function prevNote(n,o,a){
 // ============================================================
 // CARD PREVIEW PLAYER — lightweight, global singleton
 // ============================================================
-var _preview={id:null,stop:null,subs:new Set(),gen:0};
+var _preview={id:null,stop:null,subs:new Set(),gen:0,curNote:-1,noteTimers:[]};
 function previewSubscribe(fn){_preview.subs.add(fn);return function(){_preview.subs.delete(fn);};}
 function previewNotify(){_preview.subs.forEach(function(fn){fn(_preview.id);});}
-function previewStop(){if(_preview.stop){try{_preview.stop();}catch(e){}_preview.stop=null;}_preview.id=null;_preview.gen++;previewNotify();}
+function previewStop(){if(_preview.stop){try{_preview.stop();}catch(e){}_preview.stop=null;}_preview.id=null;_preview.gen++;for(var i=0;i<_preview.noteTimers.length;i++)clearTimeout(_preview.noteTimers[i]);_preview.noteTimers=[];_preview.curNote=-1;previewNotify();}
 async function previewPlay(lickId,abc,tempo){
   previewStop();
   var myGen=_preview.gen;
@@ -861,6 +861,11 @@ async function previewPlay(lickId,abc,tempo){
   var result=applyTiming(parsed,0);
   var notes=result.scheduled;var totalDur=result.totalDur;
   var timers=[];
+  // Schedule curNote tracking
+  var noteIdx=0;
+  for(var ni=0;ni<notes.length;ni++){if(notes[ni].tones){
+    (function(idx,st){_preview.noteTimers.push(setTimeout(function(){if(_preview.gen!==myGen)return;_preview.curNote=idx;previewNotify();},st*1000));})(noteIdx,notes[ni].startTime);noteIdx++;}}
+  _preview.noteTimers.push(setTimeout(function(){if(_preview.gen!==myGen)return;_preview.curNote=-1;previewNotify();},totalDur*1000));
   if(_samplerReady&&_sampler){
     // Use piano sampler with dedicated effects chain
     var rev=new Tone.Reverb({decay:2.2,wet:0.16}).toDestination();
@@ -891,6 +896,11 @@ function usePreviewState(lickId){
   var ref=useRef(false);var _=useState(0);var force=_[1];
   useEffect(function(){return previewSubscribe(function(activeId){var now=activeId===lickId;if(now!==ref.current){ref.current=now;force(function(c){return c+1;});}});},[lickId]);
   return ref.current;
+}
+function usePreviewCurNote(lickId){
+  var cnRef=useRef(-1);
+  useEffect(function(){return previewSubscribe(function(activeId){cnRef.current=activeId===lickId?_preview.curNote:-1;});},[lickId]);
+  return cnRef;
 }
 function PreviewBtn({lickId,abc,tempo,th,size}){
   var t=th||TH.classic;var isStudio=t===TH.studio;
@@ -928,7 +938,7 @@ function getBarInfo(abc){
 // ============================================================
 // NOTATION — theme-aware
 // ============================================================
-function Notation({abc,compact,abRange,curNoteRef,focus,th}){
+function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteIdx}){
   const ref=useRef(null);const ok=useAbcjs();const prevNoteRef=useRef(-1);const rafRef=useRef(null);
   const t=th||TH.classic;
   useEffect(()=>{if(!ok||!ref.current||!window.ABCJS)return;
@@ -957,6 +967,8 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th}){
     svg.querySelectorAll(".abcjs-title,.abcjs-meta-top").forEach(el=>el.style.display="none");
     const noteEls=svg.querySelectorAll(".abcjs-note");if(!noteEls.length)return;
     const fracs=getNoteTimeFracs(abc);
+    // Clickable notes for editor
+    if(onNoteClick){noteEls.forEach(function(el,idx){el.style.cursor="pointer";el.addEventListener("click",function(e){e.stopPropagation();onNoteClick(idx);});});}
     const hasRange=abRange&&(abRange[0]>0.001||abRange[1]<0.999);
     if(hasRange){
       // Dim out-of-range notes
@@ -992,7 +1004,7 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th}){
     }
   },[abc,ok,compact,abRange,focus,th]);
   // Cursor: poll curNoteRef via rAF — zero React re-renders
-  useEffect(()=>{if(!curNoteRef||compact)return;
+  useEffect(()=>{if(!curNoteRef)return;
     const tick=()=>{const cn=curNoteRef.current;
       if(cn!==prevNoteRef.current&&ref.current){
         const svg=ref.current.querySelector("svg");if(svg){
@@ -1018,6 +1030,28 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th}){
     rafRef.current=requestAnimationFrame(tick);
     return()=>{if(rafRef.current)cancelAnimationFrame(rafRef.current);};
   },[abc,abRange,th,compact,curNoteRef]);
+  // Selection highlight (editor) — different from playback cursor
+  var prevSelRef=useRef(-1);
+  useEffect(function(){if(selNoteIdx===undefined||selNoteIdx===null||!ref.current)return;
+    var svg=ref.current.querySelector("svg");if(!svg)return;
+    var noteEls=svg.querySelectorAll(".abcjs-note");
+    var selC=t.accent||"#6366F1";
+    // Clear previous selection
+    if(prevSelRef.current>=0&&prevSelRef.current<noteEls.length){
+      var pel=noteEls[prevSelRef.current];
+      pel.querySelectorAll("path,circle,ellipse").forEach(function(p){p.style.fill=t.noteStroke;p.style.stroke=t.noteStroke;p.style.fillOpacity="1";p.style.strokeOpacity="1";});
+      pel.style.filter="none";}
+    // Apply new selection
+    if(selNoteIdx>=0&&selNoteIdx<noteEls.length){
+      var sel=noteEls[selNoteIdx];
+      sel.querySelectorAll("path,circle,ellipse").forEach(function(p){p.style.fill=selC;p.style.stroke=selC;p.style.fillOpacity="1";p.style.strokeOpacity="1";});
+      sel.style.filter="drop-shadow(0 0 6px "+selC+"80)";
+      // scroll into view
+      try{var box=sel.getBBox();var svgEl=svg;var vb=svgEl.viewBox.baseVal;
+        var parent=ref.current;if(parent&&box.x>0){var ratio=parent.clientWidth/(vb.width||1);var noteX=box.x*ratio;
+          if(noteX<parent.scrollLeft||noteX>parent.scrollLeft+parent.clientWidth-40){parent.scrollTo({left:Math.max(0,noteX-parent.clientWidth/2),behavior:"smooth"});}}}catch(e){}}
+    prevSelRef.current=selNoteIdx;
+  },[selNoteIdx,abc,th]);
   if(!ok)return React.createElement("div",{style:{height:compact?50:80,display:"flex",alignItems:"center",justifyContent:"center",color:t.subtle,fontSize:12,fontFamily:"'Inter',sans-serif"}},"Loading...");
   const isStudio=t===TH.studio;
   return React.createElement("div",{ref,style:{borderRadius:focus?0:isStudio?12:10,background:focus?"transparent":compact?"transparent":t.noteBg,padding:focus?"0":compact?"2px 4px":(isStudio?"10px 14px":"8px 12px"),border:focus?"none":compact?"none":"1px solid "+(isStudio?t.staffStroke+"30":t.borderSub),overflow:compact?"hidden":"visible",transition:"min-height 0.15s ease"}});}
@@ -1541,10 +1575,15 @@ function buildAbc(items,keySig,timeSig,tempo,chords){const[tsN,tsD]=timeSig.spli
     else abc+=emitNote(item,ei,barAlts,hasTie);
     pos+=effEi;nc++;}
   if(nc>0)abc+=" |";return abc;}
-function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl}){
+function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteClickRef,onSelChange}){
   const[items,sIt]=useState([]);const[cO,sCO]=useState(4);const[cD,sCD]=useState(2);const[dt,sDt]=useState(false);const[tri,sTri]=useState(false);
   const[chords,sChords]=useState({});const[chEd,sChEd]=useState(null);const[chRoot,sChRoot]=useState("C");const[chQual,sChQual]=useState("maj7");
   const[selIdx,setSelIdx]=useState(null);
+  // Compute note mapping for current items
+  var noteToItemSel=[];var itemToNoteSel={};
+  for(var si=0;si<items.length;si++){if(items[si].type==="note"){itemToNoteSel[si]=noteToItemSel.length;noteToItemSel.push(si);}}
+  var selNotationIdx=selIdx!==null&&itemToNoteSel[selIdx]!==undefined?itemToNoteSel[selIdx]:null;
+  useEffect(function(){if(onSelChange)onSelChange(selNotationIdx);},[selIdx,items.length]);
   const histRef=useRef([{items:[],chords:{}}]);const histIdxRef=useRef(0);
   const sR=useRef(null);
   const pianoRef=useRef(null);
@@ -1668,6 +1707,11 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl}){
     if(items[idx]){var it2=items[idx];sCD(it2.dur);sDt(!!it2.dotted);sTri(!!it2.tri);
       if(it2.type==="note")sCO(it2.oct);}
   };
+  // Map: notation note index → items index (skip rests)
+  var noteToItem=[];var itemToNote={};
+  for(var mi=0;mi<items.length;mi++){if(items[mi].type==="note"){itemToNote[mi]=noteToItem.length;noteToItem.push(mi);}}
+  var noteClickFromNotation=function(notationIdx){if(notationIdx>=0&&notationIdx<noteToItem.length)tapNote(noteToItem[notationIdx]);};
+  if(noteClickRef)noteClickRef.current=noteClickFromNotation;
   var selItem=selIdx!==null&&items[selIdx]?items[selIdx]:null;
   var effDur=selItem?selItem.dur:cD;var effDot=selItem?!!selItem.dotted:dt;var effTri=selItem?!!selItem.tri:tri;
   var effOct=selItem&&selItem.type==="note"?selItem.oct:cO;
@@ -1712,21 +1756,25 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl}){
     // 2. Minimal player
     playerEl,
     // 3. Note strip (scrollable, tap-to-select)
-    React.createElement("div",{ref:sR,style:{display:"flex",gap:3,overflowX:"auto",scrollbarWidth:"none",padding:"4px 2px",minHeight:56,alignItems:"center",background:"#FAFAF8",borderRadius:10,border:"1px solid #E8E7E3"}},
-      items.length===0?React.createElement("span",{style:{fontSize:11,color:"#CCC",fontFamily:"'Inter',sans-serif",padding:"0 12px"}},"Tap keys below to add notes\u2026"):
-      items.map(function(item,idx){return renderItem(item,idx);})),
+    // 3. Note strip — hidden, using notation click instead
+    // Compact selected-note info bar
+    selItem&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,padding:"4px 8px",background:"rgba(99,102,241,0.04)",borderRadius:8,border:"1px solid rgba(99,102,241,0.12)"}},
+      React.createElement("span",{style:{fontSize:10,fontWeight:600,color:ac,fontFamily:"'Inter',sans-serif"}},"\u270E Note "+(selIdx+1)),
+      React.createElement("span",{style:{fontSize:11,color:"#444",fontFamily:"'Instrument Serif',serif",fontWeight:600}},
+        selItem.type==="rest"?"Rest":((selItem.acc===-1?"\u266D":selItem.acc===1?"\u266F":"")+selItem.note+selItem.oct)),
+      React.createElement("span",{style:{fontSize:10,color:mu,fontFamily:"monospace"}},DURS[selItem.dur].label+(selItem.dotted?" \u00B7":"")+(selItem.tri?" \u00B3":"")),
+      selItem.tie&&React.createElement("span",{style:{fontSize:10,color:ac}},"\u2040"),
+      React.createElement("div",{style:{flex:1}}),
+      React.createElement("button",{onClick:function(){setSelIdx(null);},style:{fontSize:9,color:mu,background:"none",border:"1px solid #E8E7E3",borderRadius:6,padding:"2px 8px",cursor:"pointer"}},"Deselect")),
+    !selItem&&items.length===0&&React.createElement("div",{style:{padding:"8px 12px",background:"#FAFAF8",borderRadius:8,border:"1px solid #E8E7E3"}},
+      React.createElement("span",{style:{fontSize:11,color:"#CCC",fontFamily:"'Inter',sans-serif"}},"Tap keys below to add notes\u2026")),
     // 4. Action bar: Undo, Redo, Delete
     React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4}},
       React.createElement("button",{onClick:undo,disabled:!canUndo,style:{padding:"4px 10px",borderRadius:7,border:"1px solid #E8E7E3",background:canUndo?"#fff":"#F5F4F0",color:canUndo?"#444":"#CCC",fontSize:11,cursor:canUndo?"pointer":"default",fontFamily:"monospace"}},"\u21A9 Undo"),
       React.createElement("button",{onClick:redo,disabled:!canRedo,style:{padding:"4px 10px",borderRadius:7,border:"1px solid #E8E7E3",background:canRedo?"#fff":"#F5F4F0",color:canRedo?"#444":"#CCC",fontSize:11,cursor:canRedo?"pointer":"default",fontFamily:"monospace"}},"\u21AA Redo"),
       React.createElement("div",{style:{flex:1}}),
-      selIdx!==null&&React.createElement("button",{onClick:function(){setSelIdx(null);},style:{padding:"4px 10px",borderRadius:7,border:"1px solid rgba(99,102,241,0.2)",background:"rgba(99,102,241,0.04)",color:ac,fontSize:10,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},"Deselect"),
       React.createElement("button",{onClick:deleteNote,disabled:items.length===0,style:{padding:"4px 10px",borderRadius:7,border:"1px solid "+(items.length>0?"rgba(229,57,53,0.2)":"#E8E7E3"),background:items.length>0?"rgba(229,57,53,0.04)":"#F5F4F0",color:items.length>0?"#E53935":"#CCC",fontSize:10,cursor:items.length>0?"pointer":"default",fontFamily:"monospace"}},selIdx!==null?"\uD83D\uDDD1 Delete":"\u21A9 Last"),
       items.length>1&&selIdx===null&&React.createElement("button",{onClick:function(){mutate([],{});setSelIdx(null);},style:{padding:"4px 10px",borderRadius:7,border:"1px solid rgba(229,57,53,0.15)",background:"rgba(229,57,53,0.04)",color:"#E53935",fontSize:10,cursor:"pointer",fontFamily:"monospace"}},"\u2715 All")),
-    // Edit mode indicator
-    selIdx!==null&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,padding:"4px 10px",background:"rgba(99,102,241,0.06)",borderRadius:8,border:"1px solid rgba(99,102,241,0.15)"}},
-      React.createElement("span",{style:{fontSize:10,fontWeight:600,color:ac,fontFamily:"'Inter',sans-serif"}},"\u270E Editing note "+(selIdx+1)),
-      selItem&&selItem.type==="note"&&React.createElement("span",{style:{fontSize:10,color:mu,fontFamily:"monospace"}},(selItem.acc===1?"\u266F":selItem.acc===-1?"\u266D":"")+selItem.note+selItem.oct+" "+DURS[selItem.dur].name)),
     // 5. Duration picker
     React.createElement("div",{style:{display:"flex",gap:4,alignItems:"center"}},
       DURS.map(function(dd,i){return React.createElement("button",{key:i,onClick:function(){changeDur(i);},style:{padding:"4px 6px",borderRadius:8,border:"1px solid "+(effDur===i?"rgba(99,102,241,0.2)":"#E8E7E3"),cursor:"pointer",background:effDur===i?"rgba(99,102,241,0.04)":"#fff",color:effDur===i?ac:"#888",display:"flex",flexDirection:"column",alignItems:"center",gap:1,minWidth:36}},noteIcon(i,effDur===i?ac:"#888"),React.createElement("span",{style:{fontSize:7,letterSpacing:0.5,fontFamily:"monospace"}},dd.name));}),
@@ -1920,6 +1968,7 @@ function DailyLickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:user
   const t=th||TH.classic;const isStudio=t===TH.studio;
   const uOff=INST_TRANS[userInst]||0;const cardAbc=uOff?transposeAbc(lick.abc,uOff):lick.abc;
   const keyDisp=uOff?trKeyName(lick.key.split(" ")[0],uOff):lick.key;
+  const prevCurNote=usePreviewCurNote(lick.id);
   
   const catC=getCatColor(lick.category,t);const instC=getInstColor(lick.instrument,t);
   return React.createElement("div",{"data-coach":"daily",onClick:()=>onSelect(lick),style:{background:isStudio?(t.cardRaised||t.card):t.card,borderRadius:isStudio?20:16,padding:0,marginBottom:isStudio?18:14,border:"1px solid "+(isStudio?catC+"25":t.border),cursor:"pointer",boxShadow:isStudio?"0 4px 24px "+catC+"20, 0 1px 8px rgba(0,0,0,0.4), inset 0 1px 0 "+catC+"10":"0 2px 12px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.03)",transition:"box-shadow 0.2s, transform 0.15s",overflow:"hidden",display:"flex"}},
@@ -1941,7 +1990,7 @@ function DailyLickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:user
         React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace"}},keyDisp+" \u00B7 \u2669="+lick.tempo)),
       // NOTATION
       React.createElement("div",{style:{marginTop:6,display:"flex",justifyContent:"center",overflow:"hidden"}},
-        React.createElement(Notation,{abc:cardAbc,compact:true,th:t})),
+        React.createElement(Notation,{abc:cardAbc,compact:true,th:t,curNoteRef:prevCurNote})),
       // ACTION ROW — Instagram style
       React.createElement("div",{"data-coach":"flame",style:{display:"flex",alignItems:"center",gap:2,marginTop:isStudio?14:10,paddingTop:isStudio?12:8,borderTop:"1px solid "+t.border}},
         React.createElement(PreviewBtn,{lickId:lick.id,abc:cardAbc,tempo:lick.tempo,th:t,size:30}),
@@ -1961,6 +2010,7 @@ function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst}
   const t=th||TH.classic;const isStudio=t===TH.studio;
   const uOff=INST_TRANS[userInst]||0;const cardAbc=uOff?transposeAbc(lick.abc,uOff):lick.abc;
   const keyDisp=uOff?trKeyName(lick.key.split(" ")[0],uOff):lick.key;
+  const prevCurNote=usePreviewCurNote(lick.id);
   
   const catC=getCatColor(lick.category,t);
   return React.createElement("div",{onClick:()=>onSelect(lick),style:{background:isStudio?(t.cardRaised||t.card):t.card,borderRadius:isStudio?16:14,padding:0,marginBottom:isStudio?12:8,border:"1px solid "+(isStudio?catC+"18":t.border),cursor:"pointer",transition:"all 0.15s",boxShadow:isStudio?"0 2px 16px "+catC+"15, 0 1px 6px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.03)":"0 2px 10px rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.03)",overflow:"hidden",display:"flex"}},
@@ -1977,7 +2027,7 @@ function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst}
           lick.private&&React.createElement("span",{style:{fontSize:8,color:isStudio?"#22D89E":"#2E7D32",fontFamily:"'Inter',sans-serif",fontWeight:600,background:isStudio?"rgba(34,216,158,0.15)":"#E8F5E9",padding:"2px 6px",borderRadius:4}},"\uD83D\uDD12 Private"))),
       // NOTATION
       React.createElement("div",{style:{marginTop:4,display:"flex",justifyContent:"center",overflow:"hidden"}},
-        React.createElement(Notation,{abc:cardAbc,compact:true,th:t})),
+        React.createElement(Notation,{abc:cardAbc,compact:true,th:t,curNoteRef:prevCurNote})),
       // ACTION ROW — Instagram style
       React.createElement("div",{style:{display:"flex",alignItems:"center",gap:2,marginTop:isStudio?12:8,paddingTop:isStudio?10:6,borderTop:"1px solid "+(isStudio?t.border:t.border)}},
         React.createElement(PreviewBtn,{lickId:lick.id,abc:cardAbc,tempo:lick.tempo,th:t,size:26}),
@@ -3919,6 +3969,9 @@ function PolyrhythmTrainer({th,sharedInput,sharedMicSilent}){
 // ============================================================
 function Editor({onClose,onSubmit,onSubmitPrivate,th}){const t=th||TH.classic;const isStudio=t===TH.studio;
   const[title,sT]=useState("");const[artist,sA]=useState("");const[tune,sTune]=useState("");const[inst,sI]=useState("Alto Sax");const[cat,sC]=useState("ii-V-I");const[keySig,sK]=useState("C");const[timeSig,sTS]=useState("4/4");const[tempo,sTm]=useState("120");const[abc,sAbc]=useState("X:1\nT:My Lick\nM:4/4\nL:1/8\nQ:1/4=120\nK:C\n");const[feel,setFeel]=useState("straight");const[yu,sYu]=useState("");const[tm,sTmn]=useState("");const[ts,sTs]=useState("");const[sp,sSp]=useState("");const[desc,sD]=useState("");const[tags,sTg]=useState("");const[extrasOpen,setExtrasOpen]=useState(false);
+  const edCurNoteRef=useRef(-1);
+  const noteClickRef=useRef(null);
+  const[edSelIdx,setEdSelIdx]=useState(null);
   useEffect(function(){try{Tone.start();}catch(e){}preloadPiano();preloadChordPiano();_ensurePreviewSynth();},[]);
   const KEYS=["C","Db","D","Eb","E","F","F#","G","Ab","A","Bb","B"];const TS=["4/4","3/4","6/8","5/4","7/8"];const yt=parseYT(yu);const tSec=(parseInt(tm)||0)*60+(parseInt(ts)||0);
   const lb={fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5,display:"block",marginBottom:4};
@@ -3982,13 +4035,13 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th}){const t=th||TH.classic;co
         sec("2","Write the notes",notesOk,
           React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:12}},
             React.createElement("div",{style:{borderRadius:12,padding:14,border:"1px solid "+t.border}},
-              React.createElement(NoteBuilder,{onAbcChange:sAbc,keySig,timeSig,tempo:parseInt(tempo)||120,
+              React.createElement(NoteBuilder,{onAbcChange:sAbc,keySig,timeSig,tempo:parseInt(tempo)||120,noteClickRef:noteClickRef,onSelChange:setEdSelIdx,
                 previewEl:hasNotes?React.createElement("div",{style:{background:t.noteBg,borderRadius:10,padding:10,border:"1px solid "+t.borderSub}},
                   React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}},
                     React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,fontWeight:600}},"PREVIEW"),
                     noteCount>0&&React.createElement("span",{style:{fontSize:9,color:t.accent,fontFamily:"monospace"}},noteCount+" notes")),
-                  React.createElement(Notation,{abc,compact:false,th:t})):null,
-                playerEl:React.createElement(Player,{abc,tempo:parseInt(tempo)||120,th:t,initFeel:feel,editorMode:true})})))),
+                  React.createElement(Notation,{abc,compact:false,th:t,curNoteRef:edCurNoteRef,selNoteIdx:edSelIdx,onNoteClick:function(idx){if(noteClickRef.current)noteClickRef.current(idx);}})):null,
+                playerEl:React.createElement(Player,{abc,tempo:parseInt(tempo)||120,th:t,initFeel:feel,editorMode:true,onCurNote:function(n){edCurNoteRef.current=n;}})})))),
 
         // STEP 3 — Describe it
         sec("3","Describe it",titleOk&&artistOk,
