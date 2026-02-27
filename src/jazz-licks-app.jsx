@@ -500,88 +500,6 @@ var SCALE_DEFS=[
   {name:"Mixolydian b9 b13",notes:[0,1,4,5,7,8,10],ctx:["7","7b9"]},
 ];
 
-// Scale → chord refinement: when a non-default scale is detected, refine the chord symbol
-// Key = scale name, Value = {quality: new_suffix} (only for qualities that should change)
-var SCALE_CHORD_REFINE={
-  "Altered":{"7":"7alt","9":"7alt","13":"7alt"},
-  "Lydian Dominant":{"7":"7#11","9":"9#11","13":"13#11"},
-  "HW Diminished":{"7":"13b9","9":"13b9","13":"13b9"},
-  "Mixolydian b9 b13":{"7":"7b9","9":"7b9"},
-  "Whole Tone":{"7":"7#5","aug7":"aug7"},
-  "Melodic Minor":{"m7":"m(maj7)","m":"m(maj7)"},
-  "Harmonic Minor":{"m7":"m(maj7)","m":"m(maj7)"},
-  "Lydian":{"maj7":"maj7#11","maj9":"maj9#11"},
-  // Default scales = no refinement: Mixolydian/7, Dorian/m7, Ionian/maj7, Locrian/m7b5, etc.
-};
-
-function refineChordName(chordName,scaleName){
-  if(!scaleName||!chordName)return chordName;
-  var map=SCALE_CHORD_REFINE[scaleName];
-  if(!map)return chordName;
-  var parsed=parseChordName(chordName);
-  if(!parsed)return chordName;
-  var newSuffix=map[parsed.quality];
-  if(!newSuffix)return chordName;
-  // Don't refine if chord already has the extension (user wrote it explicitly)
-  var existingQ=chordName.replace(/^[A-G][b#]?/,"");
-  if(existingQ.toLowerCase().replace(/[()]/g,"")===newSuffix.toLowerCase().replace(/[()]/g,""))return chordName;
-  // Extract root part from original
-  var r=chordName.trim();var ri=1;
-  if(ri<r.length&&(r[ri]==="b"||r[ri]==="#"))ri++;
-  return r.substring(0,ri)+newSuffix;
-}
-
-// Refine all chord annotations in an ABC string based on scale detection
-function refineAbcChords(abc){
-  // Quick scale detection: parse, collect notes, detect scales, then replace
-  try{
-    var p=parseAbc(abc);
-    var events=p.events,chords=p.chords;
-    if(!chords||chords.length===0)return abc;
-    // Build regions
-    var regions=[];
-    for(var ci=0;ci<chords.length;ci++){
-      var start=chords[ci].pos;var end=ci+1<chords.length?chords[ci+1].pos:Infinity;
-      regions.push({chord:chords[ci].name,start:start,end:end,parsed:parseChordName(chords[ci].name)});
-    }
-    // Collect notes per region
-    var chordNotes={};for(var ri=0;ri<regions.length;ri++)chordNotes[ri]=new Set();
-    var pos=0;
-    for(var ei=0;ei<events.length;ei++){
-      var ev=events[ei];
-      if(ev.tn&&ev.tn.length>0){
-        var aIdx=-1;
-        for(var ri2=regions.length-1;ri2>=0;ri2--){if(pos>=regions[ri2].start-0.001){aIdx=ri2;break;}}
-        if(aIdx<0&&regions.length>0)aIdx=0;
-        if(aIdx>=0&&regions[aIdx].parsed){
-          for(var ni=0;ni<ev.tn.length;ni++){
-            chordNotes[aIdx].add(getNoteInterval(ev.tn[ni],regions[aIdx].parsed));
-          }
-        }
-      }
-      pos+=ev.rL;
-    }
-    // Detect scales and build replacement map
-    var replacements=[];// [{original, refined}]
-    for(var ri3=0;ri3<regions.length;ri3++){
-      var rg=regions[ri3];
-      if(chordNotes[ri3].size<3)continue;// need enough notes to detect scale
-      var scaleName=detectScale(chordNotes[ri3],rg.parsed);
-      var refined=refineChordName(rg.chord,scaleName);
-      if(refined!==rg.chord)replacements.push({original:rg.chord,refined:refined});
-    }
-    if(replacements.length===0)return abc;
-    // Replace chord annotations in ABC — each "original" in quotes, first occurrence only per replacement
-    var result=abc;
-    for(var rpi=0;rpi<replacements.length;rpi++){
-      var rp=replacements[rpi];
-      // Replace first occurrence of "original" with "refined"
-      result=result.replace('"'+rp.original+'"','"'+rp.refined+'"');
-    }
-    return result;
-  }catch(e){return abc;}
-}
-
 // Parse chord name → {root (0-11), quality string, chordTones set}
 function parseChordName(cn){
   if(!cn)return null;
@@ -2029,7 +1947,41 @@ function noteIcon(idx,color,sz){var c=color||"#666",s=sz||22,h=s,w=Math.round(s*
   if(idx===3)return React.createElement("svg",{width:w,height:h,viewBox:"0 0 16 22"},React.createElement("ellipse",{cx:7,cy:15,rx:5,ry:3.5,fill:c,transform:"rotate(-15 7 15)"}),React.createElement("line",{x1:12,y1:15,x2:12,y2:2,stroke:c,strokeWidth:1.5}),React.createElement("path",{d:"M12 2 C13 4 14.5 6.5 12 10",fill:"none",stroke:c,strokeWidth:1.4,strokeLinecap:"round"}));
   // 16th: filled oval + stem + double flag
   return React.createElement("svg",{width:w,height:h,viewBox:"0 0 16 22"},React.createElement("ellipse",{cx:7,cy:15,rx:5,ry:3.5,fill:c,transform:"rotate(-15 7 15)"}),React.createElement("line",{x1:12,y1:15,x2:12,y2:2,stroke:c,strokeWidth:1.5}),React.createElement("path",{d:"M12 2 C13 3.5 14.5 5.5 12 8.5",fill:"none",stroke:c,strokeWidth:1.4,strokeLinecap:"round"}),React.createElement("path",{d:"M12 5.5 C13 7 14.5 9 12 12",fill:"none",stroke:c,strokeWidth:1.4,strokeLinecap:"round"}));}
-const NOTE_NMS=["C","D","E","F","G","A","B"];const CHORD_PR=["maj7","m7","7","m7b5","dim7","6","9","sus4"];
+const NOTE_NMS=["C","D","E","F","G","A","B"];
+// Hierarchical chord quality picker: Category → qualities
+var CHORD_HIER=[
+  {id:"dur",label:"Dur",quals:[
+    {q:"",l:"triad"},{q:"6",l:"6"},{q:"69",l:"69"},
+    {q:"maj7",l:"maj7"},{q:"maj9",l:"maj9"},{q:"maj7#11",l:"\u0394#11"}
+  ],def:"maj7"},
+  {id:"dom",label:"Dom",quals:[
+    {q:"7",l:"7"},{q:"9",l:"9"},{q:"13",l:"13"},
+    {q:"7b9",l:"7b9"},{q:"7#9",l:"7#9"},{q:"7#11",l:"7#11"},
+    {q:"7b13",l:"7b13"},{q:"7alt",l:"7alt"},{q:"13b9",l:"13b9"},{q:"7#5",l:"7#5"}
+  ],def:"7"},
+  {id:"moll",label:"Moll",quals:[
+    {q:"m",l:"m"},{q:"m6",l:"m6"},
+    {q:"m7",l:"m7"},{q:"m9",l:"m9"},{q:"m(maj7)",l:"m\u03947"}
+  ],def:"m7"},
+  {id:"dim",label:"Dim",quals:[
+    {q:"dim",l:"dim"},{q:"dim7",l:"dim7"},{q:"m7b5",l:"\u00F8"}
+  ],def:"m7b5"},
+  {id:"aug",label:"Aug",quals:[
+    {q:"aug",l:"aug"},{q:"7#5",l:"7#5"}
+  ],def:"aug"},
+  {id:"sus",label:"Sus",quals:[
+    {q:"sus4",l:"sus4"},{q:"sus2",l:"sus2"},{q:"7sus4",l:"7sus"}
+  ],def:"sus4"}
+];
+// Find category for a quality string
+function findChordCat(q){
+  for(var i=0;i<CHORD_HIER.length;i++){
+    for(var j=0;j<CHORD_HIER[i].quals.length;j++){
+      if(CHORD_HIER[i].quals[j].q===q)return CHORD_HIER[i].id;
+    }
+  }
+  return"dom";
+}
 function e2s(e){if(e===1)return"";if(e===0.5)return"/2";if(e===0.75)return"3/4";if(e===1.5)return"3/2";if(e===3)return"3";if(e===6)return"6";if(e===12)return"12";if(Number.isInteger(e))return String(e);return String(Math.round(e*2))+"/2";}
 var KEY_SIG_ACC={"C":{},"G":{F:1},"D":{F:1,C:1},"A":{F:1,C:1,G:1},"E":{F:1,C:1,G:1,D:1},"B":{F:1,C:1,G:1,D:1,A:1},"F#":{F:1,C:1,G:1,D:1,A:1,E:1},"Gb":{B:-1,E:-1,A:-1,D:-1,G:-1,C:-1},"F":{B:-1},"Bb":{B:-1,E:-1},"Eb":{B:-1,E:-1,A:-1},"Ab":{B:-1,E:-1,A:-1,D:-1},"Db":{B:-1,E:-1,A:-1,D:-1,G:-1}};
 function buildAbc(items,keySig,timeSig,tempo,chords){const[tsN,tsD]=timeSig.split("/").map(Number);const bE=tsN*(8/tsD);const beatE=8/tsD;
@@ -2149,7 +2101,7 @@ function buildAbc(items,keySig,timeSig,tempo,chords){const[tsN,tsD]=timeSig.spli
   if(nc>0)abc+=" |";return abc;}
 function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteClickRef,onSelChange,deselectRef,previewOffset}){
   const[items,sIt]=useState([]);const[cO,sCO]=useState(4);const[cD,sCD]=useState(2);const[dt,sDt]=useState(false);const[tri,sTri]=useState(false);
-  const[chords,sChords]=useState({});const[chEd,sChEd]=useState(null);const[chRoot,sChRoot]=useState("C");const[chQual,sChQual]=useState("maj7");
+  const[chords,sChords]=useState({});const[chEd,sChEd]=useState(null);const[chRoot,sChRoot]=useState("C");const[chQual,sChQual]=useState("maj7");const[chCat,sChCat]=useState("dur");
   const[selIdx,setSelIdx]=useState(null);
   // Compute note mapping for current items
   var noteToItemSel=[];var itemToNoteSel={};
@@ -2199,23 +2151,6 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteCl
   // ABC generation
   var currentAbc=useMemo(function(){return buildAbc(items,keySig,timeSig,tempo,chords);},[items,keySig,timeSig,tempo,chords]);
   useEffect(function(){onAbcChange(currentAbc);},[currentAbc]);
-  // Chord refinement suggestions from scale detection
-  var editorSuggestions=useMemo(function(){
-    if(items.length<4||Object.keys(chords).length===0)return[];
-    try{
-      var analysis=analyzeTheory(currentAbc);
-      if(!analysis||!analysis.chordScales)return[];
-      var sugs=[];
-      analysis.chordScales.forEach(function(cs){
-        if(!cs.scale||cs.noteCount<3)return;
-        var refined=refineChordName(cs.chord,cs.scale);
-        if(refined!==cs.chord){
-          sugs.push({original:cs.chord,refined:refined,scale:cs.scale});
-        }
-      });
-      return sugs;
-    }catch(e){return[];}
-  },[currentAbc]);
   // Auto-scroll note strip
   useEffect(function(){if(sR.current&&selIdx===null)sR.current.scrollLeft=sR.current.scrollWidth;},[items]);
   // Scroll to selected note
@@ -2332,15 +2267,29 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteCl
     React.createElement("div",{style:{display:"flex",gap:2,overflow:"auto"}},
       Array.from({length:totalBeats},function(_,bi){
         var ch=chords[bi];var isEd=chEd===bi;var beatNum=(bi%tsN)+1;var isBarStart=bi%tsN===0;
-        return React.createElement("div",{key:bi,onClick:function(){if(isEd){sChEd(null);}else{if(ch){var ps=ch.match(/^([A-G][b#]?)(.*)/);if(ps){sChRoot(ps[1]);sChQual(ps[2]||"maj7");}}sChEd(bi);}},style:{flex:1,minWidth:44,padding:ch?"4px 2px":"6px 2px",borderRadius:8,border:isEd?"2px solid "+ac:"1px dashed "+(ch?"rgba(99,102,241,0.3)":"#D5D4CE"),background:isEd?"rgba(99,102,241,0.06)":ch?"rgba(99,102,241,0.03)":"#FAFAF8",cursor:"pointer",textAlign:"center",position:"relative",borderLeft:isBarStart&&bi>0?"2px solid #D0CFc8":undefined}},
+        return React.createElement("div",{key:bi,onClick:function(){if(isEd){sChEd(null);}else{if(ch){var ps=ch.match(/^([A-G][b#]?)(.*)/);if(ps){sChRoot(ps[1]);var eq=ps[2]||"";sChQual(eq||"maj7");sChCat(findChordCat(eq));}}sChEd(bi);}},style:{flex:1,minWidth:44,padding:ch?"4px 2px":"6px 2px",borderRadius:8,border:isEd?"2px solid "+ac:"1px dashed "+(ch?"rgba(99,102,241,0.3)":"#D5D4CE"),background:isEd?"rgba(99,102,241,0.06)":ch?"rgba(99,102,241,0.03)":"#FAFAF8",cursor:"pointer",textAlign:"center",position:"relative",borderLeft:isBarStart&&bi>0?"2px solid #D0CFc8":undefined}},
           ch?React.createElement("div",{style:{fontSize:11,fontWeight:600,color:ac,fontFamily:"'Instrument Serif',serif",lineHeight:1.2}},ch):React.createElement("div",{style:{fontSize:8,color:"#BBB",fontFamily:"'Inter',sans-serif"}},"+"),
           React.createElement("div",{style:{fontSize:7,color:"#BBB",fontFamily:"monospace",lineHeight:1}},beatNum));})),
     chEd!==null&&React.createElement("div",{style:{background:"rgba(99,102,241,0.03)",border:"1px solid rgba(99,102,241,0.12)",borderRadius:10,padding:8}},
-      React.createElement("div",{style:{display:"flex",gap:3,marginBottom:5,flexWrap:"wrap"}},["C","D","E","F","G","A","B","Bb","Eb","Ab","Db","F#"].map(function(r){return React.createElement("button",{key:r,onClick:function(){sChRoot(r);},style:{padding:"2px 7px",borderRadius:5,border:"none",cursor:"pointer",fontSize:11,fontFamily:"'Instrument Serif',serif",fontWeight:600,background:chRoot===r?"rgba(99,102,241,0.1)":"#F0EFE8",color:chRoot===r?ac:"#666"}},r);})),
-      React.createElement("div",{style:{display:"flex",gap:3,marginBottom:6,flexWrap:"wrap"}},CHORD_PR.map(function(q){return React.createElement("button",{key:q,onClick:function(){sChQual(q);},style:{padding:"2px 6px",borderRadius:5,border:"none",cursor:"pointer",fontSize:10,fontFamily:"monospace",background:chQual===q?"rgba(99,102,241,0.1)":"#F0EFE8",color:chQual===q?ac:mu}},q);})),
+      // Root row
+      React.createElement("div",{style:{display:"flex",gap:3,marginBottom:6,flexWrap:"wrap"}},["C","D","E","F","G","A","B","Bb","Eb","Ab","Db","F#"].map(function(r){return React.createElement("button",{key:r,onClick:function(){sChRoot(r);},style:{padding:"2px 7px",borderRadius:5,border:"none",cursor:"pointer",fontSize:11,fontFamily:"'Instrument Serif',serif",fontWeight:600,background:chRoot===r?"rgba(99,102,241,0.1)":"#F0EFE8",color:chRoot===r?ac:"#666"}},r);})),
+      // Category tabs
+      React.createElement("div",{style:{display:"flex",gap:2,marginBottom:5}},CHORD_HIER.map(function(cat){
+        var isSel=chCat===cat.id;
+        return React.createElement("button",{key:cat.id,onClick:function(){sChCat(cat.id);sChQual(cat.def);},style:{flex:1,padding:"4px 2px",borderRadius:6,border:isSel?"1.5px solid "+ac:"1px solid #E0DFD8",cursor:"pointer",fontSize:10,fontWeight:isSel?700:500,fontFamily:"'Inter',sans-serif",background:isSel?"rgba(99,102,241,0.08)":"#F5F4F0",color:isSel?ac:mu,transition:"all 0.15s"}},cat.label);
+      })),
+      // Quality chips for selected category
+      React.createElement("div",{style:{display:"flex",gap:3,marginBottom:6,flexWrap:"wrap"}},(function(){
+        var cat=CHORD_HIER.find(function(c){return c.id===chCat;});
+        if(!cat)return null;
+        return cat.quals.map(function(qo){
+          var isSel=chQual===qo.q;
+          return React.createElement("button",{key:qo.q,onClick:function(){sChQual(qo.q);},style:{padding:"3px 8px",borderRadius:6,border:isSel?"1.5px solid "+ac:"1px solid #E8E7E3",cursor:"pointer",fontSize:10,fontFamily:"'JetBrains Mono',monospace",fontWeight:isSel?700:500,background:isSel?"rgba(99,102,241,0.08)":"#FAFAF8",color:isSel?ac:"#666",transition:"all 0.12s"}},qo.l);});
+      })()),
+      // Preview + Set/Delete/Cancel
       React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
-        React.createElement("span",{style:{fontSize:14,color:ac,fontFamily:"'Instrument Serif',serif",fontWeight:600}},chRoot+chQual),
-        React.createElement("button",{onClick:function(){var nc=Object.assign({},chords);nc[chEd]=chRoot+chQual;mutate(items,nc);sChEd(null);},style:{padding:"4px 12px",borderRadius:7,border:"none",background:ac,color:"#fff",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},"Set"),
+        React.createElement("span",{style:{fontSize:14,color:ac,fontFamily:"'Instrument Serif',serif",fontWeight:600}},chRoot+(chQual||"")),
+        React.createElement("button",{onClick:function(){var nc=Object.assign({},chords);nc[chEd]=chRoot+(chQual||"");mutate(items,nc);sChEd(null);},style:{padding:"4px 12px",borderRadius:7,border:"none",background:ac,color:"#fff",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},"Set"),
         chords[chEd]&&React.createElement("button",{onClick:function(){var nc=Object.assign({},chords);delete nc[chEd];mutate(items,nc);sChEd(null);},style:{padding:"4px 10px",borderRadius:7,border:"1px solid #E0DFD8",background:"#F5F4F0",color:"#E53935",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},"\u2715"),
         React.createElement("button",{onClick:function(){sChEd(null);},style:{padding:"4px 10px",borderRadius:7,border:"1px solid #E0DFD8",background:"#F5F4F0",color:mu,fontSize:10,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},"Cancel"))));
 
@@ -2369,20 +2318,6 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteCl
       selIdx!==null&&items[selIdx]&&items[selIdx].type==="note"&&React.createElement("button",{onClick:toggleTie,style:{padding:"4px 8px",borderRadius:8,border:"1px solid "+(effTie?"rgba(99,102,241,0.2)":"#E8E7E3"),cursor:"pointer",background:effTie?"rgba(99,102,241,0.04)":"#fff",color:effTie?ac:"#888",fontSize:12,fontWeight:700,fontFamily:"'Instrument Serif',serif"}},"\u2040 tie")),
     // 6. Chord lane
     chordLaneEl,
-    // 6b. Chord refinement suggestions
-    editorSuggestions.length>0&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap",padding:"6px 8px",background:"rgba(194,123,26,0.04)",borderRadius:8,border:"1px solid rgba(194,123,26,0.12)"}},
-      React.createElement("span",{style:{fontSize:9,color:"#C27B1A",fontFamily:"'Inter',sans-serif",fontWeight:600,flexShrink:0}},"\u2728 Implied:"),
-      editorSuggestions.map(function(sug,idx){
-        return React.createElement("button",{key:idx,onClick:function(){
-          // Find beat index with original chord and replace
-          var nc=Object.assign({},chords);
-          Object.keys(nc).forEach(function(k){if(nc[k]===sug.original)nc[k]=sug.refined;});
-          mutate(items,nc);
-        },style:{display:"inline-flex",alignItems:"center",gap:3,padding:"3px 8px",borderRadius:6,fontSize:10,fontFamily:"'JetBrains Mono',monospace",background:"rgba(194,123,26,0.06)",border:"1px solid rgba(194,123,26,0.15)",cursor:"pointer",transition:"all 0.15s"}},
-          React.createElement("span",{style:{color:"#888",fontWeight:500}},sug.original),
-          React.createElement("span",{style:{color:"#C27B1A",fontWeight:400}},"\u2192"),
-          React.createElement("span",{style:{color:"#C27B1A",fontWeight:700}},sug.refined));
-      })),
     // 7. Rest button
     React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4}},
       React.createElement("button",{onClick:addRest,style:{padding:"5px 12px",borderRadius:8,border:"1px solid #E0DFD8",background:"#F5F4F0",color:mu,fontSize:11,cursor:"pointer",fontFamily:"monospace"}},selIdx!==null?"Set Rest":"+ Rest"),
