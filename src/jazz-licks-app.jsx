@@ -665,6 +665,67 @@ var THEORY_COLORS={
   "unknown":{light:"#8E8E93",dark:"#8888A0"}
 };
 function getTheoryColor(type,isStudio){return isStudio?(THEORY_COLORS[type]||THEORY_COLORS["unknown"]).dark:(THEORY_COLORS[type]||THEORY_COLORS["unknown"]).light;}
+
+// ============================================================
+// ENHARMONIC RESPELLING ENGINE
+// ============================================================
+// For each interval (semitones from chord root) → [degree_offset (0-based from root letter), acc_direction]
+// degree_offset tells which letter to use; acc is computed from the actual PC
+var IV_SPELL=[[0,0],[1,-1],[1,0],[2,-1],[2,0],[3,0],[3,1],[4,0],[5,-1],[5,0],[6,-1],[6,0]];
+var LETTERS_ORD=["C","D","E","F","G","A","B"];
+
+function getChordRootInfo(cn){
+  if(!cn||cn.length===0)return null;
+  var c=cn[0].toUpperCase();var li=LETTERS_ORD.indexOf(c);if(li<0)return null;
+  var ri=1,ra=0;
+  if(ri<cn.length&&cn[ri]==="b"){ra=-1;ri++;}
+  else if(ri<cn.length&&cn[ri]==="#"){ra=1;ri++;}
+  var pc=((N2M[c]||0)+ra+12)%12;
+  return{letter:c,li:li,pc:pc,quality:cn.substring(ri).toLowerCase()};
+}
+
+// Get preferred {note,acc} for a pitch class over a chord
+// prevPC/nextPC for chromatic passing detection (can be null)
+function chordSpellPC(pc,chInfo,prevPC,nextPC){
+  if(!chInfo)return null;
+  // Only respell enharmonic pitch classes (those with sharp/flat options)
+  var ENHARM={1:1,3:1,6:1,8:1,10:1};
+  if(!ENHARM[pc])return null;
+  var iv=(pc-chInfo.pc+12)%12;
+  var sp=IV_SPELL[iv];
+  var degOff=sp[0];
+  var letter=LETTERS_ORD[(chInfo.li+degOff)%7];
+  var natPC=N2M[letter]||0;
+  var acc=pc-natPC;if(acc>6)acc-=12;if(acc<-6)acc+=12;
+  // Reject double sharps/flats
+  if(acc>1||acc<-1)return null;
+  // Tritone: use b5 for diminished/half-dim chords instead of #4
+  if(iv===6){var q=chInfo.quality;
+    if(q.indexOf("dim")>=0||q.indexOf("m7b5")>=0||q.indexOf("ø")>=0||q.indexOf("halfdim")>=0){
+      var l2=LETTERS_ORD[(chInfo.li+4)%7];var n2=N2M[l2]||0;
+      var a2=pc-n2;if(a2>6)a2-=12;if(a2<-6)a2+=12;
+      if(a2>=-1&&a2<=1){letter=l2;acc=a2;}
+    }
+  }
+  // Chromatic passing tone override (needs both prev AND next)
+  if(prevPC!==null&&nextPC!==null){
+    var fromPrev=(pc-prevPC+12)%12;
+    var toNext=(nextPC-pc+12)%12;
+    // Ascending chromatic (prev 1 below, next 1 above) → prefer sharp
+    if(fromPrev===1&&toNext===1&&acc<0){
+      var aL=LETTERS_ORD[(LETTERS_ORD.indexOf(letter)+6)%7];
+      var aN=N2M[aL]||0;var aA=pc-aN;if(aA>6)aA-=12;if(aA<-6)aA+=12;
+      if(aA===1){letter=aL;acc=aA;}
+    }
+    // Descending chromatic (prev 1 above, next 1 below) → prefer flat
+    if(fromPrev===11&&toNext===11&&acc>0){
+      var aL2=LETTERS_ORD[(LETTERS_ORD.indexOf(letter)+1)%7];
+      var aN2=N2M[aL2]||0;var aA2=pc-aN2;if(aA2>6)aA2-=12;if(aA2<-6)aA2+=12;
+      if(aA2===-1){letter=aL2;acc=aA2;}
+    }
+  }
+  return{note:letter,acc:acc};
+}
 function makeBass(bag){
   if(_bassSamplerReady&&_bassSampler){
     const rev=new Tone.Reverb({decay:0.8,wet:0.06}).toDestination();
@@ -767,7 +828,7 @@ function makeDrums(bag){
 // ============================================================
 function trKeyName(name,semi){let ri=1;if(ri<name.length&&(name[ri]==="b"||name[ri]==="#"))ri++;const rs=name.substring(0,ri),sfx=name.substring(ri);let s=N2M[rs[0].toUpperCase()]||0;if(rs.includes("#"))s++;if(rs.includes("b"))s--;s=((s+semi)%12+12)%12;return KEY_NAMES[s]+sfx;}
 function trChord(ch,semi){if(!ch)return ch;let ri=1;if(ri<ch.length&&(ch[ri]==="b"||ch[ri]==="#"))ri++;const rs=ch.substring(0,ri),q=ch.substring(ri);let s=N2M[rs[0].toUpperCase()]||0;if(rs.includes("#"))s++;if(rs.includes("b"))s--;s=((s+semi)%12+12)%12;return KEY_NAMES[s]+q;}
-function trMusic(line,semi,ks,useFlat,newKs){const nm=useFlat?FLAT_ABC:SHARP_ABC;let out="",i=0;var inBarAcc={};var outBarAcc={};while(i<line.length){if(line[i]==='"'){out+='"';i++;let ch="";while(i<line.length&&line[i]!=='"'){ch+=line[i];i++;}out+=trChord(ch,semi);if(i<line.length){out+='"';i++;}continue;}if(line[i]==="|"||line[i]===":"){inBarAcc={};outBarAcc={};out+=line[i];i++;continue;}let acc=null,ai=i;while(i<line.length&&(line[i]==="^"||line[i]==="_"||line[i]==="=")){if(line[i]==="^")acc=(acc===null?1:acc+1);else if(line[i]==="_")acc=(acc===null?-1:acc-1);else acc=0;i++;}if(i<line.length&&((line[i]>="A"&&line[i]<="G")||(line[i]>="a"&&line[i]<="g"))){const nc=line[i];i++;const isLo=nc>="a";const nu=nc.toUpperCase();let om=0;while(i<line.length&&(line[i]==="'"||line[i]===",")){if(line[i]==="'")om++;else om--;i++;}let oct=(isLo?5:4)+om;let ns=N2M[nu]||0;var inKey=nu+oct;if(acc!==null){ns+=acc;inBarAcc[inKey]=acc;}else{if(inBarAcc[inKey]!==undefined){ns+=inBarAcc[inKey];}else{const ka=ks[nu.toLowerCase()];if(ka)ns+=ka;}}let ap=ns+oct*12+semi;let no=Math.floor(ap/12);let nsm=((ap%12)+12)%12;const ch=nm[nsm];const wantAcc=ch.a==="^"?1:ch.a==="_"?-1:0;const ksAcc=(newKs&&newKs[ch.n.toLowerCase()])||0;var outKey=ch.n+no;var prevOutAcc=outBarAcc.hasOwnProperty(outKey)?outBarAcc[outKey]:ksAcc;var needExplicit=false;if(wantAcc!==prevOutAcc)needExplicit=true;else if(wantAcc===ksAcc&&outBarAcc.hasOwnProperty(outKey)&&outBarAcc[outKey]!==ksAcc)needExplicit=true;if(needExplicit){if(wantAcc===0)out+="=";else if(wantAcc===1)out+="^";else out+="_";}outBarAcc[outKey]=wantAcc;if(no>=5){out+=ch.n.toLowerCase();for(let o=6;o<=no;o++)out+="'";}else{out+=ch.n;for(let o=3;o>=no;o--)out+=",";}continue;}if(acc!==null){out+=line.substring(ai,i);continue;}out+=line[i];i++;}return out;}
+function trMusic(line,semi,ks,useFlat,newKs){const nm=useFlat?FLAT_ABC:SHARP_ABC;let out="",i=0;var inBarAcc={};var outBarAcc={};var curChInfo=null;while(i<line.length){if(line[i]==='"'){out+='"';i++;let chN="";while(i<line.length&&line[i]!=='"'){chN+=line[i];i++;}var trCh=trChord(chN,semi);curChInfo=getChordRootInfo(trCh);out+=trCh;if(i<line.length){out+='"';i++;}continue;}if(line[i]==="|"||line[i]===":"){inBarAcc={};outBarAcc={};out+=line[i];i++;continue;}let acc=null,ai=i;while(i<line.length&&(line[i]==="^"||line[i]==="_"||line[i]==="=")){if(line[i]==="^")acc=(acc===null?1:acc+1);else if(line[i]==="_")acc=(acc===null?-1:acc-1);else acc=0;i++;}if(i<line.length&&((line[i]>="A"&&line[i]<="G")||(line[i]>="a"&&line[i]<="g"))){const nc=line[i];i++;const isLo=nc>="a";const nu=nc.toUpperCase();let om=0;while(i<line.length&&(line[i]==="'"||line[i]===",")){if(line[i]==="'")om++;else om--;i++;}let oct=(isLo?5:4)+om;let ns=N2M[nu]||0;var inKey=nu+oct;if(acc!==null){ns+=acc;inBarAcc[inKey]=acc;}else{if(inBarAcc[inKey]!==undefined){ns+=inBarAcc[inKey];}else{const ka=ks[nu.toLowerCase()];if(ka)ns+=ka;}}let ap=ns+oct*12+semi;let no=Math.floor(ap/12);let nsm=((ap%12)+12)%12;var ch;if(curChInfo){var csp=chordSpellPC(nsm,curChInfo,null,null);if(csp)ch={n:csp.note,a:csp.acc===1?"^":csp.acc===-1?"_":""};else ch=nm[nsm];}else ch=nm[nsm];const wantAcc=ch.a==="^"?1:ch.a==="_"?-1:0;const ksAcc=(newKs&&newKs[ch.n.toLowerCase()])||0;var outKey=ch.n+no;var prevOutAcc=outBarAcc.hasOwnProperty(outKey)?outBarAcc[outKey]:ksAcc;var needExplicit=false;if(wantAcc!==prevOutAcc)needExplicit=true;else if(wantAcc===ksAcc&&outBarAcc.hasOwnProperty(outKey)&&outBarAcc[outKey]!==ksAcc)needExplicit=true;if(needExplicit){if(wantAcc===0)out+="=";else if(wantAcc===1)out+="^";else out+="_";}outBarAcc[outKey]=wantAcc;if(no>=5){out+=ch.n.toLowerCase();for(let o=6;o<=no;o++)out+="'";}else{out+=ch.n;for(let o=3;o>=no;o--)out+=",";}continue;}if(acc!==null){out+=line.substring(ai,i);continue;}out+=line[i];i++;}return out;}
 function transposeAbc(abc,semi){if(!semi)return abc;const lines=abc.split("\n");let out=[],ks={},nks={},nkr=0;for(const line of lines){const t=line.trim();if(t.startsWith("K:")){const k=t.slice(2).trim().split(/\s/)[0];ks=KEY_SIG[k]||{};const nk=trKeyName(k,semi);nks=KEY_SIG[nk]||{};let ri2=1;if(ri2<nk.length&&(nk[ri2]==="b"||nk[ri2]==="#"))ri2++;const nrs=nk.substring(0,ri2);nkr=N2M[nrs[0]]||0;if(nrs.includes("#"))nkr++;if(nrs.includes("b"))nkr--;nkr=((nkr%12)+12)%12;out.push("K:"+nk);}else if(/^[A-Z]:/.test(t)){out.push(line);}else{out.push(trMusic(line,semi,ks,FLAT_ROOTS.has(nkr),nks));}}return out.join("\n");}
 
 // ============================================================
@@ -1798,7 +1859,37 @@ function buildAbc(items,keySig,timeSig,tempo,chords){const[tsN,tsD]=timeSig.spli
   let abc="X:1\nT:My Lick\nM:"+timeSig+"\nL:1/8\nQ:1/4="+tempo+"\nK:"+keySig+"\n";
   let pos=0,nc=0;var barAlts={};var triCount=0;var chObj=chords||{};var emittedCh={};
 
-  for(var ii=0;ii<items.length;ii++){var item=items[ii];if(item.type==="chord")continue;
+  // ── Enharmonic respelling pre-pass ──
+  var chordBeats=Object.keys(chObj).map(Number).sort(function(a,b){return a-b;});
+  var spItems=items;
+  if(chordBeats.length>0){
+    spItems=[];var spPos=0;
+    for(var si=0;si<items.length;si++){var sIt=items[si];
+      if(sIt.type!=="note"){spItems.push(sIt);
+        if(sIt.type==="rest")spPos+=DURS[sIt.dur].eighths*(sIt.dotted?1.5:1)*(sIt.tri?2/3:1);
+        continue;}
+      var sPC=((N2M[sIt.note]||0)+(sIt.acc||0)+120)%12;
+      var sBeat=Math.floor(spPos/beatE+0.01);
+      var sCh=null;for(var ci2=chordBeats.length-1;ci2>=0;ci2--)if(chordBeats[ci2]<=sBeat){sCh=chObj[chordBeats[ci2]];break;}
+      if(sCh){
+        var sCI=getChordRootInfo(sCh);
+        var sPrev=null,sNext=null;
+        for(var pi=si-1;pi>=0;pi--)if(items[pi].type==="note"){sPrev=((N2M[items[pi].note]||0)+(items[pi].acc||0)+120)%12;break;}
+        for(var ni=si+1;ni<items.length;ni++)if(items[ni].type==="note"){sNext=((N2M[items[ni].note]||0)+(items[ni].acc||0)+120)%12;break;}
+        var sR=chordSpellPC(sPC,sCI,sPrev,sNext);
+        if(sR&&(sR.note!==sIt.note||sR.acc!==(sIt.acc||0))){
+          // Compute new octave: same MIDI pitch, different letter
+          var oldMidi=(N2M[sIt.note]||0)+(sIt.acc||0)+sIt.oct*12;
+          var newNat=(N2M[sR.note]||0)+sR.acc;
+          var newOct=Math.round((oldMidi-newNat)/12);
+          spItems.push(Object.assign({},sIt,{note:sR.note,acc:sR.acc,oct:newOct}));
+        }else spItems.push(sIt);
+      }else spItems.push(sIt);
+      spPos+=DURS[sIt.dur].eighths*(sIt.dotted?1.5:1)*(sIt.tri?2/3:1);
+    }
+  }
+
+  for(var ii=0;ii<spItems.length;ii++){var item=spItems[ii];if(item.type==="chord")continue;
     const ei=DURS[item.dur].eighths*(item.dotted?1.5:1);var effEi=item.tri?ei*(2/3):ei;
     var hasTie=!!item.tie;
 
