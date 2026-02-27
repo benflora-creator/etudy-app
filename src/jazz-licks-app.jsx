@@ -641,7 +641,7 @@ function analyzeTheory(abcStr){
             entries.push({note:tn,interval:null,label:"",type:"unknown",chord:""});
           }
         }
-        noteAnalysis.push({noteIdx:noteIdx,entries:entries});
+        noteAnalysis.push({noteIdx:noteIdx,entries:entries,chordIdx:activeIdx});
         noteIdx++;
       }
       pos+=ev.rL;
@@ -1241,7 +1241,7 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
     var barInfo=getBarInfo(abc);var nBars=barInfo.nBars;
     // Force all bars on one line if <=4, otherwise 4 per line — deterministic
     var mpl=nBars<=4?nBars:4;
-    const opts={responsive:"resize",paddingtop:focus?14:theoryMode?24:2,paddingbottom:focus?14:2,paddingleft:0,paddingright:0,add_classes:true};
+    const opts={responsive:"resize",paddingtop:focus?14:2,paddingbottom:focus?14:theoryMode?28:2,paddingleft:0,paddingright:0,add_classes:true};
     if(compact){opts.staffwidth=400;opts.scale=0.85;}
     else if(focus){opts.staffwidth=500;opts.scale=1.35;opts.wrap={minSpacing:1.0,maxSpacing:1.8,preferredMeasuresPerLine:mpl};}
     else{opts.staffwidth=420;opts.scale=1.0;opts.wrap={minSpacing:1.0,maxSpacing:1.8,preferredMeasuresPerLine:mpl};}
@@ -1259,34 +1259,92 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
     svg.querySelectorAll(".abcjs-title,.abcjs-meta-top").forEach(el=>el.style.display="none");
     const noteEls=svg.querySelectorAll(".abcjs-note");if(!noteEls.length)return;
     const fracs=getNoteTimeFracs(abc);
-    // ── THEORY MODE: add interval labels above notes ──
+    // ── THEORY MODE: pill badges below notes + chord region backgrounds ──
     if(theoryMode&&theoryAnalysis&&theoryAnalysis.noteAnalysis&&theoryAnalysis.noteAnalysis.length>0){
-      // Remove old labels
-      svg.querySelectorAll(".theory-label").forEach(function(el){el.remove();});
+      // Remove old elements
+      svg.querySelectorAll(".theory-label,.theory-pill,.theory-region").forEach(function(el){el.remove();});
       var na=theoryAnalysis.noteAnalysis;
+      // Find staff bottom for label placement
+      var staffEls=svg.querySelectorAll(".abcjs-staff path");
+      var staffBottom=0;
+      staffEls.forEach(function(p){try{var sb=p.getBBox();if(sb.y+sb.height>staffBottom)staffBottom=sb.y+sb.height;}catch(e){}});
+      if(staffBottom<10)staffBottom=80;// fallback
+      var labelY=staffBottom+14;
+      // ── Chord region backgrounds ──
+      // Group notes by chordIdx to find x-spans
+      var regionMap={};
+      noteEls.forEach(function(noteEl,idx){
+        if(idx>=na.length)return;
+        var ci=na[idx].chordIdx;if(ci===undefined||ci<0)return;
+        try{var bb=noteEl.getBBox();
+          if(!regionMap[ci])regionMap[ci]={minX:bb.x,maxX:bb.x+bb.width,ci:ci};
+          else{regionMap[ci].minX=Math.min(regionMap[ci].minX,bb.x);regionMap[ci].maxX=Math.max(regionMap[ci].maxX,bb.x+bb.width);}
+        }catch(e){}
+      });
+      var regionPad=6;
+      var regionColors=isStudio?["rgba(34,216,158,0.04)","rgba(99,102,241,0.04)"]:["rgba(99,102,241,0.04)","rgba(34,150,120,0.04)"];
+      Object.keys(regionMap).forEach(function(ci){
+        var rg=regionMap[ci];
+        try{
+          var rect=document.createElementNS("http://www.w3.org/2000/svg","rect");
+          rect.setAttribute("class","theory-region");
+          rect.setAttribute("x",rg.minX-regionPad);
+          rect.setAttribute("y",2);
+          rect.setAttribute("width",rg.maxX-rg.minX+regionPad*2);
+          rect.setAttribute("height",labelY+12);
+          rect.setAttribute("rx","6");
+          rect.setAttribute("fill",regionColors[parseInt(ci)%2]);
+          rect.setAttribute("stroke",isStudio?"rgba(34,216,158,0.08)":"rgba(99,102,241,0.06)");
+          rect.setAttribute("stroke-width","1");
+          rect.style.pointerEvents="none";
+          // Insert behind everything
+          svg.insertBefore(rect,svg.firstChild);
+        }catch(e){}
+      });
+      // ── Pill badges below each note ──
       noteEls.forEach(function(noteEl,idx){
         if(idx>=na.length)return;
         var info=na[idx];if(!info||!info.entries||!info.entries.length)return;
-        var entry=info.entries[0];// primary note (for chords, show first)
+        var entry=info.entries[0];
         if(!entry.label)return;
         try{
           var bb=noteEl.getBBox();
+          var col=getTheoryColor(entry.type,isStudio);
+          var cx=bb.x+bb.width/2;
+          // Pill background
+          var txt=entry.label;
+          var pillW=txt.length<=1?14:txt.length<=2?18:24;
+          var pillH=13;
+          var pillRect=document.createElementNS("http://www.w3.org/2000/svg","rect");
+          pillRect.setAttribute("class","theory-pill");
+          pillRect.setAttribute("x",cx-pillW/2);
+          pillRect.setAttribute("y",labelY-pillH/2);
+          pillRect.setAttribute("width",pillW);
+          pillRect.setAttribute("height",pillH);
+          pillRect.setAttribute("rx","4");
+          pillRect.setAttribute("fill",col);
+          pillRect.setAttribute("fill-opacity",isStudio?"0.15":"0.12");
+          pillRect.setAttribute("stroke",col);
+          pillRect.setAttribute("stroke-opacity","0.3");
+          pillRect.setAttribute("stroke-width","0.5");
+          pillRect.style.pointerEvents="none";
+          svg.appendChild(pillRect);
+          // Label text
           var lbl=document.createElementNS("http://www.w3.org/2000/svg","text");
           lbl.setAttribute("class","theory-label");
-          lbl.setAttribute("x",bb.x+bb.width/2);
-          lbl.setAttribute("y",bb.y-6);
+          lbl.setAttribute("x",cx);
+          lbl.setAttribute("y",labelY+1);
           lbl.setAttribute("text-anchor","middle");
-          lbl.setAttribute("dominant-baseline","auto");
-          var col=getTheoryColor(entry.type,isStudio);
+          lbl.setAttribute("dominant-baseline","central");
           lbl.setAttribute("fill",col);
-          lbl.style.fontSize="9px";
+          lbl.style.fontSize="8.5px";
           lbl.style.fontFamily="'JetBrains Mono',monospace";
-          lbl.style.fontWeight="700";
-          lbl.style.letterSpacing="0.3px";
+          lbl.style.fontWeight=entry.type==="chord-tone"?"800":"600";
+          lbl.style.letterSpacing="0.2px";
           lbl.style.pointerEvents="none";
-          lbl.textContent=entry.label;
+          lbl.textContent=txt;
           svg.appendChild(lbl);
-          // Color the note itself by its theory type
+          // Color the note head by theory type
           noteEl.querySelectorAll("path,circle,ellipse").forEach(function(p){
             p.setAttribute("fill",col);p.setAttribute("stroke",col);
           });
@@ -2291,22 +2349,23 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
           React.createElement("button",{onClick:()=>setTheoryMode(!theoryMode),title:"X-Ray: Theory Analysis",style:{width:32,height:32,borderRadius:8,background:theoryMode?(isStudio?t.accent+"25":t.accent+"15"):t.accentBg,display:"flex",alignItems:"center",justifyContent:"center",border:theoryMode?"1.5px solid "+(isStudio?t.accent+"60":t.accent):("1px solid "+t.accentBorder),cursor:"pointer",transition:"all 0.2s",boxShadow:theoryMode?("0 0 12px "+(isStudio?t.accent+"30":"rgba(99,102,241,0.15)")):"none"}},IC.xray(15,theoryMode?t.accent:(isStudio?t.subtle:t.muted),theoryMode)),
           !theoryMode&&React.createElement("button",{onClick:()=>setFocus(true),style:{width:28,height:28,borderRadius:7,background:t.accentBg,display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid "+t.accentBorder,cursor:"pointer"}},React.createElement("span",{style:{fontSize:12,color:t.accent}},"\u26F6"))),
         // ── THEORY INFO PANEL ──
-        theoryMode&&theoryAnalysis&&theoryAnalysis.hasChords&&React.createElement("div",{style:{marginTop:10,padding:"12px 14px",borderRadius:12,background:isStudio?t.card:t.settingsBg,border:"1px solid "+(isStudio?t.accent+"25":t.accentBorder),transition:"all 0.2s"}},
-          // Legend
-          React.createElement("div",{style:{display:"flex",alignItems:"center",gap:12,marginBottom:10,flexWrap:"wrap"}},
-            React.createElement("span",{style:{fontSize:10,fontWeight:700,color:t.muted,fontFamily:"'Inter',sans-serif",letterSpacing:0.8}},"X-RAY"),
-            [["chord-tone","Chord Tone"],["tension","Tension"],["chromatic","Chromatic"]].map(function(pair){
-              return React.createElement("span",{key:pair[0],style:{display:"flex",alignItems:"center",gap:4,fontSize:10,fontFamily:"'JetBrains Mono',monospace"}},
-                React.createElement("span",{style:{width:8,height:8,borderRadius:4,background:getTheoryColor(pair[0],isStudio),display:"inline-block",flexShrink:0}}),
-                React.createElement("span",{style:{color:getTheoryColor(pair[0],isStudio),fontWeight:600}},pair[1]));})),
-          // Scale per chord
-          theoryAnalysis.chordScales&&theoryAnalysis.chordScales.length>0&&React.createElement("div",{style:{display:"flex",gap:6,flexWrap:"wrap",marginTop:2}},
-            theoryAnalysis.chordScales.map(function(cs,idx){
+        theoryMode&&theoryAnalysis&&theoryAnalysis.hasChords&&React.createElement("div",{style:{marginTop:10,padding:"10px 12px",borderRadius:12,background:isStudio?t.card:t.settingsBg,border:"1px solid "+(isStudio?t.accent+"20":t.accentBorder),transition:"all 0.2s"}},
+          // Single row: Legend dots + Scale chips
+          React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}},
+            // Legend — compact dots
+            React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,marginRight:4}},
+              [["chord-tone","CT"],["tension","T"],["chromatic","Chr"]].map(function(pair){
+                return React.createElement("span",{key:pair[0],style:{display:"flex",alignItems:"center",gap:3,fontSize:9,fontFamily:"'JetBrains Mono',monospace"}},
+                  React.createElement("span",{style:{width:7,height:7,borderRadius:"50%",background:getTheoryColor(pair[0],isStudio),display:"inline-block",flexShrink:0,boxShadow:"0 0 4px "+getTheoryColor(pair[0],isStudio)+"40"}}),
+                  React.createElement("span",{style:{color:getTheoryColor(pair[0],isStudio),fontWeight:600,opacity:0.85}},pair[1]));})),
+            // Divider
+            theoryAnalysis.chordScales&&theoryAnalysis.chordScales.some(function(cs){return cs.scale&&cs.noteCount>=2;})&&React.createElement("span",{style:{width:1,height:14,background:t.border,flexShrink:0}}),
+            // Scale chips
+            theoryAnalysis.chordScales&&theoryAnalysis.chordScales.map(function(cs,idx){
               if(!cs.scale||cs.noteCount<2)return null;
-              return React.createElement("div",{key:idx,style:{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:8,background:isStudio?t.accentBg:"#fff",border:"1px solid "+(isStudio?t.accent+"20":t.border)}},
-                React.createElement("span",{style:{fontSize:11,fontWeight:700,color:t.chordFill,fontFamily:"'JetBrains Mono',monospace"}},cs.chord),
-                React.createElement("span",{style:{fontSize:9,color:t.subtle}},"\u2192"),
-                React.createElement("span",{style:{fontSize:11,fontWeight:600,color:t.text,fontFamily:"'Inter',sans-serif"}},cs.scale));}))),
+              return React.createElement("span",{key:idx,style:{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 8px",borderRadius:6,fontSize:10,fontFamily:"'JetBrains Mono',monospace",background:isStudio?t.accent+"10":"rgba(99,102,241,0.06)",border:"1px solid "+(isStudio?t.accent+"18":"rgba(99,102,241,0.1)")}},
+                React.createElement("span",{style:{fontWeight:700,color:t.chordFill}},cs.chord),
+                React.createElement("span",{style:{fontWeight:500,color:t.text,opacity:0.75,fontFamily:"'Inter',sans-serif",fontSize:10}},cs.scale));}))),
         theoryMode&&(!theoryAnalysis||!theoryAnalysis.hasChords)&&React.createElement("div",{style:{marginTop:8,padding:"10px 14px",borderRadius:10,background:isStudio?"#F59E0B15":"#FEF3C7",border:"1px solid "+(isStudio?"#F59E0B30":"#FDE68A")}},
           React.createElement("span",{style:{fontSize:12,color:isStudio?"#FBBF24":"#92400E",fontFamily:"'Inter',sans-serif"}},"No chord symbols found in this lick. X-Ray needs chord annotations (e.g. \"Dm7\") to analyze intervals.")),
         abOn&&React.createElement("div",{style:{borderTop:"1px solid "+t.border,marginTop:8,paddingTop:8}},
