@@ -2507,13 +2507,12 @@ function TempoPopup({bpm,onBpmChange,onClose,th,lickTempo,playerCtrlRef}){
             React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
               React.createElement("button",{onClick:function(){setProgTarget(Math.max(bpm+5,progTarget-10));},style:{width:28,height:28,borderRadius:8,border:"1px solid "+t.border,background:t.card,color:t.text,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"\u2212"),
               React.createElement("span",{style:{fontSize:18,fontWeight:700,color:"#3B82F6",fontFamily:"'JetBrains Mono',monospace",minWidth:40,textAlign:"center"}},progTarget),
-              React.createElement("button",{onClick:function(){setProgTarget(Math.min(320,progTarget+10));},style:{width:28,height:28,borderRadius:8,border:"1px solid "+t.border,background:t.card,color:t.text,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"+")),
+              React.createElement("button",{onClick:function(){setProgTarget(Math.min(320,progTarget+10));},style:{width:28,height:28,borderRadius:8,border:"1px solid "+t.border,background:t.card,color:t.text,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"+")))/*close:btns,targetCol*/,
           React.createElement("div",{style:{flex:1}},
             React.createElement("div",{style:{fontSize:9,color:"#3B82F6",fontFamily:"'JetBrains Mono',monospace",marginBottom:6}},"STEP"),
             React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
               [2,5,10].map(function(s){return React.createElement("button",{key:s,onClick:function(){setProgStep(s);},style:{padding:"6px 12px",borderRadius:8,background:progStep===s?"#3B82F618":t.card,border:"1.5px solid "+(progStep===s?"#3B82F640":t.border),color:progStep===s?"#3B82F6":t.muted,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"'JetBrains Mono',monospace"}},"+"+s);})))))));
 }
-
 // ── DRAWER CONSTANTS ──
 var DRAWER_PEEK=134,DRAWER_HALF=420,DRAWER_FULL_OFF=80;
 
