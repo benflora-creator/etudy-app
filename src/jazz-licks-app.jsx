@@ -4052,7 +4052,7 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
         sec("2","Write the notes",notesOk,
           React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:12}},
             edInstOff!==0&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",background:isStudio?"rgba(34,216,158,0.06)":"rgba(99,102,241,0.04)",borderRadius:8,border:"1px solid "+(isStudio?"rgba(34,216,158,0.15)":"rgba(99,102,241,0.1)")}},
-              React.createElement("span",{style:{fontSize:10,color:isStudio?"#22D89E":ac,fontFamily:"'Inter',sans-serif"}},"Entering for "+userInst+" \u2014 will be saved in concert pitch")),
+              React.createElement("span",{style:{fontSize:10,color:isStudio?"#22D89E":t.accent,fontFamily:"'Inter',sans-serif"}},"Entering for "+userInst+" \u2014 will be saved in concert pitch")),
             React.createElement("div",{style:{borderRadius:12,padding:14,border:"1px solid "+t.border}},
               React.createElement(NoteBuilder,{onAbcChange:sAbc,keySig,timeSig,tempo:parseInt(tempo)||120,noteClickRef:noteClickRef,onSelChange:setEdSelIdx,deselectRef:deselectRef,
                 previewEl:hasNotes?React.createElement("div",{style:{marginBottom:4}},
