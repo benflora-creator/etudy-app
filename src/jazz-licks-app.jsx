@@ -1350,9 +1350,9 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
     if(!ref.current)return;const svg=ref.current.querySelector("svg");if(!svg)return;
     const isStudio=t===TH.studio;
     svg.querySelectorAll("path").forEach(p=>{p.setAttribute("stroke",t.noteStroke);p.setAttribute("fill",t.noteStroke);});
-    svg.querySelectorAll(".abcjs-staff path").forEach(p=>{p.setAttribute("stroke",t.staffStroke);p.setAttribute("fill","none");p.setAttribute("stroke-width","0.8");});
-    svg.querySelectorAll(".abcjs-staff-extra path").forEach(p=>{p.setAttribute("stroke",isStudio?t.staffStroke:t.muted);p.setAttribute("fill",isStudio?t.staffStroke:t.muted);p.setAttribute("stroke-width","0.8");});
-    svg.querySelectorAll(".abcjs-bar path").forEach(p=>{p.setAttribute("stroke",t.barStroke);p.setAttribute("stroke-width","1");});
+    svg.querySelectorAll(".abcjs-staff path").forEach(p=>{p.setAttribute("stroke",t.staffStroke);p.setAttribute("fill","none");p.setAttribute("stroke-width","0.6");});
+    svg.querySelectorAll(".abcjs-staff-extra path").forEach(p=>{p.setAttribute("stroke",isStudio?t.staffStroke:t.muted);p.setAttribute("fill",isStudio?t.staffStroke:t.muted);p.setAttribute("stroke-width","0.6");});
+    svg.querySelectorAll(".abcjs-bar path").forEach(p=>{p.setAttribute("stroke",t.barStroke);p.setAttribute("stroke-width","0.8");});
     svg.querySelectorAll("text").forEach(p=>p.setAttribute("fill",t.metaFill));
     svg.querySelectorAll("text.abcjs-chord").forEach(p=>{p.setAttribute("fill",t.chordFill);p.style.fontSize=isStudio?"14px":"12px";p.style.fontWeight=isStudio?"600":"400";if(isStudio)p.style.filter="drop-shadow(0 0 4px "+t.chordFill+"50)";});
     svg.querySelectorAll(".abcjs-title,.abcjs-meta-top").forEach(el=>el.style.display="none");
@@ -1519,7 +1519,7 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
 // ============================================================
 // A/B RANGE BAR — themed
 // ============================================================
-function ABRangeBar({abc,abA,abB,setAbA,setAbB,onReset,th}){
+function ABRangeBar({abc,abA,abB,setAbA,setAbB,onReset,th,compact}){
   const t=th||TH.classic;const barRef=useRef(null);const dragRef=useRef(null);
   const info=getBarInfo(abc);const{nBars,beatsPerBar}=info;
   const onStart=which=>e=>{e.preventDefault();e.stopPropagation();dragRef.current=which;
@@ -1527,18 +1527,19 @@ function ABRangeBar({abc,abA,abB,setAbA,setAbB,onReset,th}){
     const onEnd=()=>{dragRef.current=null;window.removeEventListener("mousemove",onMove);window.removeEventListener("mouseup",onEnd);window.removeEventListener("touchmove",onMove);window.removeEventListener("touchend",onEnd);};
     window.addEventListener("mousemove",onMove);window.addEventListener("mouseup",onEnd);window.addEventListener("touchmove",onMove,{passive:false});window.addEventListener("touchend",onEnd);};
   const ticks=[];for(let b=0;b<=nBars;b++){ticks.push(React.createElement("div",{key:"b"+b,style:{position:"absolute",left:(b/nBars*100)+"%",top:0,bottom:0,width:1,background:b===0||b===nBars?t.dimBorder:t.border}}));if(b<nBars)for(let bt=1;bt<beatsPerBar;bt++){ticks.push(React.createElement("div",{key:"t"+b+"-"+bt,style:{position:"absolute",left:((b+bt/beatsPerBar)/nBars*100)+"%",top:"60%",bottom:0,width:1,background:t.border,opacity:0.5}}));}}
-  return React.createElement("div",{style:{marginTop:8,marginBottom:4}},
-    React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}},
+  var barH=compact?24:32;var handleSz=compact?22:28;var handleRad=compact?6:8;var handleFnt=compact?9:10;
+  return React.createElement("div",{style:{marginTop:compact?2:8,marginBottom:compact?0:4}},
+    !compact&&React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}},
       React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'JetBrains Mono',monospace"}},nBars+" bars"),
       (abA>0.001||abB<0.999)&&React.createElement("button",{onClick:e=>{e.stopPropagation();onReset();},style:{fontSize:9,color:t.muted,background:t.filterBg,border:"none",borderRadius:6,padding:"2px 8px",cursor:"pointer",fontFamily:"'Inter',sans-serif"}},"Reset")),
-    React.createElement("div",{ref:barRef,style:{position:"relative",height:32,margin:"0 14px",touchAction:"none"}},
-      React.createElement("div",{style:{position:"absolute",top:0,left:0,right:0,bottom:0,background:t.noteBg,borderRadius:8,border:"1px solid "+t.border,overflow:"hidden"}},
+    React.createElement("div",{ref:barRef,style:{position:"relative",height:barH,margin:"0 "+((handleSz/2)+2)+"px",touchAction:"none"}},
+      React.createElement("div",{style:{position:"absolute",top:0,left:0,right:0,bottom:0,background:t.noteBg,borderRadius:compact?6:8,border:"1px solid "+t.border,overflow:"hidden"}},
         ticks,
         React.createElement("div",{style:{position:"absolute",left:(abA*100)+"%",width:((abB-abA)*100)+"%",top:0,height:"100%",background:t.accentBg,borderLeft:"2px solid "+t.accent,borderRight:"2px solid "+t.accent}})),
-      React.createElement("div",{onMouseDown:onStart("a"),onTouchStart:onStart("a"),style:{position:"absolute",left:"calc("+(abA*100)+"% - 14px)",top:"50%",transform:"translateY(-50%)",width:28,height:28,borderRadius:8,background:t.card,border:"2px solid "+t.accent,cursor:"grab",touchAction:"none",display:"flex",alignItems:"center",justifyContent:"center",zIndex:2,boxShadow:"0 1px 4px rgba(0,0,0,0.15)"}},
-        React.createElement("span",{style:{fontSize:10,fontWeight:700,color:t.accent,fontFamily:"monospace"}},"A")),
-      React.createElement("div",{onMouseDown:onStart("b"),onTouchStart:onStart("b"),style:{position:"absolute",left:"calc("+(abB*100)+"% - 14px)",top:"50%",transform:"translateY(-50%)",width:28,height:28,borderRadius:8,background:t.card,border:"2px solid "+t.accent,cursor:"grab",touchAction:"none",display:"flex",alignItems:"center",justifyContent:"center",zIndex:2,boxShadow:"0 1px 4px rgba(0,0,0,0.15)"}},
-        React.createElement("span",{style:{fontSize:10,fontWeight:700,color:t.accent,fontFamily:"monospace"}},"B"))));}
+      React.createElement("div",{onMouseDown:onStart("a"),onTouchStart:onStart("a"),style:{position:"absolute",left:"calc("+(abA*100)+"% - "+(handleSz/2)+"px)",top:"50%",transform:"translateY(-50%)",width:handleSz,height:handleSz,borderRadius:handleRad,background:t.card,border:"2px solid "+t.accent,cursor:"grab",touchAction:"none",display:"flex",alignItems:"center",justifyContent:"center",zIndex:2,boxShadow:"0 1px 4px rgba(0,0,0,0.15)"}},
+        React.createElement("span",{style:{fontSize:handleFnt,fontWeight:700,color:t.accent,fontFamily:"monospace"}},"A")),
+      React.createElement("div",{onMouseDown:onStart("b"),onTouchStart:onStart("b"),style:{position:"absolute",left:"calc("+(abB*100)+"% - "+(handleSz/2)+"px)",top:"50%",transform:"translateY(-50%)",width:handleSz,height:handleSz,borderRadius:handleRad,background:t.card,border:"2px solid "+t.accent,cursor:"grab",touchAction:"none",display:"flex",alignItems:"center",justifyContent:"center",zIndex:2,boxShadow:"0 1px 4px rgba(0,0,0,0.15)"}},
+        React.createElement("span",{style:{fontSize:handleFnt,fontWeight:700,color:t.accent,fontFamily:"monospace"}},"B"))));}
 
 
 // ============================================================
@@ -2426,9 +2427,9 @@ function ScalePopup({data,th,isStudio,onClose}){
         svg.style.maxWidth="100%";
         var stCol=isStudio?"#F2F2FA":"#1A1A1A";
         svg.querySelectorAll("path").forEach(function(p){p.setAttribute("fill",stCol);p.setAttribute("stroke",stCol);});
-        svg.querySelectorAll(".abcjs-staff path").forEach(function(p){p.setAttribute("stroke-width","0.8");p.setAttribute("fill","none");});
-        svg.querySelectorAll(".abcjs-staff-extra path").forEach(function(p){p.setAttribute("stroke-width","0.8");});
-        svg.querySelectorAll(".abcjs-bar path").forEach(function(p){p.setAttribute("stroke-width","1");});
+        svg.querySelectorAll(".abcjs-staff path").forEach(function(p){p.setAttribute("stroke",t.staffStroke);p.setAttribute("fill","none");p.setAttribute("stroke-width","0.6");});
+        svg.querySelectorAll(".abcjs-staff-extra path").forEach(function(p){p.setAttribute("stroke",isStudio?t.staffStroke:t.muted);p.setAttribute("fill",isStudio?t.staffStroke:t.muted);p.setAttribute("stroke-width","0.6");});
+        svg.querySelectorAll(".abcjs-bar path").forEach(function(p){p.setAttribute("stroke",t.barStroke);p.setAttribute("stroke-width","0.8");});
         var ct=parseChordName(data.chord);
         var noteEls=svg.querySelectorAll(".abcjs-note");
         noteEls.forEach(function(noteEl,ni){
@@ -2520,7 +2521,7 @@ function TempoPopup({bpm,onBpmChange,onClose,th,lickTempo,playerCtrlRef}){
             React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
               [1,2,4].map(function(n){return React.createElement("button",{key:n,onClick:function(){setProgLoops(n);},style:{padding:"6px 12px",borderRadius:8,background:progLoops===n?"#3B82F618":t.card,border:"1.5px solid "+(progLoops===n?"#3B82F640":t.border),color:progLoops===n?"#3B82F6":t.muted,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"'JetBrains Mono',monospace"}},n===1?"1 loop":n+" loops");}))))))));}
 // ── DRAWER CONSTANTS ──
-var DRAWER_PEEK=134,DRAWER_HALF=420,DRAWER_FULL_OFF=80;
+var DRAWER_PEEK=200,DRAWER_HALF=420,DRAWER_FULL_OFF=80;
 
 function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDone,onReShowTips,defaultInst,onDeletePrivate,onReport}){
   const t=th||TH.classic;const isStudio=t===TH.studio;
@@ -2549,17 +2550,17 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
   const[drawerSnap,setDrawerSnap]=useState(0);
   const[drawerH,setDrawerH]=useState(DRAWER_PEEK);
   const[dragging,setDragging]=useState(false);
-  const dragRef=useRef({startY:0,startH:0,active:false});
+  const dragRef=useRef({startY:0,startH:0,active:false,moved:false});
   const hRef=useRef(DRAWER_PEEK);
   useEffect(function(){hRef.current=drawerH;},[drawerH]);
   const winH=typeof window!=="undefined"?window.innerHeight:800;
   const snapPts=[DRAWER_PEEK,DRAWER_HALF,winH-DRAWER_FULL_OFF];
   var doSnap=useCallback(function(h){var closest=0,minD=Infinity;snapPts.forEach(function(sp,i){var d=Math.abs(h-sp);if(d<minD){minD=d;closest=i;}});setDrawerH(snapPts[closest]);setDrawerSnap(closest);},[winH]);
   useEffect(function(){setDrawerH(snapPts[drawerSnap]);},[drawerSnap]);
-  var onTouchStart=function(e){dragRef.current={startY:e.touches[0].clientY,startH:hRef.current,active:true};setDragging(true);};
-  var onTouchMove=function(e){if(!dragRef.current.active)return;var dy=dragRef.current.startY-e.touches[0].clientY;setDrawerH(Math.max(snapPts[0],Math.min(winH-DRAWER_FULL_OFF,dragRef.current.startH+dy)));};
+  var onTouchStart=function(e){dragRef.current={startY:e.touches[0].clientY,startH:hRef.current,active:true,moved:false};setDragging(true);};
+  var onTouchMove=function(e){if(!dragRef.current.active)return;var dy=dragRef.current.startY-e.touches[0].clientY;if(Math.abs(dy)>3)dragRef.current.moved=true;setDrawerH(Math.max(snapPts[0],Math.min(winH-DRAWER_FULL_OFF,dragRef.current.startH+dy)));};
   var onTouchEnd=function(){if(!dragRef.current.active)return;dragRef.current.active=false;setDragging(false);doSnap(hRef.current);};
-  var onMouseDown=function(e){e.preventDefault();dragRef.current={startY:e.clientY,startH:hRef.current,active:true};setDragging(true);var mv=function(ev){var dy=dragRef.current.startY-ev.clientY;setDrawerH(Math.max(snapPts[0],Math.min(winH-DRAWER_FULL_OFF,dragRef.current.startH+dy)));};var up=function(){dragRef.current.active=false;setDragging(false);doSnap(hRef.current);window.removeEventListener("mousemove",mv);window.removeEventListener("mouseup",up);};window.addEventListener("mousemove",mv);window.addEventListener("mouseup",up);};
+  var onMouseDown=function(e){e.preventDefault();dragRef.current={startY:e.clientY,startH:hRef.current,active:true,moved:false};setDragging(true);var mv=function(ev){var dy=dragRef.current.startY-ev.clientY;if(Math.abs(dy)>3)dragRef.current.moved=true;setDrawerH(Math.max(snapPts[0],Math.min(winH-DRAWER_FULL_OFF,dragRef.current.startH+dy)));};var up=function(){dragRef.current.active=false;setDragging(false);doSnap(hRef.current);window.removeEventListener("mousemove",mv);window.removeEventListener("mouseup",up);};window.addEventListener("mousemove",mv);window.addEventListener("mouseup",up);};
 
   // ── PLAYER STATE (from headless Player via onStateChange) ──
   const[ps,setPs]=useState({playing:false,loading:false,looping:false,melody:true,backing:true,sound:"piano",backingStyle:"piano",feel:"straight",ci:true,muteKeys:false,muteBass:false,muteDrums:false});
@@ -2641,29 +2642,31 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
 
     // ═══════ BOTTOM DRAWER ═══════
     React.createElement("div",{style:{position:"fixed",bottom:0,left:0,right:0,height:drawerH,background:isStudio?t.card:t.card,borderRadius:"20px 20px 0 0",boxShadow:"0 -4px 30px rgba(0,0,0,"+(isStudio?"0.5":"0.12")+"), 0 -1px 0 "+t.border,transition:dragging?"none":"height 0.35s cubic-bezier(0.32,0.72,0,1)",zIndex:150,display:"flex",flexDirection:"column",overflow:"hidden"}},
-      // Drag handle
-      React.createElement("div",{onTouchStart:onTouchStart,onTouchMove:onTouchMove,onTouchEnd:onTouchEnd,onMouseDown:onMouseDown,style:{padding:"10px 0 4px",cursor:"grab",display:"flex",justifyContent:"center",flexShrink:0,userSelect:"none",touchAction:"none"}},
-        React.createElement("div",{style:{width:36,height:4,borderRadius:2,background:t.subtle,opacity:0.4}})),
+      // Drag handle — triple line, also clickable to expand
+      React.createElement("div",{onTouchStart:onTouchStart,onTouchMove:onTouchMove,onTouchEnd:onTouchEnd,onMouseDown:onMouseDown,onClick:function(e){if(!dragRef.current.moved&&!dragRef.current.active){if(drawerSnap===0)setDrawerSnap(1);else if(drawerSnap===1)setDrawerSnap(2);else setDrawerSnap(0);}},style:{padding:"8px 0 4px",cursor:"grab",display:"flex",flexDirection:"column",alignItems:"center",gap:2,flexShrink:0,userSelect:"none",touchAction:"none"}},
+        React.createElement("div",{style:{width:28,height:3,borderRadius:2,background:t.subtle,opacity:0.45}}),
+        React.createElement("div",{style:{width:20,height:2.5,borderRadius:2,background:t.subtle,opacity:0.35}}),
+        React.createElement("div",{style:{width:14,height:2,borderRadius:2,background:t.subtle,opacity:0.25}})),
       // Drawer scroll content
       React.createElement("div",{style:{flex:1,overflowY:drawerSnap>0?"auto":"hidden",overflowX:"hidden",WebkitOverflowScrolling:"touch"}},
 
         // ────── PEEK: MINIBAR ──────
         React.createElement("div",{style:{padding:"0 16px",flexShrink:0}},
           // Progress bar
-          React.createElement("div",{style:{height:3,borderRadius:2,background:t.progressBg||t.border,marginBottom:10,overflow:"hidden",position:"relative"}},
+          React.createElement("div",{style:{height:3,borderRadius:2,background:t.progressBg||t.border,marginBottom:6,overflow:"hidden",position:"relative"}},
             abOn&&React.createElement("div",{style:{position:"absolute",left:((abA||0)*100)+"%",width:(((abB||1)-(abA||0))*100)+"%",height:"100%",background:t.accentBg}}),
             React.createElement("div",{ref:prBarRef,style:{position:"absolute",left:0,width:"0%",height:"100%",background:t.accent,borderRadius:2,boxShadow:ps.playing?"0 0 8px "+t.accentGlow:"none"}})),
           // Row 1: Play · BPM · spacer · Loop · Melody · Backing
-          React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:8}},
+          React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:4}},
             // Play — 48x48
             React.createElement("button",{onClick:function(e){e.stopPropagation();var c=pc();if(c.toggle)c.toggle();},style:{width:48,height:48,borderRadius:14,flexShrink:0,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",background:ps.playing?(isStudio?"linear-gradient(135deg,#22D89E,#1AB87A)":t.accent):(ps.loading?t.filterBg:t.playBg),boxShadow:ps.playing?"0 4px 20px "+t.accentGlow:ps.loading?"none":"0 2px 14px "+t.accentGlow,transition:"all 0.2s"}},
               ps.loading?React.createElement("div",{style:{width:14,height:14,border:"2px solid "+t.accentBg,borderTopColor:t.accent,borderRadius:"50%",animation:"spin 0.8s linear infinite"}}):
               ps.playing?React.createElement("div",{style:{display:"flex",gap:3}},React.createElement("div",{style:{width:4,height:16,background:isStudio?"#08080F":"#fff",borderRadius:1}}),React.createElement("div",{style:{width:4,height:16,background:isStudio?"#08080F":"#fff",borderRadius:1}})):
               React.createElement("div",{style:{width:0,height:0,borderTop:"9px solid transparent",borderBottom:"9px solid transparent",borderLeft:"14px solid #fff",marginLeft:3}})),
-            // BPM — click opens tempo popup
-            React.createElement("button",{onClick:function(e){e.stopPropagation();setShowTempoPopup(true);},style:{background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"flex-start",padding:"2px 0",minWidth:48}},
-              React.createElement("div",{style:{fontSize:22,fontWeight:800,color:ps.playing?t.accent:t.text,fontFamily:"'JetBrains Mono',monospace",letterSpacing:-1,lineHeight:1}},pT),
-              React.createElement("div",{style:{fontSize:7,color:t.subtle,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,marginTop:2}},"BPM \u25BE")),
+            // BPM — clearly clickable, opens tempo popup
+            React.createElement("button",{onClick:function(e){e.stopPropagation();setShowTempoPopup(true);},style:{background:isStudio?"#16162A":t.filterBg,border:"1.5px solid "+(ps.playing?t.accent+"40":t.border),borderRadius:10,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"flex-start",padding:"4px 10px",minWidth:48}},
+              React.createElement("div",{style:{fontSize:20,fontWeight:800,color:ps.playing?t.accent:t.text,fontFamily:"'JetBrains Mono',monospace",letterSpacing:-1,lineHeight:1}},pT),
+              React.createElement("div",{style:{fontSize:7,color:t.accent,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,marginTop:2}},"BPM \u25BE")),
             React.createElement("div",{style:{flex:1}}),
             // Loop — 32x32 icon button with SVG
             React.createElement("button",{onClick:function(e){e.stopPropagation();var c=pc();if(c.setLooping)c.setLooping(!ps.looping);},style:{width:32,height:32,borderRadius:9,flexShrink:0,border:"1.5px solid "+(ps.looping?t.accent+"40":t.border),background:ps.looping?t.accent+"15":"transparent",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",transition:"all 0.15s"}},IC.loop(14,ps.looping?t.accent:t.subtle)),
@@ -2671,23 +2674,23 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
             React.createElement("button",{onClick:function(e){e.stopPropagation();var c=pc();if(c.setMelody)c.setMelody(!ps.melody);},style:{padding:"7px 14px",borderRadius:10,fontSize:11,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer",transition:"all 0.15s",whiteSpace:"nowrap",border:"1.5px solid "+(ps.melody?t.accentBorder:t.border),background:ps.melody?t.accentBg:"transparent",color:ps.melody?t.accent:t.subtle}},"Melody"),
             // Backing — larger text pill, warm
             React.createElement("button",{onClick:function(e){e.stopPropagation();var c=pc();if(c.setBacking)c.setBacking(!ps.backing);},style:{padding:"7px 14px",borderRadius:10,fontSize:11,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer",transition:"all 0.15s",whiteSpace:"nowrap",border:"1.5px solid "+(ps.backing?"#F59E0B50":t.border),background:ps.backing?"#F59E0B14":"transparent",color:ps.backing?"#F59E0B":t.subtle}},"Backing")),
+          // Transpose — compact collapsible, visible in peek
+          React.createElement("div",{style:{marginTop:4,marginBottom:2}},
+            React.createElement("button",{onClick:function(e){e.stopPropagation();setTrOpen(!trOpen);},style:{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",padding:"6px 12px",borderRadius:trOpen?"10px 10px 0 0":10,border:"1px solid "+t.border,borderBottom:trOpen?"none":"1px solid "+t.border,background:isStudio?t.cardRaised||t.card:t.card,cursor:"pointer"}},
+              React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
+                React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600}},"TRANSPOSE"),
+                (instOff+trMan)!==0&&React.createElement("span",{style:{fontSize:9,color:t.accent,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,background:t.accentBg,padding:"1px 6px",borderRadius:5}},trKeyName("C",instOff+trMan))),
+              React.createElement("span",{style:{fontSize:9,color:t.subtle,transform:trOpen?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.15s"}},"\u25BC")),
+            trOpen&&React.createElement("div",{"data-coach":"transpose",style:{background:isStudio?t.cardRaised||t.card:t.card,borderRadius:"0 0 10px 10px",padding:"8px 12px 10px",border:"1px solid "+t.border,borderTop:"none"}},
+              React.createElement(TransposeBar,{trInst:trInst,setTrInst:setTrInst,trMan:trMan,setTrMan:setTrMan,th:t}))),
           // Row 2: A·B loop
           React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,paddingTop:6,borderTop:"1px solid "+(t.border+"60")}},
             React.createElement("button",{onClick:function(e){e.stopPropagation();setAbOn(!abOn);if(!abOn){setAbA(0);setAbB(1);}},style:{padding:"4px 10px",borderRadius:8,fontSize:11,fontWeight:700,fontFamily:"'JetBrains Mono',monospace",cursor:"pointer",transition:"all 0.15s",whiteSpace:"nowrap",flexShrink:0,letterSpacing:0.5,lineHeight:"18px",border:"1.5px solid "+(abOn?"#F59E0B50":t.border),background:abOn?"#F59E0B14":"transparent",color:abOn?"#F59E0B":t.subtle}},"A\u2009\u00B7\u2009B"),
-            React.createElement("div",{style:{flex:1,opacity:abOn?1:0.3,transition:"opacity 0.2s",pointerEvents:abOn?"auto":"none",display:"flex",alignItems:"center"}},
-              React.createElement(ABRangeBar,{abc:notationAbc,abA:abA,abB:abB,setAbA:setAbA,setAbB:setAbB,onReset:function(){setAbA(0);setAbB(1);},th:t})))),
+            React.createElement("div",{style:{flex:1,opacity:abOn?1:0.3,transition:"opacity 0.2s",pointerEvents:abOn?"auto":"none"}},
+              React.createElement(ABRangeBar,{abc:notationAbc,abA:abA,abB:abB,setAbA:setAbA,setAbB:setAbB,onReset:function(){setAbA(0);setAbB(1);},th:t,compact:true})))),
 
         // ══ HALF: SETTINGS + MEDIA ══
         React.createElement("div",{style:{padding:"14px 16px 0",opacity:drawerSnap>=1?1:0,maxHeight:drawerSnap>=1?"none":0,overflow:drawerSnap>=1?"visible":"hidden",transition:"opacity 0.3s"}},
-          // Transpose
-          React.createElement("div",{style:{marginBottom:10}},
-            React.createElement("button",{onClick:function(){setTrOpen(!trOpen);},style:{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",padding:"10px 14px",borderRadius:trOpen?"14px 14px 0 0":14,border:"1px solid "+t.border,borderBottom:trOpen?"none":"1px solid "+t.border,background:isStudio?t.cardRaised||t.card:t.card,cursor:"pointer"}},
-              React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
-                React.createElement("span",{style:{fontSize:11,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600}},"TRANSPOSE"),
-                (instOff+trMan)!==0&&React.createElement("span",{style:{fontSize:10,color:t.accent,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,background:t.accentBg,padding:"2px 8px",borderRadius:6}},trKeyName("C",instOff+trMan))),
-              React.createElement("span",{style:{fontSize:10,color:t.subtle,transform:trOpen?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.15s"}},"\u25BC")),
-            trOpen&&React.createElement("div",{"data-coach":"transpose",style:{background:isStudio?t.cardRaised||t.card:t.card,borderRadius:"0 0 14px 14px",padding:"10px 14px 14px",border:"1px solid "+t.border,borderTop:"none"}},
-              React.createElement(TransposeBar,{trInst:trInst,setTrInst:setTrInst,trMan:trMan,setTrMan:setTrMan,th:t}))),
           // Sound + Backing Style + Feel
           React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:8,marginBottom:10}},
             ps.melody&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}},
