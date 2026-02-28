@@ -2927,6 +2927,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
           React.createElement("div",{style:{fontSize:9,color:t.subtle,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,letterSpacing:1,marginBottom:8}},"FEEL"),
           React.createElement("div",{style:{display:"flex",gap:6}},
             ["straight","swing","hard-swing"].map(function(v){return React.createElement("button",{key:v,onClick:function(){haptic();var c=pc();if(c.setFeel)c.setFeel(v);},style:{flex:1,padding:"10px 6px",borderRadius:10,fontSize:12,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer",border:"1.5px solid "+(ps.feel===v?t.accent+"40":t.border),background:ps.feel===v?t.accentBg:"transparent",color:ps.feel===v?t.accent:t.muted}},v==="straight"?"Straight":v==="swing"?"Swing":"Hard Swing");}))),
+      )),
     showTips&&React.createElement(CoachMarks,{tips:DETAIL_TIPS,onDone:onTipsDone,th:t}));}
 
 // ============================================================
