@@ -2476,9 +2476,9 @@ function ScalePopup({data,th,isStudio,onClose}){
   var scaleToneSet=useMemo(function(){return new Set(data.intervals);},[data]);
   useEffect(function(){mountedRef.current=true;return function(){mountedRef.current=false;playingRef.current=false;if(timerRef.current)clearTimeout(timerRef.current);if(tapTimerRef.current)clearTimeout(tapTimerRef.current);};},[]);
   var getAudioCtx=function(){if(!audioCtxRef.current)audioCtxRef.current=new(window.AudioContext||window.webkitAudioContext)();return audioCtxRef.current;};
-  var playMidi=function(midi,dur){try{var ctx=getAudioCtx();if(ctx.state==="suspended")ctx.resume();var osc=ctx.createOscillator();var gain=ctx.createGain();osc.type="triangle";osc.frequency.value=440*Math.pow(2,(midi-69)/12);gain.gain.setValueAtTime(0.3,ctx.currentTime);gain.gain.exponentialRampToValueAtTime(0.01,ctx.currentTime+(dur||0.5));osc.connect(gain);gain.connect(ctx.destination);osc.start();osc.stop(ctx.currentTime+(dur||0.5));}catch(e){}};
+  var playMidi=function(midi,dur){try{console.log("[etudy] ScalePopup playMidi:",midi,"freq:",Math.round(440*Math.pow(2,(midi-69)/12)));var ctx=getAudioCtx();if(ctx.state==="suspended")ctx.resume();var osc=ctx.createOscillator();var gain=ctx.createGain();osc.type="triangle";osc.frequency.value=440*Math.pow(2,(midi-69)/12);gain.gain.setValueAtTime(0.3,ctx.currentTime);gain.gain.exponentialRampToValueAtTime(0.01,ctx.currentTime+(dur||0.5));osc.connect(gain);gain.connect(ctx.destination);osc.start();osc.stop(ctx.currentTime+(dur||0.5));}catch(e){}};
   var tapNote=function(ni){
-    if(data.midis&&data.midis[ni])playMidi(data.midis[ni],0.5);
+    if(data.midis&&data.midis[ni]){console.log("[etudy] ScalePopup tap note",ni,"midi:",data.midis[ni]);playMidi(data.midis[ni],0.5);}
     setTappedIdx(ni);if(tapTimerRef.current)clearTimeout(tapTimerRef.current);
     tapTimerRef.current=setTimeout(function(){if(mountedRef.current)setTappedIdx(-1);},600);
   };
@@ -2691,6 +2691,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
   const lc=lick.likes;
   const[burst,sBurst]=useState(null);const burstKeyRef=useRef(0);
   const instOff=INST_TRANS[trInst]||0;
+  console.log("[etudy] LickDetail instOff:",instOff,"trInst:",trInst,"lick.abc chords:",(lick.abc.match(/"[^"]+"/g)||[]).slice(0,3));
   const notationAbc=transposeAbc(lick.abc,instOff+trMan);
   const soundAbc=trMan?transposeAbc(lick.abc,trMan):lick.abc;
   // ── THEORY MODE ──
@@ -2698,7 +2699,9 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
   const[scalePopup,setScalePopup]=useState(null);
   const theoryAnalysis=useMemo(function(){
     if(!theoryMode)return null;
-    return analyzeTheory(notationAbc);
+    var r=analyzeTheory(notationAbc);
+    if(r&&r.chordScales)console.log("[etudy] theoryAnalysis chords:",r.chordScales.map(function(c){return c.chord;}));
+    return r;
   },[theoryMode,notationAbc]);
   const keyDisplay=lick.key+((instOff+trMan)?" \u2192 "+trKeyName(lick.key.split(" ")[0],instOff+trMan):"");
   const catC=getCatColor(lick.category,t);const instC=getInstColor(lick.instrument,t);
@@ -2791,7 +2794,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
             theoryAnalysis.chordScales&&theoryAnalysis.chordScales.some(function(cs){return cs.scale&&cs.noteCount>=2;})&&React.createElement("span",{style:{width:1,height:14,background:t.border,flexShrink:0}}),
             theoryAnalysis.chordScales&&theoryAnalysis.chordScales.map(function(cs,idx){
               if(!cs.scale||cs.noteCount<2)return null;
-              return React.createElement("span",{key:idx,onClick:function(e){e.stopPropagation();var sn=getScaleNotes(cs.chord,cs.scale);if(sn)setScalePopup(sn);},style:{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 8px",borderRadius:6,fontSize:10,fontFamily:"'JetBrains Mono',monospace",background:isStudio?t.accent+"10":"rgba(99,102,241,0.06)",border:"1px solid "+(isStudio?t.accent+"18":"rgba(99,102,241,0.1)"),cursor:"pointer",transition:"all 0.15s"}},
+              return React.createElement("span",{key:idx,onClick:function(e){e.stopPropagation();var sn=getScaleNotes(cs.chord,cs.scale);if(sn){console.log("[etudy] ScalePopup open:",cs.chord,cs.scale,"midis:",sn.midis,"root:",sn.root);setScalePopup(sn);}},style:{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 8px",borderRadius:6,fontSize:10,fontFamily:"'JetBrains Mono',monospace",background:isStudio?t.accent+"10":"rgba(99,102,241,0.06)",border:"1px solid "+(isStudio?t.accent+"18":"rgba(99,102,241,0.1)"),cursor:"pointer",transition:"all 0.15s"}},
                 React.createElement("span",{style:{fontWeight:700,color:t.chordFill}},cs.chord),
                 React.createElement("span",{style:{fontWeight:500,color:t.text,opacity:0.75,fontFamily:"'Inter',sans-serif",fontSize:10}},cs.scale));}))),
         theoryMode&&(!theoryAnalysis||!theoryAnalysis.hasChords)&&React.createElement("div",{style:{marginTop:8,padding:"10px 14px",borderRadius:10,background:isStudio?"#F59E0B15":"#FEF3C7",border:"1px solid "+(isStudio?"#F59E0B30":"#FDE68A")}},
