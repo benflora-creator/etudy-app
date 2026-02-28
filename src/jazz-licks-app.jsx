@@ -1344,7 +1344,7 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
     var barInfo=getBarInfo(abc);var nBars=barInfo.nBars;
     // Force all bars on one line if <=4, otherwise 4 per line — deterministic
     var mpl=nBars<=4?nBars:4;
-    const opts={responsive:"resize",paddingtop:focus?14:theoryMode?18:2,paddingbottom:focus?14:theoryMode?28:2,paddingleft:0,paddingright:0,add_classes:true};
+    const opts={responsive:"resize",paddingtop:focus?14:theoryMode?18:2,paddingbottom:theoryMode?28:(focus?14:2),paddingleft:0,paddingright:0,add_classes:true};
     if(compact){opts.staffwidth=400;opts.scale=0.85;}
     else if(focus){opts.staffwidth=500;opts.scale=1.5;opts.wrap={minSpacing:1.0,maxSpacing:2.0,preferredMeasuresPerLine:2};}
     else{opts.staffwidth=420;opts.scale=1.0;opts.wrap={minSpacing:1.0,maxSpacing:1.8,preferredMeasuresPerLine:mpl};}
@@ -1418,6 +1418,16 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
         lbl.textContent=ti.entry.label;
         svg.appendChild(lbl);
       });
+      // Expand SVG viewBox to include labels below staff
+      try{
+        var vb=svg.viewBox.baseVal;
+        if(vb&&vb.width>0){
+          var allLabels=svg.querySelectorAll(".theory-label");
+          var maxY=vb.y+vb.height;
+          allLabels.forEach(function(l){try{var lb=l.getBBox();var bot=lb.y+lb.height+4;if(bot>maxY)maxY=bot;}catch(e){}});
+          if(maxY>vb.y+vb.height){svg.setAttribute("viewBox",vb.x+" "+vb.y+" "+vb.width+" "+(maxY-vb.y));}
+        }
+      }catch(e){}
     }
     // Clickable notes for editor
     if(onNoteClick){
@@ -1467,11 +1477,14 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
           const fracs=getNoteTimeFracs(abc);const hasRange=abRange&&(abRange[0]>0.001||abRange[1]<0.999);
           if(prevNoteRef.current>=0&&prevNoteRef.current<noteEls.length){
             const el=noteEls[prevNoteRef.current];
+            // Restore theory color if available, else default noteStroke
+            var restoreCol=t.noteStroke;var restoreOp="1";
+            if(el._theoryInfo){restoreCol=el._theoryInfo.col;restoreOp=el._theoryInfo.entry.type==="chord-tone"?"1":(el._theoryInfo.entry.type==="tension"?"0.8":"0.55");}
             el.querySelectorAll("path,circle,ellipse").forEach(p=>{
-              p.style.fill=t.noteStroke;p.style.stroke=t.noteStroke;
+              p.style.fill=restoreCol;p.style.stroke=restoreCol;
               if(hasRange&&prevNoteRef.current<fracs.length){const f=fracs[prevNoteRef.current];const inR=f.frac>=abRange[0]-0.001&&f.endFrac<=abRange[1]+0.001;
-                p.style.fillOpacity=inR?"1":"0.12";p.style.strokeOpacity=inR?"1":"0.12";
-              }else{p.style.fillOpacity="1";p.style.strokeOpacity="1";}});
+                p.style.fillOpacity=inR?restoreOp:"0.12";p.style.strokeOpacity=inR?restoreOp:"0.12";
+              }else{p.style.fillOpacity=restoreOp;p.style.strokeOpacity=restoreOp;}});
             el.style.filter="none";el.style.transition="";}
           if(cn>=0&&cn<noteEls.length){
             const el=noteEls[cn];
@@ -1622,7 +1635,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
   useEffect(()=>()=>clr(),[]);
   const sch=(parsed,doCi,refNow)=>{disposeBag();const bag=[];const sw=fR.current==="straight"?0:fR.current==="swing"?1:2;
     const{scheduled:notes,totalDur,chordTimes}=applyTiming(parsed,sw);dR.current=totalDur;
-    const mel=makeMelSynth(soR.current,bag);const click=makeClick(bag);
+    const mel=makeMelSynth(soR.current,bag);
     // cs = Salamander-only fallback (for jazz/bossa or if custom samplers fail)
     var cs;
     if(_chordSamplerReady&&_chordSampler){
@@ -1676,6 +1689,24 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
     const abActive=abOnR.current;const abS=abActive?abAR.current*totalDur:0;const abE=abActive?abBR.current*totalDur:totalDur;
     const timers=[];const LA=0.04;
     const baseTime=now+cOff;
+    // Schedule dedicated count-in clicks (only when metronome is silent — otherwise MiniMetronome handles it)
+    if(doCi&&cOff>0){
+      var metroSnd="click";try{if(metroCtrlRef.current&&metroCtrlRef.current.getSound)metroSnd=metroCtrlRef.current.getSound();}catch(e){}
+      if(metroSnd==="silent"){
+        var ciBeats=parsed.tsNum;var ciSpb=parsed.spb;
+        for(var cci=0;cci<ciBeats;cci++){
+          var ciTime=now+cci*ciSpb;var ciIsFirst=cci===0;
+          var ciMs=Math.max(0,(cci*ciSpb)*1000-LA*1000);
+          (function(t,accent){timers.push(setTimeout(function(){if(sT.current)return;try{
+            var actx=Tone.context.rawContext||Tone.context._context||Tone.context;
+            var osc=actx.createOscillator();var g=actx.createGain();osc.connect(g);g.connect(actx.destination);
+            osc.type="triangle";osc.frequency.value=accent?1400:1000;
+            g.gain.setValueAtTime(accent?0.7:0.35,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.03);
+            osc.start(t);osc.stop(t+0.035);
+          }catch(e){}},ciMs));})(ciTime,ciIsFirst);
+        }
+      }
+    }
     // Schedule melody — pre-fire compensation for sampler-based sounds
     var _melPre=(soR.current==="piano"||soR.current==="rhodes"||soR.current==="sax")?0.04:0;
     for(const n of notes){if(!n.tones)continue;if(abActive&&(n.startTime<abS-0.001||n.startTime>=abE-0.001))continue;const noteTime=abActive?n.startTime-abS:n.startTime;
@@ -2424,13 +2455,14 @@ function SpotifyEmbed({trackId,th}){const t=th||TH.classic;if(!trackId)return nu
 // ============================================================
 // ── SCALE POPUP COMPONENT ──
 function ScalePopup({data,th,isStudio,onClose}){
-  var t=th;var notRef=useRef(null);var audioCtxRef=useRef(null);var playingRef=useRef(false);
+  var t=th;var notRef=useRef(null);var audioCtxRef=useRef(null);var playingRef=useRef(false);var timerRef=useRef(null);var mountedRef=useRef(true);
   var[playIdx,setPlayIdx]=useState(-1);
   var scaleToneSet=useMemo(function(){return new Set(data.intervals);},[data]);
+  useEffect(function(){mountedRef.current=true;return function(){mountedRef.current=false;playingRef.current=false;if(timerRef.current)clearTimeout(timerRef.current);};},[]);
   var getAudioCtx=function(){if(!audioCtxRef.current)audioCtxRef.current=new(window.AudioContext||window.webkitAudioContext)();return audioCtxRef.current;};
   var playMidi=function(midi,dur){try{var ctx=getAudioCtx();if(ctx.state==="suspended")ctx.resume();var osc=ctx.createOscillator();var gain=ctx.createGain();osc.type="triangle";osc.frequency.value=440*Math.pow(2,(midi-69)/12);gain.gain.setValueAtTime(0.3,ctx.currentTime);gain.gain.exponentialRampToValueAtTime(0.01,ctx.currentTime+(dur||0.5));osc.connect(gain);gain.connect(ctx.destination);osc.start();osc.stop(ctx.currentTime+(dur||0.5));}catch(e){}};
   var playScale=function(){if(playingRef.current||!data.midis)return;playingRef.current=true;var midis=data.midis;var i=0;
-    var step=function(){if(i>=midis.length){playingRef.current=false;setPlayIdx(-1);return;}setPlayIdx(i);playMidi(midis[i],0.4);i++;setTimeout(step,450);};step();};
+    var step=function(){if(!mountedRef.current||i>=midis.length){playingRef.current=false;if(mountedRef.current)setPlayIdx(-1);return;}if(mountedRef.current)setPlayIdx(i);playMidi(midis[i],0.4);i++;timerRef.current=setTimeout(step,450);};step();};
   useEffect(function(){
     if(!notRef.current||!data||!data.abc||!window.ABCJS)return;
     try{
@@ -2501,7 +2533,22 @@ function TempoPopup({bpm,onBpmChange,onClose,th,lickTempo,playerCtrlRef}){
   var mc=function(){var c=pc();return c.metroCtrlRef&&c.metroCtrlRef.current||{};};
   var[mSound,setMSound]=useState(function(){var m=mc();return m.getSound?m.getSound():"click";});
   var doSetSound=function(v){setMSound(v);var m=mc();if(m.setSound)m.setSound(v);};
-  var[progOn,setProgOn]=useState(false);var[progTarget,setProgTarget]=useState(180);var[progStep,setProgStep]=useState(5);var[progLoops,setProgLoops]=useState(1);
+  var[progOn,setProgOn]=useState(function(){var m=mc();var s=m.getProgState?m.getProgState():{};return s.on||false;});
+  var[progTarget,setProgTarget]=useState(function(){var m=mc();var s=m.getProgState?m.getProgState():{};return s.target||180;});
+  var[progStep,setProgStep]=useState(function(){var m=mc();var s=m.getProgState?m.getProgState():{};return s.inc||5;});
+  var[progLoops,setProgLoops]=useState(function(){var m=mc();var s=m.getProgState?m.getProgState():{};return s.bars||1;});
+  // Sync changes to MiniMetronome
+  var syncProg=function(on,target,inc,bars){
+    var m=mc();
+    if(m.setProgOn)m.setProgOn(on);
+    if(m.setProgTarget)m.setProgTarget(target);
+    if(m.setProgInc)m.setProgInc(inc);
+    if(m.setProgBars)m.setProgBars(bars);
+  };
+  var doSetProgOn=function(v){setProgOn(v);syncProg(v,progTarget,progStep,progLoops);};
+  var doSetProgTarget=function(v){setProgTarget(v);syncProg(progOn,v,progStep,progLoops);};
+  var doSetProgStep=function(v){setProgStep(v);syncProg(progOn,progTarget,v,progLoops);};
+  var doSetProgLoops=function(v){setProgLoops(v);syncProg(progOn,progTarget,progStep,v);};
   var chip=function(active,label,fn){return React.createElement("button",{onClick:function(e){e.stopPropagation();fn();},style:{flex:1,padding:"10px 6px",borderRadius:10,background:active?t.accent+"15":(isStudio?"#16162A":t.filterBg),border:"1.5px solid "+(active?t.accent+"40":t.border),color:active?t.accent:t.muted,fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},label);};
   return React.createElement("div",{style:{position:"fixed",inset:0,zIndex:500,display:"flex",alignItems:"flex-end",justifyContent:"center"}},
     React.createElement("div",{onClick:onClose,style:{position:"absolute",inset:0,background:"rgba(0,0,0,0.65)",backdropFilter:"blur(8px)"}}),
@@ -2531,22 +2578,22 @@ function TempoPopup({bpm,onBpmChange,onClose,th,lickTempo,playerCtrlRef}){
           React.createElement("div",null,
             React.createElement("div",{style:{fontSize:10,color:t.subtle,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,letterSpacing:1}},"PROGRESSIVE TEMPO"),
             React.createElement("div",{style:{fontSize:11,color:t.muted,marginTop:2,fontFamily:"'Inter',sans-serif"}},"Auto-increase after each loop")),
-          React.createElement("button",{onClick:function(){setProgOn(!progOn);},style:{padding:"6px 14px",borderRadius:8,background:progOn?"#3B82F618":"transparent",border:"1.5px solid "+(progOn?"#3B82F640":t.border),color:progOn?"#3B82F6":t.subtle,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},progOn?"ON":"OFF")),
+          React.createElement("button",{onClick:function(){doSetProgOn(!progOn);},style:{padding:"6px 14px",borderRadius:8,background:progOn?"#3B82F618":"transparent",border:"1.5px solid "+(progOn?"#3B82F640":t.border),color:progOn?"#3B82F6":t.subtle,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},progOn?"ON":"OFF")),
         progOn&&React.createElement("div",{style:{display:"flex",gap:12,flexWrap:"wrap"}},
           React.createElement("div",{style:{flex:1,minWidth:80}},
             React.createElement("div",{style:{fontSize:9,color:"#3B82F6",fontFamily:"'JetBrains Mono',monospace",marginBottom:6}},"TARGET BPM"),
             React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
-              React.createElement("button",{onClick:function(){setProgTarget(Math.max(bpm+5,progTarget-10));},style:{width:28,height:28,borderRadius:8,border:"1px solid "+t.border,background:t.card,color:t.text,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"\u2212"),
+              React.createElement("button",{onClick:function(){doSetProgTarget(Math.max(bpm+5,progTarget-10));},style:{width:28,height:28,borderRadius:8,border:"1px solid "+t.border,background:t.card,color:t.text,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"\u2212"),
               React.createElement("span",{style:{fontSize:18,fontWeight:700,color:"#3B82F6",fontFamily:"'JetBrains Mono',monospace",minWidth:40,textAlign:"center"}},progTarget),
-              React.createElement("button",{onClick:function(){setProgTarget(Math.min(320,progTarget+10));},style:{width:28,height:28,borderRadius:8,border:"1px solid "+t.border,background:t.card,color:t.text,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"+")),
+              React.createElement("button",{onClick:function(){doSetProgTarget(Math.min(320,progTarget+10));},style:{width:28,height:28,borderRadius:8,border:"1px solid "+t.border,background:t.card,color:t.text,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"+")),
           React.createElement("div",{style:{minWidth:70}},
             React.createElement("div",{style:{fontSize:9,color:"#3B82F6",fontFamily:"'JetBrains Mono',monospace",marginBottom:6}},"STEP"),
             React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
-              [2,5,10].map(function(s){return React.createElement("button",{key:s,onClick:function(){setProgStep(s);},style:{padding:"6px 10px",borderRadius:8,background:progStep===s?"#3B82F618":t.card,border:"1.5px solid "+(progStep===s?"#3B82F640":t.border),color:progStep===s?"#3B82F6":t.muted,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"'JetBrains Mono',monospace"}},"+"+s);}))),
+              [2,5,10].map(function(s){return React.createElement("button",{key:s,onClick:function(){doSetProgStep(s);},style:{padding:"6px 10px",borderRadius:8,background:progStep===s?"#3B82F618":t.card,border:"1.5px solid "+(progStep===s?"#3B82F640":t.border),color:progStep===s?"#3B82F6":t.muted,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"'JetBrains Mono',monospace"}},"+"+s);}))),
           React.createElement("div",{style:{width:"100%",marginTop:4}},
             React.createElement("div",{style:{fontSize:9,color:"#3B82F6",fontFamily:"'JetBrains Mono',monospace",marginBottom:6}},"INCREASE EVERY"),
             React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
-              [1,2,4].map(function(n){return React.createElement("button",{key:n,onClick:function(){setProgLoops(n);},style:{padding:"6px 12px",borderRadius:8,background:progLoops===n?"#3B82F618":t.card,border:"1.5px solid "+(progLoops===n?"#3B82F640":t.border),color:progLoops===n?"#3B82F6":t.muted,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"'JetBrains Mono',monospace"}},n===1?"1 loop":n+" loops");}))))))));}
+              [1,2,4].map(function(n){return React.createElement("button",{key:n,onClick:function(){doSetProgLoops(n);},style:{padding:"6px 12px",borderRadius:8,background:progLoops===n?"#3B82F618":t.card,border:"1.5px solid "+(progLoops===n?"#3B82F640":t.border),color:progLoops===n?"#3B82F6":t.muted,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"'JetBrains Mono',monospace"}},n===1?"1 loop":n+" loops");}))))))));}
 // ── DRAWER CONSTANTS ──
 var DRAWER_PEEK=200,DRAWER_HALF=340,DRAWER_FULL_OFF=80;
 
@@ -2557,7 +2604,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
   const[abOn,setAbOn]=useState(false);const[abA,setAbA]=useState(0);const[abB,setAbB]=useState(1);
   const curNoteRef=useRef(-1);const[focus,setFocus]=useState(false);
   const playerCtrlRef=useRef({toggle:null,playing:false});
-  const[trOpen,setTrOpen]=useState(false);const[moreOpen,setMoreOpen]=useState(false);const[showTempoPopup,setShowTempoPopup]=useState(false);const[showSoundMenu,setShowSoundMenu]=useState(false);
+  const[trOpen,setTrOpen]=useState(false);const[showTempoPopup,setShowTempoPopup]=useState(false);const[showSoundMenu,setShowSoundMenu]=useState(false);
   const lc=lick.likes;
   const[burst,sBurst]=useState(null);const burstKeyRef=useRef(0);
   const instOff=INST_TRANS[trInst]||0;
@@ -2586,7 +2633,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
   var halfH=DRAWER_HALF;
   if(drawerContentRef.current){var ch=drawerContentRef.current.scrollHeight+40;halfH=Math.min(DRAWER_HALF,Math.max(DRAWER_PEEK+60,ch));}
   const snapPts=[DRAWER_PEEK,halfH,winH-DRAWER_FULL_OFF];
-  var doSnap=useCallback(function(h){var closest=0,minD=Infinity;snapPts.forEach(function(sp,i){var d=Math.abs(h-sp);if(d<minD){minD=d;closest=i;}});setDrawerH(snapPts[closest]);setDrawerSnap(closest);},[winH]);
+  var doSnap=function(h){var pts=[DRAWER_PEEK,halfH,winH-DRAWER_FULL_OFF];var closest=0,minD=Infinity;pts.forEach(function(sp,i){var d=Math.abs(h-sp);if(d<minD){minD=d;closest=i;}});setDrawerH(pts[closest]);setDrawerSnap(closest);};
   useEffect(function(){setDrawerH(snapPts[drawerSnap]);},[drawerSnap]);
   var onTouchStart=function(e){dragRef.current={startY:e.touches[0].clientY,startH:hRef.current,active:true,moved:false};setDragging(true);};
   var onTouchMove=function(e){if(!dragRef.current.active)return;var dy=dragRef.current.startY-e.touches[0].clientY;if(Math.abs(dy)>3)dragRef.current.moved=true;setDrawerH(Math.max(snapPts[0],Math.min(winH-DRAWER_FULL_OFF,dragRef.current.startH+dy)));};
@@ -2595,8 +2642,6 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
 
   // ── PLAYER STATE (from headless Player via onStateChange) ──
   const[ps,setPs]=useState({playing:false,loading:false,looping:false,melody:true,backing:true,sound:"piano",backingStyle:"piano",feel:"straight",ci:true,muteKeys:false,muteBass:false,muteDrums:false});
-  // Settings toggle
-  const[settOpen,setSettOpen]=useState(false);
   // Progress bar ref — bridge to Player's internal prBarRef
   const prBarRef=useRef(null);
   useEffect(function(){
@@ -2680,7 +2725,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
         React.createElement("div",{style:{width:20,height:2.5,borderRadius:2,background:t.subtle,opacity:0.35}}),
         React.createElement("div",{style:{width:14,height:2,borderRadius:2,background:t.subtle,opacity:0.25}})),
       // Drawer scroll content
-      React.createElement("div",{ref:drawerContentRef,style:{flex:1,overflowY:drawerSnap>0?"auto":"hidden",overflowX:"hidden",WebkitOverflowScrolling:"touch"}},
+      React.createElement("div",{ref:drawerContentRef,style:{flex:1,overflowY:drawerSnap>0||drawerH>DRAWER_PEEK+10?"auto":"hidden",overflowX:"hidden",WebkitOverflowScrolling:"touch"}},
 
         // ────── PEEK: MINIBAR ──────
         React.createElement("div",{style:{padding:"0 16px",flexShrink:0}},
@@ -2710,7 +2755,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
             React.createElement("button",{onClick:function(e){e.stopPropagation();haptic();var c=pc();if(c.setBacking)c.setBacking(!ps.backing);},style:{padding:"8px 14px",borderRadius:10,fontSize:12,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer",transition:"all 0.15s",whiteSpace:"nowrap",border:"1.5px solid "+(ps.backing?"#F59E0B50":t.border),background:ps.backing?"#F59E0B14":"transparent",color:ps.backing?"#F59E0B":t.subtle}},"Backing")),
           // Transpose — compact collapsible, visible in peek
           React.createElement("div",{style:{marginTop:4,marginBottom:2}},
-            React.createElement("button",{onClick:function(e){e.stopPropagation();setTrOpen(!trOpen);},style:{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",padding:"6px 12px",borderRadius:trOpen?"10px 10px 0 0":10,border:"1px solid "+t.border,borderBottom:trOpen?"none":"1px solid "+t.border,background:isStudio?t.cardRaised||t.card:t.card,cursor:"pointer"}},
+            React.createElement("button",{onClick:function(e){e.stopPropagation();var opening=!trOpen;setTrOpen(opening);if(opening&&drawerSnap===0){setDrawerH(DRAWER_PEEK+90);hRef.current=DRAWER_PEEK+90;}else if(!opening&&drawerSnap===0){setDrawerH(DRAWER_PEEK);hRef.current=DRAWER_PEEK;}},style:{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",padding:"6px 12px",borderRadius:trOpen?"10px 10px 0 0":10,border:"1px solid "+t.border,borderBottom:trOpen?"none":"1px solid "+t.border,background:isStudio?t.cardRaised||t.card:t.card,cursor:"pointer"}},
               React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
                 React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600}},"TRANSPOSE"),
                 (instOff+trMan)!==0&&React.createElement("span",{style:{fontSize:9,color:t.accent,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,background:t.accentBg,padding:"1px 6px",borderRadius:5}},trKeyName("C",instOff+trMan))),
@@ -3143,6 +3188,7 @@ function Metronome({th}){
   const scheduleNote=(time,isAccent,isSub)=>{
     const actx=actxRef.current;if(!actx)return;
     const snd=soundRef.current;
+    if(snd==="silent")return;// silent mode — no clicks
     // Oscillator click
     const osc=actx.createOscillator();
     const gain=actx.createGain();
@@ -3449,6 +3495,7 @@ function MiniMetronome({th,initBpm,syncPlaying,ctrlRef,onBpmChange,lickTempo,onS
     if(mutedRef.current)return;// silent when muted — scheduler still runs for beat dots
     var actx=actxRef.current;if(!actx)return;
     var snd=soundRef.current;
+    if(snd==="silent")return;// silent mode — no metronome clicks
     var osc=actx.createOscillator();var gain=actx.createGain();
     osc.connect(gain);gain.connect(actx.destination);
     if(snd==="click"){osc.type="triangle";osc.frequency.value=isAccent?1200:800;gain.gain.setValueAtTime(isAccent?0.6:0.3,time);gain.gain.exponentialRampToValueAtTime(0.001,time+0.03);osc.start(time);osc.stop(time+0.03);
@@ -3526,6 +3573,10 @@ function MiniMetronome({th,initBpm,syncPlaying,ctrlRef,onBpmChange,lickTempo,onS
       getBeatStates:function(){return beatStatesRef.current;},getTimeSig:function(){return timeSigRef.current;},
       getSound:function(){return soundRef.current;},setSound:function(v){setSound(v);soundRef.current=v;},
       getProgState:function(){return{on:progOnRef.current,target:progTargetRef.current,inc:progIncRef.current,bars:progBarsRef.current,curBpm:progCurBpmRef.current,done:progDoneRef.current};},
+      setProgOn:function(v){setProgOn(v);progOnRef.current=v;},
+      setProgTarget:function(v){setProgTarget(v);progTargetRef.current=v;},
+      setProgInc:function(v){setProgInc(v);progIncRef.current=v;},
+      setProgBars:function(v){setProgBars(v);progBarsRef.current=v;},
       notifyLoop:function(){
         // Called by Player on each lick loop — drives synced progressive
         if(!progOnRef.current||progDoneRef.current)return null;
