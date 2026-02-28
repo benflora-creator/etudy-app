@@ -965,8 +965,8 @@ const SAL_BASE="https://tonejs.github.io/audio/salamander/";
 const SAL_MAP={"C2":"C2.mp3","D#2":"Ds2.mp3","F#2":"Fs2.mp3","A2":"A2.mp3","C3":"C3.mp3","D#3":"Ds3.mp3","F#3":"Fs3.mp3","A3":"A3.mp3","C4":"C4.mp3","D#4":"Ds4.mp3","F#4":"Fs4.mp3","A4":"A4.mp3","C5":"C5.mp3","D#5":"Ds5.mp3","F#5":"Fs5.mp3","A5":"A5.mp3","C6":"C6.mp3","D#6":"Ds6.mp3","F#6":"Fs6.mp3","A6":"A6.mp3","C7":"C7.mp3"};
 let _sampler=null,_samplerReady=false,_samplerPromise=null,_samplerFailed=false;
 function preloadPiano(){if(_samplerPromise)return _samplerPromise;_samplerPromise=new Promise(res=>{try{_sampler=new Tone.Sampler({urls:SAL_MAP,baseUrl:SAL_BASE,release:1.5,onload:()=>{_samplerReady=true;res(true);},onerror:()=>{_samplerFailed=true;res(false);}});setTimeout(()=>{if(!_samplerReady){_samplerFailed=true;res(false);}},15000);}catch(e){_samplerFailed=true;res(false);}});return _samplerPromise;}
-function makeSamplerPiano(bag){const rev=new Tone.Reverb({decay:2.8,wet:0.18}).toDestination();const comp=new Tone.Compressor({threshold:-22,ratio:3,attack:0.005,release:0.12}).connect(rev);_sampler.disconnect();_sampler.connect(comp);bag.push(rev,comp);return{play:(n,d,t,v)=>{try{_sampler.triggerAttackRelease(n,d,t,v);}catch(e){}}};}
-function makeSamplerRhodes(bag){const rev=new Tone.Reverb({decay:2.2,wet:0.18}).toDestination();const ch=new Tone.Chorus({frequency:0.7,delayTime:4,depth:0.2,wet:0.2}).connect(rev);ch.start();const tr=new Tone.Tremolo({frequency:3,depth:0.22,wet:0.3}).connect(ch);tr.start();const flt=new Tone.Filter({frequency:3000,type:"lowpass",rolloff:-12}).connect(tr);_sampler.disconnect();_sampler.connect(flt);bag.push(rev,ch,tr,flt);return{play:(n,d,t,v)=>{try{_sampler.triggerAttackRelease(n,d,t,v);}catch(e){}}};}
+function makeSamplerPiano(bag){const rev=new Tone.Reverb({decay:2.8,wet:0.18}).toDestination();const comp=new Tone.Compressor({threshold:-22,ratio:3,attack:0.005,release:0.12}).connect(rev);try{_sampler.disconnect();}catch(e){}_sampler.connect(comp);bag.push(rev,comp);return{play:(n,d,t,v)=>{try{_sampler.triggerAttackRelease(n,d,t,v);}catch(e){}}};}
+function makeSamplerRhodes(bag){const rev=new Tone.Reverb({decay:2.2,wet:0.18}).toDestination();const ch=new Tone.Chorus({frequency:0.7,delayTime:4,depth:0.2,wet:0.2}).connect(rev);ch.start();const tr=new Tone.Tremolo({frequency:3,depth:0.22,wet:0.3}).connect(ch);tr.start();const flt=new Tone.Filter({frequency:3000,type:"lowpass",rolloff:-12}).connect(tr);try{_sampler.disconnect();}catch(e){}_sampler.connect(flt);bag.push(rev,ch,tr,flt);return{play:(n,d,t,v)=>{try{_sampler.triggerAttackRelease(n,d,t,v);}catch(e){}}};}
 function makeSamplerSax(bag){
   const rev=new Tone.Reverb({decay:1.6,wet:0.18}).toDestination();
   const vib=new Tone.Vibrato({frequency:5,depth:0.08,wet:0.35}).connect(rev);
@@ -1597,13 +1597,14 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
   const setPr=v=>{if(prBarRef.current)prBarRef.current.style.width=(v*100)+"%";};
   const setLc=v=>{if(lcDispRef.current){lcDispRef.current.textContent=v;lcDispRef.current.parentElement.style.display=v>1?"flex":"none";}};
   const scheduledTimers=useRef([]);
+  const playGenRef=useRef(0);// generation counter — prevents stale async tg from continuing
   const clearScheduled=()=>{for(const tid of scheduledTimers.current)clearTimeout(tid);scheduledTimers.current=[];};
   const disposeBag=()=>{clearScheduled();if(_sampler&&_samplerReady)try{_sampler.releaseAll();_sampler.disconnect();}catch(e){}if(_chordSampler&&_chordSamplerReady)try{_chordSampler.releaseAll();_chordSampler.disconnect();}catch(e){}if(_bassSampler&&_bassSamplerReady)try{_bassSampler.releaseAll();_bassSampler.disconnect();}catch(e){}if(_rhodesChordSampler&&_rhodesChordReady)try{_rhodesChordSampler.releaseAll();_rhodesChordSampler.disconnect();}catch(e){}if(_cPianoChordSampler&&_cPianoChordReady)try{_cPianoChordSampler.releaseAll();_cPianoChordSampler.disconnect();}catch(e){}if(_saxSampler&&_saxSamplerReady)try{_saxSampler.releaseAll();_saxSampler.disconnect();}catch(e){}if(_pianoMelSampler&&_pianoMelReady)try{_pianoMelSampler.releaseAll();_pianoMelSampler.disconnect();}catch(e){}if(_rhodesMelSampler&&_rhodesMelReady)try{_rhodesMelSampler.releaseAll();_rhodesMelSampler.disconnect();}catch(e){}for(const n of bagRef.current){try{n.releaseAll&&n.releaseAll();}catch(e){}try{n.stop&&n.stop();}catch(e){}try{n.dispose();}catch(e){}}bagRef.current=[];};
   const metroCtrlRef=useRef({});// MiniMetronome writes start/stop here
   const tapTimesRef=useRef([]);
   const parentTapTempo=()=>{const now=performance.now();const taps=tapTimesRef.current;taps.push(now);if(taps.length>5)taps.shift();if(taps.length>=2){const ivs=[];for(let i=1;i<taps.length;i++)ivs.push(taps[i]-taps[i-1]);if(ivs.some(iv=>iv>2000)){tapTimesRef.current=[now];return;}const avg=ivs.reduce((a,b)=>a+b,0)/ivs.length;const nb=Math.round(60000/avg);if(nb>=30&&nb<=300){if(sPT)sPT(nb);pTR.current=nb;if(metroCtrlRef.current.setBpmLive)metroCtrlRef.current.setBpmLive(nb);if(!sT.current)liveRestart(nb);}}};
   const parentChangeBpm=delta=>{const cur=pTR.current||tempo;const nv=Math.max(30,Math.min(300,cur+delta));if(sPT)sPT(nv);pTR.current=nv;if(metroCtrlRef.current.setBpmLive)metroCtrlRef.current.setBpmLive(nv);if(!sT.current)liveRestart(nv);};
-  const clr=useCallback(()=>{sT.current=true;if(aR.current)cancelAnimationFrame(aR.current);disposeBag();sPl(false);setPr(0);setLc(0);setLoading(false);lcR.current=0;curNoteR.current=-1;if(onCurNoteR.current)onCurNoteR.current(-1);try{metroCtrlRef.current.stop&&metroCtrlRef.current.stop();}catch(e){}},[]);
+  const clr=useCallback(()=>{sT.current=true;playGenRef.current++;if(aR.current)cancelAnimationFrame(aR.current);disposeBag();sPl(false);setPr(0);setLc(0);setLoading(false);lcR.current=0;curNoteR.current=-1;if(onCurNoteR.current)onCurNoteR.current(-1);try{metroCtrlRef.current.stop&&metroCtrlRef.current.stop();}catch(e){}},[]);
   // Live restart at new BPM (called when user changes BPM during playback)
   const liveRestart=useCallback((newBpm)=>{
     if(sT.current)return;// not playing
@@ -1807,29 +1808,43 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
     scheduledTimers.current=timers;
     noteFracsR.current=getNoteTimeFracs(abcR.current);dR.current=totalDur;return cOff;};
   const ciOffR=useRef(0);
-  const tg=async()=>{if(pl){clr();return;}if(!sT.current)return;sT.current=false;try{await Tone.start();}catch(e){}
+  const tg=async()=>{if(pl){clr();return;}
+    if(!sT.current){
+      // Already loading — treat second press as cancel
+      sT.current=true;setLoading(false);return;
+    }
+    var gen=++playGenRef.current;// unique generation for this play attempt
+    var isStale=function(){return gen!==playGenRef.current||sT.current;};
+    sT.current=false;try{await Tone.start();}catch(e){}
+    if(isStale()){setLoading(false);sT.current=true;return;}
+    // Ensure AudioContext is running
+    try{if(Tone.context.state!=="running")await Tone.context.resume();}catch(e){}
     // Read BPM from metronome (single source of truth)
     if(metroCtrlRef.current.getBpm){pTR.current=metroCtrlRef.current.getBpm();}
     setLoading(true);
     if(!_samplerReady&&!_samplerFailed){await preloadPiano();setSamplesOk(_samplerReady);}
+    if(isStale()){setLoading(false);sT.current=true;return;}
     if(!_chordSamplerReady)await preloadChordPiano();
+    if(isStale()){setLoading(false);sT.current=true;return;}
     // Only preload the sampler we actually need for current backing style
     var _curStyle=bR.current?bStyleR.current:"piano";
     console.log("[etudy] Preloading for style:",_curStyle);
     if(_curStyle==="rhodes"&&!_rhodesChordReady){
-      // Test if URL is accessible
       try{var testUrl=RHODES_BASE+"C3.mp3";var r=await fetch(testUrl,{method:"HEAD"});console.log("[etudy] Rhodes URL test:",testUrl,"→",r.status,r.ok?"OK":"FAIL");}catch(e){console.warn("[etudy] Rhodes URL unreachable:",e.message);}
       await preloadRhodesChord();
     }
+    if(isStale()){setLoading(false);sT.current=true;return;}
     if((_curStyle==="piano"||_curStyle==="ballad")&&!_cPianoChordReady){
       try{var testUrl2=CPIANO_BASE+"C3.mp3";var r2=await fetch(testUrl2,{method:"HEAD"});console.log("[etudy] Piano URL test:",testUrl2,"→",r2.status,r2.ok?"OK":"FAIL");}catch(e){console.warn("[etudy] Piano URL unreachable:",e.message);}
       await preloadCustomPianoChord();
     }
+    if(isStale()){setLoading(false);sT.current=true;return;}
     if(!_bassSamplerReady)preloadBassSampler();
     // Preload sax sampler if sax sound is selected
     if(soR.current==="sax"&&!_saxSamplerReady)await preloadSaxSampler();
     if(soR.current==="piano"&&!_pianoMelReady)await preloadPianoMel();
     if(soR.current==="rhodes"&&!_rhodesMelReady)await preloadRhodesMel();
+    if(isStale()){setLoading(false);sT.current=true;return;}// final stale check
     const p=parseAbc(abcR.current,pTR.current);
     // Capture ONE time reference — shared by lick notes AND metronome
     var t0=Tone.now();toneStartR.current=t0;
@@ -2457,10 +2472,16 @@ function SpotifyEmbed({trackId,th}){const t=th||TH.classic;if(!trackId)return nu
 function ScalePopup({data,th,isStudio,onClose}){
   var t=th;var notRef=useRef(null);var audioCtxRef=useRef(null);var playingRef=useRef(false);var timerRef=useRef(null);var mountedRef=useRef(true);
   var[playIdx,setPlayIdx]=useState(-1);
+  var[tappedIdx,setTappedIdx]=useState(-1);var tapTimerRef=useRef(null);
   var scaleToneSet=useMemo(function(){return new Set(data.intervals);},[data]);
-  useEffect(function(){mountedRef.current=true;return function(){mountedRef.current=false;playingRef.current=false;if(timerRef.current)clearTimeout(timerRef.current);};},[]);
+  useEffect(function(){mountedRef.current=true;return function(){mountedRef.current=false;playingRef.current=false;if(timerRef.current)clearTimeout(timerRef.current);if(tapTimerRef.current)clearTimeout(tapTimerRef.current);};},[]);
   var getAudioCtx=function(){if(!audioCtxRef.current)audioCtxRef.current=new(window.AudioContext||window.webkitAudioContext)();return audioCtxRef.current;};
   var playMidi=function(midi,dur){try{var ctx=getAudioCtx();if(ctx.state==="suspended")ctx.resume();var osc=ctx.createOscillator();var gain=ctx.createGain();osc.type="triangle";osc.frequency.value=440*Math.pow(2,(midi-69)/12);gain.gain.setValueAtTime(0.3,ctx.currentTime);gain.gain.exponentialRampToValueAtTime(0.01,ctx.currentTime+(dur||0.5));osc.connect(gain);gain.connect(ctx.destination);osc.start();osc.stop(ctx.currentTime+(dur||0.5));}catch(e){}};
+  var tapNote=function(ni){
+    if(data.midis&&data.midis[ni])playMidi(data.midis[ni],0.5);
+    setTappedIdx(ni);if(tapTimerRef.current)clearTimeout(tapTimerRef.current);
+    tapTimerRef.current=setTimeout(function(){if(mountedRef.current)setTappedIdx(-1);},600);
+  };
   var playScale=function(){if(playingRef.current||!data.midis)return;playingRef.current=true;var midis=data.midis;var i=0;
     var step=function(){if(!mountedRef.current||i>=midis.length){playingRef.current=false;if(mountedRef.current)setPlayIdx(-1);return;}if(mountedRef.current)setPlayIdx(i);playMidi(midis[i],0.4);i++;timerRef.current=setTimeout(step,450);};step();};
   useEffect(function(){
@@ -2470,7 +2491,7 @@ function ScalePopup({data,th,isStudio,onClose}){
       window.ABCJS.renderAbc(notRef.current,data.abc,{paddingtop:4,paddingbottom:2,paddingleft:0,paddingright:0,add_classes:true,responsive:"resize",staffwidth:320,stretchlast:false});
       var svg=notRef.current.querySelector("svg");
       if(svg){
-        svg.style.maxWidth="100%";
+        svg.style.maxWidth="100%";svg.style.overflow="visible";
         var stCol=isStudio?"#F2F2FA":"#1A1A1A";
         svg.querySelectorAll("path").forEach(function(p){p.setAttribute("fill",stCol);p.setAttribute("stroke",stCol);});
         svg.querySelectorAll(".abcjs-staff path").forEach(function(p){p.setAttribute("stroke",t.staffStroke);p.setAttribute("fill","none");p.setAttribute("stroke-width","0.6");});
@@ -2483,10 +2504,10 @@ function ScalePopup({data,th,isStudio,onClose}){
           if(iv<0)return;
           var type=ct?classifyInterval(iv,ct,scaleToneSet):"unknown";
           var col=getTheoryColor(type,isStudio);
+          noteEl._scaleCol=col;// store for highlight restore
           noteEl.querySelectorAll("path,circle,ellipse").forEach(function(p){p.setAttribute("fill",col);p.setAttribute("stroke",col);});
-          // Make clickable
           noteEl.style.cursor="pointer";
-          noteEl.addEventListener("click",function(e){e.stopPropagation();if(data.midis&&data.midis[ni])playMidi(data.midis[ni],0.5);});
+          noteEl.addEventListener("click",function(e){e.stopPropagation();tapNote(ni);});
         });
       }
     }catch(e){console.warn("ScalePopup render:",e);}
@@ -2495,11 +2516,66 @@ function ScalePopup({data,th,isStudio,onClose}){
   useEffect(function(){
     if(!notRef.current)return;var svg=notRef.current.querySelector("svg");if(!svg)return;
     var noteEls=svg.querySelectorAll(".abcjs-note");
-    noteEls.forEach(function(el,i){el.style.opacity=playIdx>=0?(i===playIdx?"1":"0.3"):"1";el.style.transition="opacity 0.15s";});
-  },[playIdx]);
+    // Remove old ripple elements
+    svg.querySelectorAll(".scale-ripple").forEach(function(el){el.remove();});
+    var activeIdx=tappedIdx>=0?tappedIdx:playIdx;
+    noteEls.forEach(function(el,i){
+      var isActive=i===activeIdx;
+      el.style.opacity=activeIdx>=0?(isActive?"1":"0.3"):"1";
+      el.style.transition="opacity 0.15s";
+      el.style.filter=isActive?"drop-shadow(0 0 8px "+t.accent+"90)":"none";
+      // Color: active gets accent, others restore theory color
+      var restoreCol=el._scaleCol||t.noteStroke;
+      el.querySelectorAll("path,circle,ellipse").forEach(function(p){p.setAttribute("fill",isActive?t.accent:restoreCol);p.setAttribute("stroke",isActive?t.accent:restoreCol);});
+      // Add ripple + pulse on tapped note
+      if(isActive&&tappedIdx>=0){
+        try{
+          var bb=el.getBBox();var cx=bb.x+bb.width/2;var cy=bb.y+bb.height/2;var r=Math.max(bb.width,bb.height)*0.7;
+          // Expanding ring
+          var ring=document.createElementNS("http://www.w3.org/2000/svg","circle");
+          ring.setAttribute("class","scale-ripple");
+          ring.setAttribute("cx",cx);ring.setAttribute("cy",cy);ring.setAttribute("r",r);
+          ring.setAttribute("fill","none");ring.setAttribute("stroke",t.accent);ring.setAttribute("stroke-width","2");
+          ring.style.opacity="0.7";
+          ring.style.animation="scaleRing 0.5s ease-out forwards";
+          svg.appendChild(ring);
+          // Left sound wave arc
+          var r1=document.createElementNS("http://www.w3.org/2000/svg","path");
+          r1.setAttribute("class","scale-ripple");
+          var wOff=bb.width/2+6;
+          r1.setAttribute("d","M "+(cx-wOff)+" "+(cy-8)+" Q "+(cx-wOff-10)+" "+cy+" "+(cx-wOff)+" "+(cy+8));
+          r1.setAttribute("fill","none");r1.setAttribute("stroke",t.accent);r1.setAttribute("stroke-width","2");r1.setAttribute("stroke-linecap","round");
+          r1.style.opacity="0.8";r1.style.animation="scaleWave 0.45s ease-out forwards";
+          svg.appendChild(r1);
+          // Outer left wave
+          var r1b=document.createElementNS("http://www.w3.org/2000/svg","path");
+          r1b.setAttribute("class","scale-ripple");
+          r1b.setAttribute("d","M "+(cx-wOff-5)+" "+(cy-12)+" Q "+(cx-wOff-18)+" "+cy+" "+(cx-wOff-5)+" "+(cy+12));
+          r1b.setAttribute("fill","none");r1b.setAttribute("stroke",t.accent);r1b.setAttribute("stroke-width","1.5");r1b.setAttribute("stroke-linecap","round");
+          r1b.style.opacity="0.5";r1b.style.animation="scaleWave 0.5s 0.05s ease-out forwards";
+          svg.appendChild(r1b);
+          // Right sound wave arc
+          var r2=document.createElementNS("http://www.w3.org/2000/svg","path");
+          r2.setAttribute("class","scale-ripple");
+          r2.setAttribute("d","M "+(cx+wOff)+" "+(cy-8)+" Q "+(cx+wOff+10)+" "+cy+" "+(cx+wOff)+" "+(cy+8));
+          r2.setAttribute("fill","none");r2.setAttribute("stroke",t.accent);r2.setAttribute("stroke-width","2");r2.setAttribute("stroke-linecap","round");
+          r2.style.opacity="0.8";r2.style.animation="scaleWave 0.45s ease-out forwards";
+          svg.appendChild(r2);
+          // Outer right wave
+          var r2b=document.createElementNS("http://www.w3.org/2000/svg","path");
+          r2b.setAttribute("class","scale-ripple");
+          r2b.setAttribute("d","M "+(cx+wOff+5)+" "+(cy-12)+" Q "+(cx+wOff+18)+" "+cy+" "+(cx+wOff+5)+" "+(cy+12));
+          r2b.setAttribute("fill","none");r2b.setAttribute("stroke",t.accent);r2b.setAttribute("stroke-width","1.5");r2b.setAttribute("stroke-linecap","round");
+          r2b.style.opacity="0.5";r2b.style.animation="scaleWave 0.5s 0.05s ease-out forwards";
+          svg.appendChild(r2b);
+        }catch(e){}
+      }
+    });
+  },[playIdx,tappedIdx]);
 
   var ct=parseChordName(data.chord);
   return React.createElement("div",{onClick:onClose,style:{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:10000,background:"rgba(0,0,0,0.5)",backdropFilter:"blur(4px)",WebkitBackdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}},
+    React.createElement("style",null,"@keyframes scaleRing{0%{opacity:0.6;stroke-width:3}50%{opacity:0.3}100%{opacity:0;stroke-width:0.3}}@keyframes scaleWave{0%{opacity:0;stroke-width:0}15%{opacity:0.9;stroke-width:2.5}100%{opacity:0;stroke-width:0.5}}@keyframes scalePulse{0%{transform:scale(1)}50%{transform:scale(1.15)}100%{transform:scale(1)}}"),
     React.createElement("div",{onClick:function(e){e.stopPropagation();},style:{background:isStudio?t.cardRaised||t.card:t.card,borderRadius:18,padding:"22px 20px 18px",maxWidth:400,width:"100%",border:"1px solid "+(isStudio?t.accent+"25":t.border),boxShadow:isStudio?"0 20px 60px rgba(0,0,0,0.5)":"0 20px 60px rgba(0,0,0,0.15)"}},
       React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}},
         React.createElement("div",null,
@@ -2509,7 +2585,7 @@ function ScalePopup({data,th,isStudio,onClose}){
           data.midis&&React.createElement("button",{onClick:function(e){e.stopPropagation();playScale();},style:{width:34,height:34,borderRadius:10,background:t.accent+"15",border:"1.5px solid "+t.accent+"40",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}},
             React.createElement("div",{style:{width:0,height:0,borderTop:"7px solid transparent",borderBottom:"7px solid transparent",borderLeft:"11px solid "+t.accent,marginLeft:2}})),
           React.createElement("button",{onClick:onClose,style:{width:34,height:34,borderRadius:10,border:"1px solid "+t.border,background:t.filterBg||t.card,color:t.muted,fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},"\u2715"))),
-      React.createElement("div",{ref:notRef,style:{margin:"0 -4px",minHeight:50,overflow:"hidden"}}),
+      React.createElement("div",{ref:notRef,style:{margin:"0 -4px",minHeight:50,overflow:"visible"}}),
       React.createElement("div",{style:{display:"flex",justifyContent:"center",gap:2,marginTop:6}},
         data.notes.concat([data.notes[0]]).map(function(note,ni){
           var iv=ni<data.intervals.length?data.intervals[ni]:0;
@@ -2518,13 +2594,14 @@ function ScalePopup({data,th,isStudio,onClose}){
           var col=getTheoryColor(type,isStudio);
           var isRoot=iv===0;
           var isActive=playIdx===ni;
-          return React.createElement("div",{key:ni,onClick:function(e){e.stopPropagation();if(data.midis&&data.midis[ni])playMidi(data.midis[ni],0.5);},style:{display:"flex",flexDirection:"column",alignItems:"center",flex:1,padding:"4px 0",cursor:"pointer",opacity:playIdx>=0?(isActive?1:0.4):1,transition:"opacity 0.15s",borderRadius:6,background:isActive?col+"15":"transparent"}},
+          var isTapped=tappedIdx===ni;
+          return React.createElement("div",{key:ni,onClick:function(e){e.stopPropagation();tapNote(ni);},style:{display:"flex",flexDirection:"column",alignItems:"center",flex:1,padding:"4px 0",cursor:"pointer",opacity:(playIdx>=0||tappedIdx>=0)?((isActive||isTapped)?1:0.4):1,transition:"all 0.15s",borderRadius:6,background:(isActive||isTapped)?col+"20":"transparent",boxShadow:isTapped?"0 0 12px "+col+"50":"none",animation:isTapped?"scalePulse 0.3s ease-out":"none"}},
             React.createElement("span",{style:{fontSize:12,fontWeight:isRoot?800:600,color:isRoot?t.chordFill:t.text,fontFamily:"'JetBrains Mono',monospace"}},note),
             React.createElement("span",{style:{fontSize:9,fontWeight:600,color:col,fontFamily:"'JetBrains Mono',monospace"}},ivLabel));}))));
 }
 
 // ── TEMPO POPUP ──
-function TempoPopup({bpm,onBpmChange,onClose,th,lickTempo,playerCtrlRef}){
+function TempoPopup({bpm,onBpmChange,onClose,th,lickTempo,playerCtrlRef,ci,setCi}){
   var t=th||TH.classic;var isStudio=t===TH.studio;
   var pc=function(){return playerCtrlRef&&playerCtrlRef.current||{};};
   var[tapTimes,setTapTimes]=useState([]);var[tapBpm,setTapBpm]=useState(null);
@@ -2573,6 +2650,12 @@ function TempoPopup({bpm,onBpmChange,onClose,th,lickTempo,playerCtrlRef}){
         React.createElement("div",{style:{fontSize:10,color:t.subtle,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,letterSpacing:1,marginBottom:8}},"CLICK SOUND"),
         React.createElement("div",{style:{display:"flex",gap:6}},
           [{id:"click",label:"Click"},{id:"wood",label:"Wood"},{id:"cowbell",label:"Bell"},{id:"silent",label:"Silent"}].map(function(s){return chip(mSound===s.id,s.label,function(){doSetSound(s.id);});}))),
+      // Count-in toggle
+      React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20,padding:"12px 14px",background:isStudio?"#16162A":t.filterBg,borderRadius:12,border:"1px solid "+t.border}},
+        React.createElement("div",null,
+          React.createElement("div",{style:{fontSize:10,color:t.subtle,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,letterSpacing:1}},"COUNT-IN"),
+          React.createElement("div",{style:{fontSize:11,color:t.muted,marginTop:2,fontFamily:"'Inter',sans-serif"}},"Click beats before lick starts")),
+        ci!==undefined&&React.createElement("button",{onClick:function(){if(setCi){var c=playerCtrlRef&&playerCtrlRef.current||{};if(c.setCi)c.setCi(!ci);setCi(!ci);}},style:{padding:"6px 14px",borderRadius:8,background:ci?t.accentBg:"transparent",border:"1.5px solid "+(ci?t.accent+"40":t.border),color:ci?t.accent:t.subtle,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},ci?"ON":"OFF")),
       React.createElement("div",{style:{background:isStudio?"#16162A":t.filterBg,borderRadius:14,padding:16,border:"1px solid "+(progOn?"#3B82F630":t.border)}},
         React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:progOn?14:0}},
           React.createElement("div",null,
@@ -2815,7 +2898,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
     focus&&React.createElement(SheetFocus,{abc:notationAbc,onClose:function(){setFocus(false);},abRange:abOn?[abA,abB]:null,curNoteRef:curNoteRef,th:t,playerCtrlRef:playerCtrlRef,theoryMode:theoryMode,theoryAnalysis:theoryAnalysis}),
     scalePopup&&React.createElement(ScalePopup,{data:scalePopup,th:t,isStudio:isStudio,onClose:function(){setScalePopup(null);}}),
     burst&&React.createElement(FireBurst,{key:burst.k,originX:burst.x,originY:burst.y,onDone:function(){sBurst(null);}}),
-    showTempoPopup&&React.createElement(TempoPopup,{bpm:pT,onBpmChange:sPT,onClose:function(){setShowTempoPopup(false);},th:t,lickTempo:lick.tempo,playerCtrlRef:playerCtrlRef}),
+    showTempoPopup&&React.createElement(TempoPopup,{bpm:pT,onBpmChange:sPT,onClose:function(){setShowTempoPopup(false);},th:t,lickTempo:lick.tempo,playerCtrlRef:playerCtrlRef,ci:ps.ci,setCi:function(v){var c=pc();if(c.setCi)c.setCi(v);}}),
     // Sound/Style/Feel settings popup
     showSoundMenu&&React.createElement("div",{style:{position:"fixed",inset:0,zIndex:500,display:"flex",alignItems:"flex-end",justifyContent:"center"}},
       React.createElement("div",{onClick:function(){setShowSoundMenu(false);},style:{position:"absolute",inset:0,background:"rgba(0,0,0,0.5)",backdropFilter:"blur(4px)"}}),
@@ -2844,9 +2927,6 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
           React.createElement("div",{style:{fontSize:9,color:t.subtle,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,letterSpacing:1,marginBottom:8}},"FEEL"),
           React.createElement("div",{style:{display:"flex",gap:6}},
             ["straight","swing","hard-swing"].map(function(v){return React.createElement("button",{key:v,onClick:function(){haptic();var c=pc();if(c.setFeel)c.setFeel(v);},style:{flex:1,padding:"10px 6px",borderRadius:10,fontSize:12,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer",border:"1.5px solid "+(ps.feel===v?t.accent+"40":t.border),background:ps.feel===v?t.accentBg:"transparent",color:ps.feel===v?t.accent:t.muted}},v==="straight"?"Straight":v==="swing"?"Swing":"Hard Swing");}))),
-        // Count-in
-        React.createElement("div",null,
-          React.createElement("button",{onClick:function(){haptic();var c=pc();if(c.setCi)c.setCi(!ps.ci);},style:{padding:"10px 16px",borderRadius:10,fontSize:12,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer",border:"1.5px solid "+(ps.ci?t.accent+"40":t.border),background:ps.ci?t.accentBg:"transparent",color:ps.ci?t.accent:t.muted}},"Count-in "+(ps.ci?"\u2713":"\u2717"))))),
     showTips&&React.createElement(CoachMarks,{tips:DETAIL_TIPS,onDone:onTipsDone,th:t}));}
 
 // ============================================================
