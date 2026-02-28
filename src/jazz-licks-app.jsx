@@ -1350,9 +1350,9 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
     if(!ref.current)return;const svg=ref.current.querySelector("svg");if(!svg)return;
     const isStudio=t===TH.studio;
     svg.querySelectorAll("path").forEach(p=>{p.setAttribute("stroke",t.noteStroke);p.setAttribute("fill",t.noteStroke);});
-    svg.querySelectorAll(".abcjs-staff path").forEach(p=>{p.setAttribute("stroke",t.staffStroke);p.setAttribute("fill","none");});
-    svg.querySelectorAll(".abcjs-staff-extra path").forEach(p=>{p.setAttribute("stroke",isStudio?t.staffStroke:t.muted);p.setAttribute("fill",isStudio?t.staffStroke:t.muted);});
-    svg.querySelectorAll(".abcjs-bar path").forEach(p=>{p.setAttribute("stroke",t.barStroke);});
+    svg.querySelectorAll(".abcjs-staff path").forEach(p=>{p.setAttribute("stroke",t.staffStroke);p.setAttribute("fill","none");p.setAttribute("stroke-width","0.8");});
+    svg.querySelectorAll(".abcjs-staff-extra path").forEach(p=>{p.setAttribute("stroke",isStudio?t.staffStroke:t.muted);p.setAttribute("fill",isStudio?t.staffStroke:t.muted);p.setAttribute("stroke-width","0.8");});
+    svg.querySelectorAll(".abcjs-bar path").forEach(p=>{p.setAttribute("stroke",t.barStroke);p.setAttribute("stroke-width","1");});
     svg.querySelectorAll("text").forEach(p=>p.setAttribute("fill",t.metaFill));
     svg.querySelectorAll("text.abcjs-chord").forEach(p=>{p.setAttribute("fill",t.chordFill);p.style.fontSize=isStudio?"14px":"12px";p.style.fontWeight=isStudio?"600":"400";if(isStudio)p.style.filter="drop-shadow(0 0 4px "+t.chordFill+"50)";});
     svg.querySelectorAll(".abcjs-title,.abcjs-meta-top").forEach(el=>el.style.display="none");
@@ -2426,6 +2426,9 @@ function ScalePopup({data,th,isStudio,onClose}){
         svg.style.maxWidth="100%";
         var stCol=isStudio?"#F2F2FA":"#1A1A1A";
         svg.querySelectorAll("path").forEach(function(p){p.setAttribute("fill",stCol);p.setAttribute("stroke",stCol);});
+        svg.querySelectorAll(".abcjs-staff path").forEach(function(p){p.setAttribute("stroke-width","0.8");p.setAttribute("fill","none");});
+        svg.querySelectorAll(".abcjs-staff-extra path").forEach(function(p){p.setAttribute("stroke-width","0.8");});
+        svg.querySelectorAll(".abcjs-bar path").forEach(function(p){p.setAttribute("stroke-width","1");});
         var ct=parseChordName(data.chord);
         var noteEls=svg.querySelectorAll(".abcjs-note");
         noteEls.forEach(function(noteEl,ni){
@@ -2470,7 +2473,7 @@ function TempoPopup({bpm,onBpmChange,onClose,th,lickTempo,playerCtrlRef}){
   var mc=function(){var c=pc();return c.metroCtrlRef&&c.metroCtrlRef.current||{};};
   var[mSound,setMSound]=useState(function(){var m=mc();return m.getSound?m.getSound():"click";});
   var doSetSound=function(v){setMSound(v);var m=mc();if(m.setSound)m.setSound(v);};
-  var[progOn,setProgOn]=useState(false);var[progTarget,setProgTarget]=useState(180);var[progStep,setProgStep]=useState(5);
+  var[progOn,setProgOn]=useState(false);var[progTarget,setProgTarget]=useState(180);var[progStep,setProgStep]=useState(5);var[progLoops,setProgLoops]=useState(1);
   var chip=function(active,label,fn){return React.createElement("button",{onClick:function(e){e.stopPropagation();fn();},style:{flex:1,padding:"10px 6px",borderRadius:10,background:active?t.accent+"15":(isStudio?"#16162A":t.filterBg),border:"1.5px solid "+(active?t.accent+"40":t.border),color:active?t.accent:t.muted,fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},label);};
   return React.createElement("div",{style:{position:"fixed",inset:0,zIndex:500,display:"flex",alignItems:"flex-end",justifyContent:"center"}},
     React.createElement("div",{onClick:onClose,style:{position:"absolute",inset:0,background:"rgba(0,0,0,0.65)",backdropFilter:"blur(8px)"}}),
@@ -2501,18 +2504,21 @@ function TempoPopup({bpm,onBpmChange,onClose,th,lickTempo,playerCtrlRef}){
             React.createElement("div",{style:{fontSize:10,color:t.subtle,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,letterSpacing:1}},"PROGRESSIVE TEMPO"),
             React.createElement("div",{style:{fontSize:11,color:t.muted,marginTop:2,fontFamily:"'Inter',sans-serif"}},"Auto-increase after each loop")),
           React.createElement("button",{onClick:function(){setProgOn(!progOn);},style:{padding:"6px 14px",borderRadius:8,background:progOn?"#3B82F618":"transparent",border:"1.5px solid "+(progOn?"#3B82F640":t.border),color:progOn?"#3B82F6":t.subtle,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},progOn?"ON":"OFF")),
-        progOn&&React.createElement("div",{style:{display:"flex",gap:12}},
-          React.createElement("div",{style:{flex:1}},
+        progOn&&React.createElement("div",{style:{display:"flex",gap:12,flexWrap:"wrap"}},
+          React.createElement("div",{style:{flex:1,minWidth:80}},
             React.createElement("div",{style:{fontSize:9,color:"#3B82F6",fontFamily:"'JetBrains Mono',monospace",marginBottom:6}},"TARGET BPM"),
             React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
               React.createElement("button",{onClick:function(){setProgTarget(Math.max(bpm+5,progTarget-10));},style:{width:28,height:28,borderRadius:8,border:"1px solid "+t.border,background:t.card,color:t.text,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"\u2212"),
               React.createElement("span",{style:{fontSize:18,fontWeight:700,color:"#3B82F6",fontFamily:"'JetBrains Mono',monospace",minWidth:40,textAlign:"center"}},progTarget),
-              React.createElement("button",{onClick:function(){setProgTarget(Math.min(320,progTarget+10));},style:{width:28,height:28,borderRadius:8,border:"1px solid "+t.border,background:t.card,color:t.text,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"+")))/*close:btns,targetCol*/,
-          React.createElement("div",{style:{flex:1}},
+              React.createElement("button",{onClick:function(){setProgTarget(Math.min(320,progTarget+10));},style:{width:28,height:28,borderRadius:8,border:"1px solid "+t.border,background:t.card,color:t.text,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"+")),
+          React.createElement("div",{style:{minWidth:70}},
             React.createElement("div",{style:{fontSize:9,color:"#3B82F6",fontFamily:"'JetBrains Mono',monospace",marginBottom:6}},"STEP"),
             React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
-              [2,5,10].map(function(s){return React.createElement("button",{key:s,onClick:function(){setProgStep(s);},style:{padding:"6px 12px",borderRadius:8,background:progStep===s?"#3B82F618":t.card,border:"1.5px solid "+(progStep===s?"#3B82F640":t.border),color:progStep===s?"#3B82F6":t.muted,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"'JetBrains Mono',monospace"}},"+"+s);})))))));
-}
+              [2,5,10].map(function(s){return React.createElement("button",{key:s,onClick:function(){setProgStep(s);},style:{padding:"6px 10px",borderRadius:8,background:progStep===s?"#3B82F618":t.card,border:"1.5px solid "+(progStep===s?"#3B82F640":t.border),color:progStep===s?"#3B82F6":t.muted,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"'JetBrains Mono',monospace"}},"+"+s);}))),
+          React.createElement("div",{style:{width:"100%",marginTop:4}},
+            React.createElement("div",{style:{fontSize:9,color:"#3B82F6",fontFamily:"'JetBrains Mono',monospace",marginBottom:6}},"INCREASE EVERY"),
+            React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
+              [1,2,4].map(function(n){return React.createElement("button",{key:n,onClick:function(){setProgLoops(n);},style:{padding:"6px 12px",borderRadius:8,background:progLoops===n?"#3B82F618":t.card,border:"1.5px solid "+(progLoops===n?"#3B82F640":t.border),color:progLoops===n?"#3B82F6":t.muted,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"'JetBrains Mono',monospace"}},n===1?"1 loop":n+" loops");}))))))));}
 // ── DRAWER CONSTANTS ──
 var DRAWER_PEEK=134,DRAWER_HALF=420,DRAWER_FULL_OFF=80;
 
@@ -2667,8 +2673,8 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
             React.createElement("button",{onClick:function(e){e.stopPropagation();var c=pc();if(c.setBacking)c.setBacking(!ps.backing);},style:{padding:"7px 14px",borderRadius:10,fontSize:11,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer",transition:"all 0.15s",whiteSpace:"nowrap",border:"1.5px solid "+(ps.backing?"#F59E0B50":t.border),background:ps.backing?"#F59E0B14":"transparent",color:ps.backing?"#F59E0B":t.subtle}},"Backing")),
           // Row 2: A·B loop
           React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,paddingTop:6,borderTop:"1px solid "+(t.border+"60")}},
-            React.createElement("button",{onClick:function(e){e.stopPropagation();setAbOn(!abOn);if(!abOn){setAbA(0);setAbB(1);}},style:{padding:"6px 12px",borderRadius:9,fontSize:11,fontWeight:700,fontFamily:"'JetBrains Mono',monospace",cursor:"pointer",transition:"all 0.15s",whiteSpace:"nowrap",flexShrink:0,letterSpacing:0.5,border:"1.5px solid "+(abOn?"#F59E0B50":t.border),background:abOn?"#F59E0B14":"transparent",color:abOn?"#F59E0B":t.subtle}},"A\u2009\u00B7\u2009B"),
-            React.createElement("div",{style:{flex:1,opacity:abOn?1:0.3,transition:"opacity 0.2s",pointerEvents:abOn?"auto":"none"}},
+            React.createElement("button",{onClick:function(e){e.stopPropagation();setAbOn(!abOn);if(!abOn){setAbA(0);setAbB(1);}},style:{padding:"4px 10px",borderRadius:8,fontSize:11,fontWeight:700,fontFamily:"'JetBrains Mono',monospace",cursor:"pointer",transition:"all 0.15s",whiteSpace:"nowrap",flexShrink:0,letterSpacing:0.5,lineHeight:"18px",border:"1.5px solid "+(abOn?"#F59E0B50":t.border),background:abOn?"#F59E0B14":"transparent",color:abOn?"#F59E0B":t.subtle}},"A\u2009\u00B7\u2009B"),
+            React.createElement("div",{style:{flex:1,opacity:abOn?1:0.3,transition:"opacity 0.2s",pointerEvents:abOn?"auto":"none",display:"flex",alignItems:"center"}},
               React.createElement(ABRangeBar,{abc:notationAbc,abA:abA,abB:abB,setAbA:setAbA,setAbB:setAbB,onReset:function(){setAbA(0);setAbB(1);},th:t})))),
 
         // ══ HALF: SETTINGS + MEDIA ══
