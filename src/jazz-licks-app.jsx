@@ -2719,18 +2719,39 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
   const dragRef=useRef({startY:0,startH:0,active:false,moved:false});
   const hRef=useRef(DRAWER_PEEK);
   const drawerContentRef=useRef(null);
+  const halfContentRef=useRef(null);
+  const fullContentRef=useRef(null);
   useEffect(function(){hRef.current=drawerH;},[drawerH]);
   const winH=typeof window!=="undefined"?window.innerHeight:800;
-  // Dynamic half-height: measure content, cap at DRAWER_HALF
-  var halfH=DRAWER_HALF;
-  if(drawerContentRef.current){var ch=drawerContentRef.current.scrollHeight+40;halfH=Math.min(DRAWER_HALF,Math.max(DRAWER_PEEK+60,ch));}
-  const snapPts=[DRAWER_PEEK,halfH,winH-DRAWER_FULL_OFF];
-  var doSnap=function(h){var pts=[DRAWER_PEEK,halfH,winH-DRAWER_FULL_OFF];var closest=0,minD=Infinity;pts.forEach(function(sp,i){var d=Math.abs(h-sp);if(d<minD){minD=d;closest=i;}});setDrawerH(pts[closest]);setDrawerSnap(closest);};
-  useEffect(function(){setDrawerH(snapPts[drawerSnap]);},[drawerSnap]);
+  // Height thresholds for content reveal (not snap-based — visible during drag)
+  var HALF_SHOW=DRAWER_PEEK+30;// start fading in half content
+  var FULL_SHOW=DRAWER_HALF-20;// start fading in full content
+  // Check if half/full sections have actual content to show
+  var hasHalfContent=!!(lick.description||(lick.tags&&lick.tags.length>0)||lick.youtubeId||lick.spotifyId);
+  var hasFullContent=true;// theory+report always available
+  // Compute snap heights based on available content
+  var halfH=hasHalfContent?DRAWER_HALF:DRAWER_PEEK;
+  var fullMax=Math.min(winH-60,winH-DRAWER_FULL_OFF);// never closer than 60px to top
+  // Build snap points — only include snaps that have content
+  var snapPts=[DRAWER_PEEK];
+  if(hasHalfContent)snapPts.push(DRAWER_HALF);
+  if(hasFullContent)snapPts.push(fullMax);
+  // If no half content, full is snap index 1
+  var maxDrawerH=snapPts[snapPts.length-1];
+  var doSnap=function(h){var closest=0,minD=Infinity;snapPts.forEach(function(sp,i){var d=Math.abs(h-sp);if(d<minD){minD=d;closest=i;}});setDrawerH(snapPts[closest]);setDrawerSnap(closest);};
+  useEffect(function(){var target=snapPts[Math.min(drawerSnap,snapPts.length-1)];setDrawerH(target);},[drawerSnap]);
+  var clampH=function(h){return Math.max(DRAWER_PEEK,Math.min(maxDrawerH,h));};
   var onTouchStart=function(e){dragRef.current={startY:e.touches[0].clientY,startH:hRef.current,active:true,moved:false};setDragging(true);};
-  var onTouchMove=function(e){if(!dragRef.current.active)return;var dy=dragRef.current.startY-e.touches[0].clientY;if(Math.abs(dy)>3)dragRef.current.moved=true;setDrawerH(Math.max(snapPts[0],Math.min(winH-DRAWER_FULL_OFF,dragRef.current.startH+dy)));};
+  var onTouchMove=function(e){if(!dragRef.current.active)return;var dy=dragRef.current.startY-e.touches[0].clientY;if(Math.abs(dy)>3)dragRef.current.moved=true;setDrawerH(clampH(dragRef.current.startH+dy));};
   var onTouchEnd=function(){if(!dragRef.current.active)return;dragRef.current.active=false;setDragging(false);doSnap(hRef.current);};
-  var onMouseDown=function(e){e.preventDefault();dragRef.current={startY:e.clientY,startH:hRef.current,active:true,moved:false};setDragging(true);var mv=function(ev){var dy=dragRef.current.startY-ev.clientY;if(Math.abs(dy)>3)dragRef.current.moved=true;setDrawerH(Math.max(snapPts[0],Math.min(winH-DRAWER_FULL_OFF,dragRef.current.startH+dy)));};var up=function(){dragRef.current.active=false;setDragging(false);doSnap(hRef.current);window.removeEventListener("mousemove",mv);window.removeEventListener("mouseup",up);};window.addEventListener("mousemove",mv);window.addEventListener("mouseup",up);};
+  var onMouseDown=function(e){e.preventDefault();dragRef.current={startY:e.clientY,startH:hRef.current,active:true,moved:false};setDragging(true);var mv=function(ev){var dy=dragRef.current.startY-ev.clientY;if(Math.abs(dy)>3)dragRef.current.moved=true;setDrawerH(clampH(dragRef.current.startH+dy));};var up=function(){dragRef.current.active=false;setDragging(false);doSnap(hRef.current);window.removeEventListener("mousemove",mv);window.removeEventListener("mouseup",up);};window.addEventListener("mousemove",mv);window.addEventListener("mouseup",up);};
+  // Height-based opacity for smooth reveal during drag (not snap-dependent)
+  var halfOpacity=drawerH<=DRAWER_PEEK?0:Math.min(1,(drawerH-DRAWER_PEEK)/80);
+  var fullOpacity=drawerH<FULL_SHOW?0:Math.min(1,(drawerH-FULL_SHOW)/80);
+  // Effective snap index for dot indicator (derived from height during drag)
+  var effectiveSnap=0;
+  if(snapPts.length===3){effectiveSnap=drawerH>=(snapPts[1]+snapPts[2])/2?2:drawerH>=(snapPts[0]+snapPts[1])/2?1:0;}
+  else if(snapPts.length===2){effectiveSnap=drawerH>=(snapPts[0]+snapPts[1])/2?1:0;}
 
   // ── PLAYER STATE (from headless Player via onStateChange) ──
   const[ps,setPs]=useState({playing:false,loading:false,looping:false,melody:true,backing:true,sound:"piano",backingStyle:"piano",feel:"straight",ci:true,muteKeys:false,muteBass:false,muteDrums:false});
@@ -2806,18 +2827,18 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
         theoryMode&&(!theoryAnalysis||!theoryAnalysis.hasChords)&&React.createElement("div",{style:{marginTop:8,padding:"10px 14px",borderRadius:10,background:isStudio?"#F59E0B15":"#FEF3C7",border:"1px solid "+(isStudio?"#F59E0B30":"#FDE68A")}},
           React.createElement("span",{style:{fontSize:12,color:isStudio?"#FBBF24":"#92400E",fontFamily:"'Inter',sans-serif"}},"No chord symbols found in this lick. X-Ray needs chord annotations (e.g. \"Dm7\") to analyze intervals.")),
         // Hint to swipe up
-        drawerSnap===0&&!theoryMode&&React.createElement("div",{onClick:function(){setDrawerSnap(1);},style:{display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginTop:16,cursor:"pointer",opacity:0.5}},
+        drawerSnap===0&&!theoryMode&&snapPts.length>1&&React.createElement("div",{onClick:function(){setDrawerSnap(1);},style:{display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginTop:16,cursor:"pointer",opacity:0.5}},
           React.createElement("span",{style:{fontSize:9,color:t.subtle,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1.5}},"\u25B2 SWIPE UP FOR MORE")))),
 
     // ═══════ BOTTOM DRAWER ═══════
     React.createElement("div",{style:{position:"fixed",bottom:0,left:0,right:0,height:drawerH,background:isStudio?t.card:t.card,borderRadius:"20px 20px 0 0",boxShadow:"0 -4px 30px rgba(0,0,0,"+(isStudio?"0.5":"0.12")+"), 0 -1px 0 "+t.border,transition:dragging?"none":"height 0.35s cubic-bezier(0.32,0.72,0,1)",zIndex:150,display:"flex",flexDirection:"column",overflow:"hidden"}},
       // Drag handle — triple line, also clickable to expand
-      React.createElement("div",{onTouchStart:onTouchStart,onTouchMove:onTouchMove,onTouchEnd:onTouchEnd,onMouseDown:onMouseDown,onClick:function(e){if(!dragRef.current.moved&&!dragRef.current.active){if(drawerSnap===0)setDrawerSnap(1);else if(drawerSnap===1)setDrawerSnap(2);else setDrawerSnap(0);}},style:{padding:"8px 0 4px",cursor:"grab",display:"flex",flexDirection:"column",alignItems:"center",gap:2,flexShrink:0,userSelect:"none",touchAction:"none"}},
+      React.createElement("div",{onTouchStart:onTouchStart,onTouchMove:onTouchMove,onTouchEnd:onTouchEnd,onMouseDown:onMouseDown,onClick:function(e){if(!dragRef.current.moved&&!dragRef.current.active){var next=(drawerSnap+1)%snapPts.length;setDrawerSnap(next);}},style:{padding:"8px 0 4px",cursor:"grab",display:"flex",flexDirection:"column",alignItems:"center",gap:2,flexShrink:0,userSelect:"none",touchAction:"none"}},
         React.createElement("div",{style:{width:28,height:3,borderRadius:2,background:t.subtle,opacity:0.45}}),
         React.createElement("div",{style:{width:20,height:2.5,borderRadius:2,background:t.subtle,opacity:0.35}}),
         React.createElement("div",{style:{width:14,height:2,borderRadius:2,background:t.subtle,opacity:0.25}})),
       // Drawer scroll content
-      React.createElement("div",{ref:drawerContentRef,style:{flex:1,overflowY:drawerSnap>0||drawerH>DRAWER_PEEK+10?"auto":"hidden",overflowX:"hidden",WebkitOverflowScrolling:"touch"}},
+      React.createElement("div",{ref:drawerContentRef,style:{flex:1,overflowY:drawerH>DRAWER_PEEK+10?"auto":"hidden",overflowX:"hidden",WebkitOverflowScrolling:"touch"}},
 
         // ────── PEEK: MINIBAR ──────
         React.createElement("div",{style:{padding:"0 16px",flexShrink:0}},
@@ -2861,7 +2882,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
               React.createElement(ABRangeBar,{abc:notationAbc,abA:abA,abB:abB,setAbA:setAbA,setAbB:setAbB,onReset:function(){setAbA(0);setAbB(1);},th:t,compact:true})))),
 
         // ══ HALF: MEDIA + EXTRAS ══
-        React.createElement("div",{style:{padding:"14px 16px 0",opacity:drawerSnap>=1?1:0,maxHeight:drawerSnap>=1?"none":0,overflow:drawerSnap>=1?"visible":"hidden",transition:"opacity 0.3s"}},
+        React.createElement("div",{ref:halfContentRef,style:{padding:"14px 16px 0",opacity:halfOpacity,maxHeight:halfOpacity>0?"none":0,overflow:halfOpacity>0?"visible":"hidden",transition:dragging?"none":"opacity 0.3s",pointerEvents:halfOpacity>0.3?"auto":"none"}},
           // Description
           lick.description&&React.createElement("p",{style:{fontSize:13,color:t.muted,lineHeight:1.7,margin:"0 0 10px",fontStyle:"italic",fontFamily:t.titleFont}},lick.description),
           // Tags
@@ -2874,7 +2895,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
           React.createElement(SpotifyEmbed,{trackId:lick.spotifyId,th:t})),
 
         // ══ FULL: THEORY + PRIVATE + REPORT ══
-        React.createElement("div",{style:{padding:"0 16px 32px",opacity:drawerSnap>=2?1:0,maxHeight:drawerSnap>=2?"none":0,overflow:drawerSnap>=2?"visible":"hidden",transition:"opacity 0.3s"}},
+        React.createElement("div",{ref:fullContentRef,style:{padding:"0 16px 32px",opacity:fullOpacity,maxHeight:fullOpacity>0?"none":0,overflow:fullOpacity>0?"visible":"hidden",transition:dragging?"none":"opacity 0.3s",pointerEvents:fullOpacity>0.3?"auto":"none"}},
           // Theory X-Ray
           React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:14}},
             React.createElement("div",{style:{height:1,flex:1,background:t.border}}),
@@ -2897,7 +2918,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
 
           // Snap indicator dots
           React.createElement("div",{style:{display:"flex",justifyContent:"center",gap:6,marginTop:24}},
-            [0,1,2].map(function(i){return React.createElement("button",{key:i,onClick:function(){setDrawerSnap(i);},style:{width:drawerSnap===i?20:8,height:8,borderRadius:4,background:drawerSnap===i?t.accent:(t.border),border:"none",cursor:"pointer",transition:"all 0.2s"}});}))))),
+            snapPts.map(function(sp,i){return React.createElement("button",{key:i,onClick:function(){setDrawerSnap(i);},style:{width:(dragging?effectiveSnap:drawerSnap)===i?20:8,height:8,borderRadius:4,background:(dragging?effectiveSnap:drawerSnap)===i?t.accent:(t.border),border:"none",cursor:"pointer",transition:"all 0.2s"}});}))))),
 
     // ═══════ HEADLESS PLAYER (audio only) ═══════
     React.createElement("div",{style:{position:"absolute",width:0,height:0,overflow:"hidden",pointerEvents:"none"}},
