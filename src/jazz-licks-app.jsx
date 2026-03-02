@@ -1333,7 +1333,7 @@ function getBarInfo(abc){
 // ============================================================
 // NOTATION — theme-aware
 // ============================================================
-function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteIdx,onDeselect,theoryMode,theoryAnalysis,onChordClick,chordEditBeat}){
+function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteIdx,onDeselect,theoryMode,theoryAnalysis}){
   const ref=useRef(null);const ok=useAbcjs();const prevNoteRef=useRef(-1);const rafRef=useRef(null);
   const t=th||TH.classic;
   useEffect(()=>{if(!ok||!ref.current||!window.ABCJS)return;
@@ -1341,7 +1341,7 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
     var el=ref.current;var prevH=el.offsetHeight;if(prevH>0)el.style.minHeight=prevH+"px";
     var barInfo=getBarInfo(abc);var nBars=barInfo.nBars;
     var mpl=nBars<=4?nBars:4;
-    var editorMode=!!onChordClick;
+    var editorMode=!!onNoteClick;
     // Inject barsperstaff directive for editor mode
     var renderAbc=abc;
     if(editorMode){
@@ -1439,78 +1439,7 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
       // Click on SVG background = deselect
       if(onDeselect)svg.addEventListener("click",function(e){if(e.target===svg||e.target.closest(".abcjs-staff")||e.target.closest(".abcjs-staff-extra"))onDeselect();});
       noteEls.forEach(function(el,idx){el.style.cursor="pointer";el.addEventListener("click",function(e){e.stopPropagation();onNoteClick(idx);});});}
-    // ── CHORD CLICK ZONES: clickable areas above each bar ──
-    if(onChordClick&&noteEls.length>0){
-      svg.querySelectorAll(".chord-zone").forEach(function(el){el.remove();});
-      var staffEls2=svg.querySelectorAll(".abcjs-staff");
-      var barEls=svg.querySelectorAll(".abcjs-bar");
-      if(staffEls2.length===0)return;
-      var barInfo2=getBarInfo(abc);
-      var chTsN=barInfo2.tsNum;var nBars2=barInfo2.nBars;
-      // Gather barline positions (x,y)
-      var barPos=[];
-      barEls.forEach(function(be){try{var bb=be.getBBox();barPos.push({x:bb.x,y:bb.y+bb.height/2});}catch(e){}});
-      // Get staff bounding boxes
-      var staffBx=[];
-      staffEls2.forEach(function(s){try{var sb=s.getBBox();staffBx.push({x:sb.x,y:sb.y,w:sb.width,h:sb.height,cy:sb.y+sb.height/2});}catch(e){}});
-      // Group barlines into staff rows by closest staff center-Y
-      var barsByRow=staffBx.map(function(){return[];});
-      barPos.forEach(function(bp){
-        var bestDist=Infinity,bestIdx=0;
-        for(var si=0;si<staffBx.length;si++){var d=Math.abs(bp.y-staffBx[si].cy);if(d<bestDist){bestDist=d;bestIdx=si;}}
-        barsByRow[bestIdx].push(bp.x);
-      });
-      // Sort each row's barlines by X, deduplicate
-      barsByRow.forEach(function(row){
-        row.sort(function(a,b2){return a-b2;});
-        for(var k=row.length-1;k>0;k--){if(row[k]-row[k-1]<3)row.splice(k,1);}
-      });
-      // For each staff row, find the first note's X to know music start
-      var notesByRow=staffBx.map(function(){return[];});
-      noteEls.forEach(function(ne){try{var nb=ne.getBBox();var ncy=nb.y+nb.height/2;
-        var bestDist=Infinity,bestIdx=0;
-        for(var si=0;si<staffBx.length;si++){var d=Math.abs(ncy-staffBx[si].cy);if(d<bestDist){bestDist=d;bestIdx=si;}}
-        notesByRow[bestIdx].push(nb.x);
-      }catch(e){}});
-      // Build beat zones per row
-      var globalBar2=0;var isS=t===TH.studio;var zHov=isS?"rgba(34,216,158,0.08)":"rgba(99,102,241,0.08)";
-      staffBx.forEach(function(sb,si){
-        var rowBars=barsByRow[si];var rowNotes=notesByRow[si];
-        if(rowNotes.length===0)return;
-        var musicStart=Math.min.apply(null,rowNotes)-4;
-        // Build bar boundaries: [musicStart, barline1, barline2, ...]
-        var boundaries=[musicStart];
-        rowBars.forEach(function(bx){if(bx>musicStart+5)boundaries.push(bx);});
-        // If last boundary doesn't reach staff end, add it
-        var staffEnd=sb.x+sb.w;
-        if(boundaries[boundaries.length-1]<staffEnd-10)boundaries.push(staffEnd);
-        var nBarsThisRow=boundaries.length-1;
-        if(nBarsThisRow<=0)return;
-        var zoneY=sb.y-24;var zoneH=22;
-        for(var bi=0;bi<nBarsThisRow;bi++){
-          var bx1=boundaries[bi];var bx2=boundaries[bi+1];
-          var barW=bx2-bx1;var beatW=barW/chTsN;
-          for(var bt=0;bt<chTsN;bt++){
-            var beat=(globalBar2+bi)*chTsN+bt;
-            (function(beat2,zx,zw){
-              var zone=document.createElementNS("http://www.w3.org/2000/svg","rect");
-              zone.setAttribute("class","chord-zone");
-              zone.setAttribute("x",zx);zone.setAttribute("y",zoneY);
-              zone.setAttribute("width",zw);zone.setAttribute("height",zoneH);
-              zone.setAttribute("fill","transparent");zone.setAttribute("rx","4");
-              zone.style.cursor="pointer";
-              zone.addEventListener("mouseenter",function(){zone.setAttribute("fill",zHov);});
-              zone.addEventListener("mouseleave",function(){zone.setAttribute("fill","transparent");});
-              zone.addEventListener("click",function(e){e.stopPropagation();onChordClick(beat2);});
-              svg.appendChild(zone);
-            })(beat,bx1+bt*beatW,beatW);
-          }
-        }
-        globalBar2+=nBarsThisRow;
-      });
-      // Make existing chord text clickable too
-      svg.querySelectorAll("text.abcjs-chord").forEach(function(ct){ct.style.cursor="pointer";});
-    }    const hasRange=abRange&&(abRange[0]>0.001||abRange[1]<0.999);
+    const hasRange=abRange&&(abRange[0]>0.001||abRange[1]<0.999);
     if(hasRange){
       // Dim out-of-range notes
       noteEls.forEach((el,idx)=>{if(idx>=fracs.length)return;const f=fracs[idx];
@@ -1543,7 +1472,7 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
           if(!bestInR){p.setAttribute("fill-opacity","0.12");p.setAttribute("stroke-opacity","0.12");}
         }catch(e){}});}
     }
-  },[abc,ok,compact,abRange,focus,th,theoryMode,theoryAnalysis,onChordClick,chordEditBeat]);
+  },[abc,ok,compact,abRange,focus,th,theoryMode,theoryAnalysis]);
   // Cursor: poll curNoteRef via rAF — zero React re-renders
   useEffect(()=>{if(!curNoteRef)return;
     const tick=()=>{const cn=curNoteRef.current;
@@ -2269,7 +2198,7 @@ function buildAbc(items,keySig,timeSig,tempo,chords,minBars){const[tsN,tsD]=time
     }
   }
   return abc;}
-function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteClickRef,onSelChange,deselectRef,previewOffset,th,chordClickRef}){
+function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteClickRef,onSelChange,deselectRef,previewOffset,th}){
   const[items,sIt]=useState([]);const[cO,sCO]=useState(4);const[cD,sCD]=useState(2);const[dt,sDt]=useState(false);const[tri,sTri]=useState(false);
   const[chords,sChords]=useState({});
   const[chEd,sChEd]=useState(-1);const[chRoot,sChRoot]=useState("C");const[chQual,sChQual]=useState("7");const[chCat,sChCat]=useState("dom");
@@ -2432,25 +2361,59 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteCl
         React.createElement("span",{style:{fontSize:10,color:isSel?ac:mu}},item.dotted?"rest.":"rest"),noteIcon(item.dur,isSel?ac:"#AAA",14));bg=isSel?"rgba(99,102,241,0.12)":"#F0EFE8";}
     els.push(React.createElement("div",{key:idx,"data-nidx":idx,onClick:function(){tapNote(idx);},style:{minWidth:38,height:48,borderRadius:8,background:bg,color:"#1A1A1A",display:"flex",alignItems:"center",justifyContent:"center",padding:"2px 5px",cursor:"pointer",flexShrink:0,border:isSel?"2px solid "+ac:"1px solid #E8E7E3",transition:"all 0.1s"}},ct));return els;};
 
-  // Wire chord click from notation SVG
-  var chordClickFromNotation=function(beat){
+  // ── CHORD STRIP: compact bar of chord chips below notation ──
+  var isStudioNB=th===TH.studio;var acNB=isStudioNB?"#22D89E":"#6366F1";
+  var chordBeats2=Object.keys(chords).map(Number).sort(function(a,b2){return a-b2;});
+  // Beat label helper: "T1 B1" = Takt 1, Beat 1
+  var beatLabel=function(b){return"T"+(Math.floor(b/tsN)+1)+".B"+((b%tsN)+1);};
+  // Open picker for beat
+  var openChordPicker=function(beat){
     if(chEd===beat){sChEd(-1);return;}
-    // If there's already a chord at this beat, load it into picker
     if(chords[beat]){var ps=chords[beat].match(/^([A-G][b#]?)(.*)/);
       if(ps){sChRoot(ps[1]);var q=ps[2]||"";sChQual(q||"7");sChCat(findChordCat(q));}}
+    else{sChRoot("C");sChCat("dom");sChQual("7");}
     sChEd(beat);
   };
-  if(chordClickRef)chordClickRef.current=chordClickFromNotation;
+  // Add chord at next available beat
+  var addNewChord=function(){
+    var nextBeat=0;
+    if(chordBeats2.length>0)nextBeat=chordBeats2[chordBeats2.length-1]+tsN;
+    // Snap to bar start
+    nextBeat=Math.floor(nextBeat/tsN)*tsN;
+    sChRoot("C");sChCat("dom");sChQual("7");
+    sChEd(nextBeat);
+  };
 
-  // Inline chord picker (shows below notation when editing)
-  var isStudioNB=th===TH.studio;var acNB=isStudioNB?"#22D89E":"#6366F1";
-  var chordPickerEl=chEd>=0?React.createElement("div",{style:{background:isStudioNB?"#0E0E22":"#FAFAF8",border:"1px solid "+(isStudioNB?"#ffffff12":"#E0DFD8"),
-    borderRadius:12,padding:"10px 10px 8px",marginTop:4,marginBottom:4,animation:"coachIn 0.15s ease"}},
+  var chordStripEl=React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:4}},
+    // Chord chips row
+    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}},
+      React.createElement("span",{style:{fontSize:9,color:isStudioNB?"#555":"#888",fontFamily:"'JetBrains Mono',monospace",fontWeight:600,letterSpacing:1,marginRight:2}},"CHORDS"),
+      chordBeats2.map(function(beat){
+        var name=chords[beat];var col=chordBlockColor(name);var isEd=chEd===beat;
+        return React.createElement("button",{key:"ch"+beat,onClick:function(){openChordPicker(beat);},
+          style:{display:"flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:8,cursor:"pointer",
+            border:isEd?"2px solid "+col:"1.5px solid "+col+"40",
+            background:isStudioNB?col+"15":col+"10",
+            transition:"all 0.15s",flexShrink:0}},
+          React.createElement("span",{style:{fontSize:13,fontWeight:700,color:col,fontFamily:"'JetBrains Mono',monospace",letterSpacing:-0.3}},name),
+          React.createElement("span",{style:{fontSize:8,color:isStudioNB?"#555":"#AAA",fontFamily:"'JetBrains Mono',monospace"}},beatLabel(beat)));
+      }),
+      // "+" button
+      React.createElement("button",{onClick:addNewChord,
+        style:{display:"flex",alignItems:"center",gap:3,padding:"4px 10px",borderRadius:8,cursor:"pointer",
+          border:"1.5px dashed "+(isStudioNB?"#ffffff15":"#D5D4CE"),background:"transparent",
+          transition:"all 0.15s"}},
+        React.createElement("span",{style:{fontSize:14,color:isStudioNB?"#444":"#BBB",fontWeight:300}},"+"),
+        chordBeats2.length===0&&React.createElement("span",{style:{fontSize:10,color:isStudioNB?"#444":"#BBB",fontFamily:"'Inter',sans-serif"}},"Add chord"))));
+
+  // Inline picker (expands below strip when editing)
+  var chordPickerEl=chEd>=0?React.createElement("div",{style:{background:isStudioNB?"#0E0E18":"#FAFAF8",border:"1px solid "+(isStudioNB?"#ffffff12":"#E0DFD8"),
+    borderRadius:12,padding:"10px 10px 8px",animation:"coachIn 0.15s ease"}},
     React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}},
       React.createElement("span",{style:{fontSize:9,color:isStudioNB?"#555":"#888",fontFamily:"'JetBrains Mono',monospace",fontWeight:600,letterSpacing:1}},
-        chords[chEd]?"EDIT CHORD":"ADD CHORD"),
-      React.createElement("span",{style:{fontSize:8,color:isStudioNB?"#333":"#BBB",fontFamily:"'Inter',sans-serif"}},
-        "Beat "+(chEd+1))),
+        chords[chEd]?"EDIT CHORD":"NEW CHORD"),
+      React.createElement("span",{style:{fontSize:9,color:isStudioNB?"#444":"#AAA",fontFamily:"'JetBrains Mono',monospace"}},
+        beatLabel(chEd))),
     // Root row
     React.createElement("div",{style:{display:"flex",gap:3,marginBottom:6,flexWrap:"wrap"}},
       ["C","Db","D","Eb","E","F","F#","G","Ab","A","Bb","B"].map(function(r){return React.createElement("button",{key:r,onClick:function(){sChRoot(r);},
@@ -2483,19 +2446,17 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteCl
       React.createElement("button",{onClick:function(){var nc=Object.assign({},chords);nc[chEd]=chRoot+(chQual||"");sChords(nc);pushHist(items,nc);sChEd(-1);},
         style:{padding:"5px 14px",borderRadius:8,border:"none",background:acNB,color:isStudioNB?"#08080F":"#fff",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},"Set"),
       chords[chEd]&&React.createElement("button",{onClick:function(){var nc=Object.assign({},chords);delete nc[chEd];sChords(nc);pushHist(items,nc);sChEd(-1);},
-        style:{padding:"5px 10px",borderRadius:8,border:"1px solid "+(isStudioNB?"#EF444430":"#E0DFD8"),background:isStudioNB?"#EF444408":"#FFF5F5",color:"#EF4444",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},"\u2715 Delete"),
+        style:{padding:"5px 10px",borderRadius:8,border:"1px solid "+(isStudioNB?"#EF444430":"#E0DFD8"),background:isStudioNB?"#EF444408":"#FFF5F5",color:"#EF4444",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},"\u2715"),
       React.createElement("button",{onClick:function(){sChEd(-1);},
         style:{padding:"5px 10px",borderRadius:8,border:"1px solid "+(isStudioNB?"#ffffff10":"#E0DFD8"),background:isStudioNB?"#ffffff04":"#F5F4F0",color:isStudioNB?"#666":"#888",fontSize:11,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},"Cancel"))):null;
 
   return React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:8}},
     // 1. Notation preview
     previewEl,
-    // 2. Inline chord picker (below notation, only when editing)
+    // 2. Chord strip + picker
+    chordStripEl,
     chordPickerEl,
-    // 3. Chord hint (when no chords and has notes)
-    Object.keys(chords).length===0&&items.length>0&&chEd<0&&React.createElement("div",{style:{textAlign:"center",padding:"4px 8px"}},
-      React.createElement("span",{style:{fontSize:10,color:isStudioNB?"#444":"#BBB",fontFamily:"'Inter',sans-serif",fontStyle:"italic"}},"\u2191 tap above the staff to add chords")),
-    // 4. Minimal player
+    // 3. Minimal player
     playerEl,
     // 4. Empty state hint
     !selItem&&items.length===0&&React.createElement("div",{style:{padding:"8px 12px",background:"#FAFAF8",borderRadius:8,border:"1px solid #E8E7E3"}},
@@ -5108,7 +5069,6 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
   const edCurNoteRef=useRef(-1);
   const noteClickRef=useRef(null);
   const deselectRef=useRef(null);
-  const chordClickRef=useRef(null);
   const[edSelIdx,setEdSelIdx]=useState(null);
   var edInstOff=INST_TRANS[userInst]||0;
   // Concert pitch abc for playback (transpose back from instrument transposition)
@@ -5179,12 +5139,12 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
             edInstOff!==0&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",background:isStudio?"rgba(34,216,158,0.06)":"rgba(99,102,241,0.04)",borderRadius:8,border:"1px solid "+(isStudio?"rgba(34,216,158,0.15)":"rgba(99,102,241,0.1)")}},
               React.createElement("span",{style:{fontSize:10,color:isStudio?"#22D89E":t.accent,fontFamily:"'Inter',sans-serif"}},"Entering for "+userInst+" \u2014 will be saved in concert pitch")),
             React.createElement("div",{style:{borderRadius:12,padding:14,border:"1px solid "+t.border}},
-              React.createElement(NoteBuilder,{onAbcChange:sAbc,keySig,timeSig,tempo:parseInt(tempo)||120,noteClickRef:noteClickRef,onSelChange:setEdSelIdx,deselectRef:deselectRef,previewOffset:-edInstOff,th:t,chordClickRef:chordClickRef,
+              React.createElement(NoteBuilder,{onAbcChange:sAbc,keySig,timeSig,tempo:parseInt(tempo)||120,noteClickRef:noteClickRef,onSelChange:setEdSelIdx,deselectRef:deselectRef,previewOffset:-edInstOff,th:t,
                 previewEl:hasNotes?React.createElement("div",{style:{marginBottom:4}},
                   React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}},
                     React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,fontWeight:600}},"PREVIEW"),
                     noteCount>0&&React.createElement("span",{style:{fontSize:9,color:t.accent,fontFamily:"monospace"}},noteCount+" notes")),
-                  React.createElement(Notation,{abc,compact:false,th:t,curNoteRef:edCurNoteRef,selNoteIdx:edSelIdx,onNoteClick:function(idx){if(noteClickRef.current)noteClickRef.current(idx);},onDeselect:function(){if(deselectRef.current)deselectRef.current();},onChordClick:function(beat){if(chordClickRef.current)chordClickRef.current(beat);}})):null,
+                  React.createElement(Notation,{abc,compact:false,th:t,curNoteRef:edCurNoteRef,selNoteIdx:edSelIdx,onNoteClick:function(idx){if(noteClickRef.current)noteClickRef.current(idx);},onDeselect:function(){if(deselectRef.current)deselectRef.current();}})):null,
                 playerEl:React.createElement(Player,{abc:concertAbc,tempo:parseInt(tempo)||120,th:t,initFeel:feel,editorMode:true,onCurNote:function(n){edCurNoteRef.current=n;}})})))),
 
         // STEP 3 — Describe it
