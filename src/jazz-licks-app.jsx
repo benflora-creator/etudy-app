@@ -1435,79 +1435,76 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
       if(onDeselect)svg.addEventListener("click",function(e){if(e.target===svg||e.target.closest(".abcjs-staff")||e.target.closest(".abcjs-staff-extra"))onDeselect();});
       noteEls.forEach(function(el,idx){el.style.cursor="pointer";el.addEventListener("click",function(e){e.stopPropagation();onNoteClick(idx);});});}
     // ── CHORD CLICK ZONES: clickable areas above each bar ──
-    if(onChordClick){
+    if(onChordClick&&noteEls.length>0){
       svg.querySelectorAll(".chord-zone").forEach(function(el){el.remove();});
-      var barEls=svg.querySelectorAll(".abcjs-bar");
       var staffEls2=svg.querySelectorAll(".abcjs-staff");
-      if(barEls.length>0&&staffEls2.length>0){
-        // Gather bar X positions and staff info
-        var barXs=[];
-        barEls.forEach(function(be){try{var bb=be.getBBox();barXs.push(bb.x);}catch(e){}});
-        barXs.sort(function(a,b2){return a-b2;});
-        // Remove duplicates (threshold 2px)
-        var uniqBarXs=[barXs[0]];
-        for(var bxi=1;bxi<barXs.length;bxi++){if(barXs[bxi]-uniqBarXs[uniqBarXs.length-1]>2)uniqBarXs.push(barXs[bxi]);}
-        // Parse time sig from abc
-        var tsMatch=abc.match(/M:\s*(\d+)\/(\d+)/);
-        var chTsN=tsMatch?parseInt(tsMatch[1]):4;
-        // Staff info for Y positioning
-        var staffInfos=[];
-        staffEls2.forEach(function(s){try{var sb=s.getBBox();staffInfos.push({y:sb.y,h:sb.height});}catch(e){}});
-        // Group bars by staff line
-        var barsByStaff=[];
-        staffInfos.forEach(function(si,sidx){
-          var myBars=[];
-          uniqBarXs.forEach(function(bx){
-            // Check if bar is within ±20px of staff vertical range
-            barEls.forEach(function(be){try{var bb=be.getBBox();
-              if(Math.abs(bb.x-bx)<3&&bb.y>=si.y-5&&bb.y<=si.y+si.h+5)myBars.push(bx);
-            }catch(e){}});
-          });
-          // Deduplicate
-          var um=[];myBars.forEach(function(x){if(um.length===0||x-um[um.length-1]>2)um.push(x);});
-          barsByStaff.push(um);
-        });
-        // Add click zones per bar per staff
-        var globalBar=0;
-        barsByStaff.forEach(function(staffBars,sidx){
-          if(!staffInfos[sidx])return;
-          var staffTop=staffInfos[sidx].y;
-          var zoneY=staffTop-22;// above staff
-          var zoneH=20;
-          for(var sbi=0;sbi<staffBars.length-1;sbi++){
-            var x1=staffBars[sbi];
-            var x2=staffBars[sbi+1];
-            var barW=x2-x1;
-            var beatIdx=globalBar*chTsN;
-            // One clickable zone per beat in this bar
-            var beatW=barW/chTsN;
-            for(var bt=0;bt<chTsN;bt++){
-              var thisBeat=beatIdx+bt;
-              (function(beat,bx,bw){
-                var isEditing=chordEditBeat===beat;
-                var zone=document.createElementNS("http://www.w3.org/2000/svg","rect");
-                zone.setAttribute("class","chord-zone");
-                zone.setAttribute("x",bx);
-                zone.setAttribute("y",zoneY);
-                zone.setAttribute("width",bw);
-                zone.setAttribute("height",zoneH);
-                zone.setAttribute("fill",isEditing?"rgba(99,102,241,0.12)":"transparent");
-                zone.setAttribute("rx","4");
-                zone.style.cursor="pointer";
-                zone.addEventListener("mouseenter",function(){if(!isEditing)zone.setAttribute("fill","rgba(99,102,241,0.06)");});
-                zone.addEventListener("mouseleave",function(){if(!isEditing)zone.setAttribute("fill","transparent");});
-                zone.addEventListener("click",function(e){e.stopPropagation();onChordClick(beat);});
-                svg.appendChild(zone);
-              })(thisBeat,x1+bt*beatW,beatW);
-            }
-            globalBar++;
+      var barEls=svg.querySelectorAll(".abcjs-bar");
+      if(staffEls2.length===0)return;
+      var barInfo2=getBarInfo(abc);
+      var chTsN=barInfo2.tsNum;var nBars2=barInfo2.nBars;
+      // Gather barline positions (x,y)
+      var barPos=[];
+      barEls.forEach(function(be){try{var bb=be.getBBox();barPos.push({x:bb.x,y:bb.y+bb.height/2});}catch(e){}});
+      // Get staff bounding boxes
+      var staffBx=[];
+      staffEls2.forEach(function(s){try{var sb=s.getBBox();staffBx.push({x:sb.x,y:sb.y,w:sb.width,h:sb.height,cy:sb.y+sb.height/2});}catch(e){}});
+      // Group barlines into staff rows by closest staff center-Y
+      var barsByRow=staffBx.map(function(){return[];});
+      barPos.forEach(function(bp){
+        var bestDist=Infinity,bestIdx=0;
+        for(var si=0;si<staffBx.length;si++){var d=Math.abs(bp.y-staffBx[si].cy);if(d<bestDist){bestDist=d;bestIdx=si;}}
+        barsByRow[bestIdx].push(bp.x);
+      });
+      // Sort each row's barlines by X, deduplicate
+      barsByRow.forEach(function(row){
+        row.sort(function(a,b2){return a-b2;});
+        for(var k=row.length-1;k>0;k--){if(row[k]-row[k-1]<3)row.splice(k,1);}
+      });
+      // For each staff row, find the first note's X to know music start
+      var notesByRow=staffBx.map(function(){return[];});
+      noteEls.forEach(function(ne){try{var nb=ne.getBBox();var ncy=nb.y+nb.height/2;
+        var bestDist=Infinity,bestIdx=0;
+        for(var si=0;si<staffBx.length;si++){var d=Math.abs(ncy-staffBx[si].cy);if(d<bestDist){bestDist=d;bestIdx=si;}}
+        notesByRow[bestIdx].push(nb.x);
+      }catch(e){}});
+      // Build beat zones per row
+      var globalBar2=0;var isS=t===TH.studio;var zHov=isS?"rgba(34,216,158,0.08)":"rgba(99,102,241,0.08)";
+      staffBx.forEach(function(sb,si){
+        var rowBars=barsByRow[si];var rowNotes=notesByRow[si];
+        if(rowNotes.length===0)return;
+        var musicStart=Math.min.apply(null,rowNotes)-4;
+        // Build bar boundaries: [musicStart, barline1, barline2, ...]
+        var boundaries=[musicStart];
+        rowBars.forEach(function(bx){if(bx>musicStart+5)boundaries.push(bx);});
+        // If last boundary doesn't reach staff end, add it
+        var staffEnd=sb.x+sb.w;
+        if(boundaries[boundaries.length-1]<staffEnd-10)boundaries.push(staffEnd);
+        var nBarsThisRow=boundaries.length-1;
+        if(nBarsThisRow<=0)return;
+        var zoneY=sb.y-24;var zoneH=22;
+        for(var bi=0;bi<nBarsThisRow;bi++){
+          var bx1=boundaries[bi];var bx2=boundaries[bi+1];
+          var barW=bx2-bx1;var beatW=barW/chTsN;
+          for(var bt=0;bt<chTsN;bt++){
+            var beat=(globalBar2+bi)*chTsN+bt;
+            (function(beat2,zx,zw){
+              var zone=document.createElementNS("http://www.w3.org/2000/svg","rect");
+              zone.setAttribute("class","chord-zone");
+              zone.setAttribute("x",zx);zone.setAttribute("y",zoneY);
+              zone.setAttribute("width",zw);zone.setAttribute("height",zoneH);
+              zone.setAttribute("fill","transparent");zone.setAttribute("rx","4");
+              zone.style.cursor="pointer";
+              zone.addEventListener("mouseenter",function(){zone.setAttribute("fill",zHov);});
+              zone.addEventListener("mouseleave",function(){zone.setAttribute("fill","transparent");});
+              zone.addEventListener("click",function(e){e.stopPropagation();onChordClick(beat2);});
+              svg.appendChild(zone);
+            })(beat,bx1+bt*beatW,beatW);
           }
-        });
-        // Also make existing chord text clickable
-        svg.querySelectorAll("text.abcjs-chord").forEach(function(ct){
-          ct.style.cursor="pointer";
-        });
-      }
+        }
+        globalBar2+=nBarsThisRow;
+      });
+      // Make existing chord text clickable too
+      svg.querySelectorAll("text.abcjs-chord").forEach(function(ct){ct.style.cursor="pointer";});
     }    const hasRange=abRange&&(abRange[0]>0.001||abRange[1]<0.999);
     if(hasRange){
       // Dim out-of-range notes
