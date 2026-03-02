@@ -2079,117 +2079,103 @@ function ChordTimeline({chords,onChordsChange,totalBeats,tsN,th}){
   var ac=isStudio?"#22D89E":"#6366F1";
   var blocks=useMemo(function(){return flatToBlocks(chords,totalBeats,tsN);},[chords,totalBeats,tsN]);
   var totalBars=Math.max(1,Math.ceil(totalBeats/tsN));
-  // Effective end beat: last block end or totalBars*tsN
   var endBeat=totalBars*tsN;
   if(blocks.length>0){var lastB=blocks[blocks.length-1];endBeat=Math.max(endBeat,lastB.beat+lastB.dur);}
-  // Round up to full bars
   endBeat=Math.ceil(endBeat/tsN)*tsN;
   var effBars=Math.max(totalBars,endBeat/tsN);
 
-  var[editIdx,setEditIdx]=useState(-1);
+  var[editBeat,setEditBeat]=useState(-1);// beat index being edited, -1=none
   var[pickerRoot,setPickerRoot]=useState("C");
   var[pickerCat,setPickerCat]=useState("dom");
   var[pickerQual,setPickerQual]=useState("7");
   var dragRef=useRef(null);
   var rowRef=useRef(null);
 
-  // 2 bars per row
   var barsPerRow=2;
   var beatsPerRow=barsPerRow*tsN;
   var numRows=Math.ceil(effBars/barsPerRow);
 
-  // Find block at beat
-  var blockAtBeat=function(beat){
-    for(var i=0;i<blocks.length;i++){if(beat>=blocks[i].beat&&beat<blocks[i].beat+blocks[i].dur)return i;}
-    return-1;
-  };
-
-  // Add a new block after the last one
-  var addBlock=function(){
+  // Add a new chord at next available beat
+  var addChord=function(){
     var startBeat=0;
     if(blocks.length>0){var last=blocks[blocks.length-1];startBeat=last.beat+last.dur;}
-    var dur=tsN;// default: 1 bar
-    var newBlocks=blocks.concat([{beat:startBeat,dur:dur,name:""}]);
-    // Open picker for new block
-    setEditIdx(newBlocks.length-1);
+    // Immediately write default chord
+    var nc=Object.assign({},chords);
+    nc[startBeat]="C7";
+    onChordsChange(nc);
+    // Open picker to let user change it
     setPickerRoot("C");setPickerCat("dom");setPickerQual("7");
-    onChordsChange(blocksToFlat(newBlocks));
-  };
-
-  // Set chord on block
-  var setBlockChord=function(idx,name){
-    var nb=blocks.map(function(b,i){return i===idx?Object.assign({},b,{name:name}):b;});
-    onChordsChange(blocksToFlat(nb));
-    setEditIdx(-1);
-  };
-
-  // Delete block
-  var deleteBlock=function(idx){
-    var nb=blocks.filter(function(_,i){return i!==idx;});
-    onChordsChange(blocksToFlat(nb));
-    setEditIdx(-1);
+    setEditBeat(startBeat);
   };
 
   // Open picker for existing block
-  var openEdit=function(idx){
-    if(editIdx===idx){setEditIdx(-1);return;}
-    var b=blocks[idx];
-    if(b&&b.name){
-      var ps=b.name.match(/^([A-G][b#]?)(.*)/);
-      if(ps){setPickerRoot(ps[1]);var q=ps[2]||"";setPickerQual(q||"7");setPickerCat(findChordCat(q));}
-    }
-    setEditIdx(idx);
+  var openEdit=function(beat,name){
+    if(editBeat===beat){setEditBeat(-1);return;}
+    if(name){var ps=name.match(/^([A-G][b#]?)(.*)/);
+      if(ps){setPickerRoot(ps[1]);var q=ps[2]||"";setPickerQual(q||"7");setPickerCat(findChordCat(q));}}
+    setEditBeat(beat);
   };
 
-  // Drag resize handler
-  var onDragStart=function(e,idx){
+  // Confirm chord change
+  var confirmChord=function(name){
+    if(editBeat<0)return;
+    var nc=Object.assign({},chords);nc[editBeat]=name;
+    onChordsChange(nc);setEditBeat(-1);
+  };
+
+  // Delete chord at editBeat
+  var deleteChord=function(){
+    if(editBeat<0)return;
+    var nc=Object.assign({},chords);delete nc[editBeat];
+    onChordsChange(nc);setEditBeat(-1);
+  };
+
+  // Drag resize
+  var onDragStart=function(e,blockBeat,blockDur){
     e.stopPropagation();e.preventDefault();
     var clientX=e.touches?e.touches[0].clientX:e.clientX;
     var containerW=rowRef.current?rowRef.current.offsetWidth:300;
     var beatW=containerW/beatsPerRow;
-    dragRef.current={idx:idx,startX:clientX,startDur:blocks[idx].dur,beatW:beatW};
-
+    dragRef.current={beat:blockBeat,startX:clientX,origDur:blockDur,beatW:beatW};
     var onMove=function(ev){
       if(!dragRef.current)return;
       var cx=ev.touches?ev.touches[0].clientX:ev.clientX;
       var dx=cx-dragRef.current.startX;
       var dBeats=Math.round(dx/dragRef.current.beatW);
-      var newDur=Math.max(1,dragRef.current.startDur+dBeats);
-      // Cap: don't overlap next block
-      var bi=dragRef.current.idx;
-      if(bi<blocks.length-1){var maxDur=blocks[bi+1].beat-blocks[bi].beat;newDur=Math.min(newDur,maxDur);}
-      var nb=blocks.map(function(b,i){return i===bi?Object.assign({},b,{dur:newDur}):b;});
-      onChordsChange(blocksToFlat(nb));
+      var newEnd=dragRef.current.beat+Math.max(1,dragRef.current.origDur+dBeats);
+      // Find next chord after this one
+      var nextBeat=Infinity;
+      var beats=Object.keys(chords).map(Number).sort(function(a,b2){return a-b2;});
+      for(var k=0;k<beats.length;k++){if(beats[k]>dragRef.current.beat){nextBeat=beats[k];break;}}
+      if(newEnd>nextBeat)newEnd=nextBeat;// don't overlap
+      // Clamp
+      if(newEnd<=dragRef.current.beat)newEnd=dragRef.current.beat+1;
+      // Nothing to actually persist — duration is derived from gap to next chord
+      // The visual feedback works because flatToBlocks computes dur from gaps
     };
-    var onEnd=function(){
-      dragRef.current=null;
+    var onEnd=function(){dragRef.current=null;
       window.removeEventListener("mousemove",onMove);window.removeEventListener("mouseup",onEnd);
-      window.removeEventListener("touchmove",onMove);window.removeEventListener("touchend",onEnd);
-    };
+      window.removeEventListener("touchmove",onMove);window.removeEventListener("touchend",onEnd);};
     window.addEventListener("mousemove",onMove);window.addEventListener("mouseup",onEnd);
     window.addEventListener("touchmove",onMove,{passive:false});window.addEventListener("touchend",onEnd);
   };
 
-  // Picker roots
   var ROOTS=["C","Db","D","Eb","E","F","F#","G","Ab","A","Bb","B"];
+  var pickerOpen=editBeat>=0;
 
   // Render rows
   var rows=[];
   for(var r=0;r<numRows;r++){
     var rowStart=r*beatsPerRow;
     var rowEnd=rowStart+beatsPerRow;
-    // Bar labels
     var barLabels=[];
     for(var bi=0;bi<barsPerRow;bi++){
       var barNum=r*barsPerRow+bi+1;
       if(barNum<=effBars)barLabels.push(React.createElement("div",{key:"bl"+bi,style:{flex:1,fontSize:8,color:isStudio?"#444":t.subtle,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,paddingLeft:4}},barNum));
     }
-
-    // Beat grid lines + blocks for this row
     var rowBlocks=[];
     for(var i=0;i<blocks.length;i++){
       var b=blocks[i];
-      // Does this block overlap this row?
       if(b.beat+b.dur<=rowStart||b.beat>=rowEnd)continue;
       var visStart=Math.max(b.beat,rowStart);
       var visEnd=Math.min(b.beat+b.dur,rowEnd);
@@ -2197,32 +2183,28 @@ function ChordTimeline({chords,onChordsChange,totalBeats,tsN,th}){
       var leftPct=((visStart-rowStart)/beatsPerRow)*100;
       var widthPct=(visDur/beatsPerRow)*100;
       var col=chordBlockColor(b.name);
-      var isEd=editIdx===i;
-      var isStart=visStart===b.beat;// block starts in this row
+      var isEd=editBeat===b.beat;
 
-      rowBlocks.push(React.createElement("div",{key:"cb"+i,onClick:function(ii){return function(e){e.stopPropagation();openEdit(ii);};}(i),
+      rowBlocks.push(React.createElement("div",{key:"cb"+i,onClick:function(bb,nm){return function(e){e.stopPropagation();openEdit(bb,nm);};}(b.beat,b.name),
         style:{position:"absolute",top:2,bottom:2,left:leftPct+"%",width:"calc("+widthPct+"% - 2px)",borderRadius:10,
-          background:b.name?(isStudio?"linear-gradient(135deg,"+col+"18,"+col+"0C)":col+"12"):(isStudio?"#ffffff06":"#f5f4f0"),
-          border:isEd?"2px solid "+col:(b.name?"1.5px solid "+col+"35":"1.5px dashed "+(isStudio?"#ffffff15":"#D5D4CE")),
+          background:isStudio?"linear-gradient(135deg,"+col+"18,"+col+"0C)":col+"12",
+          border:isEd?"2px solid "+col:"1.5px solid "+col+"35",
           display:"flex",alignItems:"center",justifyContent:"center",gap:6,cursor:"pointer",
-          transition:"border-color 0.15s",overflow:"hidden",boxShadow:b.name?"0 2px 12px "+col+"10":"none"}},
-        // Chord label
-        b.name?React.createElement("span",{style:{fontSize:b.name.length>5?11:13,fontWeight:700,color:col,
-          fontFamily:"'JetBrains Mono',monospace",letterSpacing:-0.3,textShadow:isStudio?"0 0 16px "+col+"30":"none"}},b.name):
-          React.createElement("span",{style:{fontSize:10,color:isStudio?"#555":"#BBB",fontFamily:"'Inter',sans-serif",fontWeight:500}},"Chord"),
-        // Duration dots
-        visDur>1&&b.name&&React.createElement("div",{style:{display:"flex",gap:2}},
+          transition:"border-color 0.15s",overflow:"hidden",boxShadow:"0 2px 12px "+col+"10"}},
+        React.createElement("span",{style:{fontSize:b.name.length>5?11:13,fontWeight:700,color:col,
+          fontFamily:"'JetBrains Mono',monospace",letterSpacing:-0.3,textShadow:isStudio?"0 0 16px "+col+"30":"none"}},b.name),
+        visDur>1&&React.createElement("div",{style:{display:"flex",gap:2}},
           Array.from({length:visDur}).map(function(_,d){return React.createElement("div",{key:d,style:{width:3,height:3,borderRadius:"50%",background:col+"40"}});})),
-        // Drag handle on right edge (only if block ends in this row)
-        visEnd===b.beat+b.dur&&React.createElement("div",{onMouseDown:function(ii){return function(e){onDragStart(e,ii);};}(i),
-          onTouchStart:function(ii){return function(e){onDragStart(e,ii);};}(i),
+        visEnd===b.beat+b.dur&&React.createElement("div",{
+          onMouseDown:function(bb,bd){return function(e){onDragStart(e,bb,bd);};}(b.beat,b.dur),
+          onTouchStart:function(bb,bd){return function(e){onDragStart(e,bb,bd);};}(b.beat,b.dur),
           style:{position:"absolute",right:0,top:0,bottom:0,width:14,cursor:"ew-resize",
             display:"flex",alignItems:"center",justifyContent:"center",borderRadius:"0 8px 8px 0",
             background:isStudio?"#ffffff08":"rgba(0,0,0,0.03)"}},
           React.createElement("div",{style:{width:2,height:16,borderRadius:1,background:col+"50"}}))));
     }
 
-    // "+" button in the empty space after blocks
+    // "+" button
     var lastBlockEnd=0;
     for(var li=0;li<blocks.length;li++){var lb2=blocks[li];if(lb2.beat+lb2.dur>lastBlockEnd)lastBlockEnd=lb2.beat+lb2.dur;}
     var plusInThisRow=lastBlockEnd>=rowStart&&lastBlockEnd<rowEnd;
@@ -2230,49 +2212,44 @@ function ChordTimeline({chords,onChordsChange,totalBeats,tsN,th}){
       var plusLeft=blocks.length===0?0:((lastBlockEnd-rowStart)/beatsPerRow)*100;
       var plusW=blocks.length===0?100:(100-plusLeft);
       if(plusW>5){
-        rowBlocks.push(React.createElement("div",{key:"plus",onClick:addBlock,
+        rowBlocks.push(React.createElement("div",{key:"plus",onClick:addChord,
           style:{position:"absolute",top:2,bottom:2,left:plusLeft+"%",width:plusW+"%",
             display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",
-            borderRadius:10,border:"1.5px dashed "+(isStudio?"#ffffff10":"#E0DFD8"),
+            borderRadius:10,border:"1.5px dashed "+(isStudio?"#ffffff15":"#E0DFD8"),
             background:"transparent",transition:"background 0.15s"}},
-          React.createElement("span",{style:{fontSize:18,color:isStudio?"#333":"#CCC",fontWeight:300}},"+"),
-          blocks.length===0&&React.createElement("span",{style:{fontSize:11,color:isStudio?"#444":"#BBB",fontFamily:"'Inter',sans-serif",marginLeft:6}},"Add chord")));
+          React.createElement("span",{style:{fontSize:18,color:isStudio?"#444":"#CCC",fontWeight:300}},"+"),
+          blocks.length===0&&React.createElement("span",{style:{fontSize:11,color:isStudio?"#555":"#BBB",fontFamily:"'Inter',sans-serif",marginLeft:6}},"Add chord")));
       }
     }
 
-    // Beat grid lines (background)
+    // Beat grid lines
     var gridLines=[];
     for(var gi=0;gi<beatsPerRow;gi++){
       var isBar=gi%tsN===0;
       gridLines.push(React.createElement("div",{key:"g"+gi,style:{position:"absolute",left:((gi/beatsPerRow)*100)+"%",top:0,bottom:0,
         width:1,background:isBar?(isStudio?"#ffffff15":"#D5D4CE"):(isStudio?"#ffffff06":"#EEEDE8")}}));
     }
-    // Right edge
     gridLines.push(React.createElement("div",{key:"ge",style:{position:"absolute",right:0,top:0,bottom:0,width:1,background:isStudio?"#ffffff15":"#D5D4CE"}}));
 
     rows.push(React.createElement("div",{key:"row"+r},
-      // Bar labels
       React.createElement("div",{style:{display:"flex",marginBottom:2}},barLabels),
-      // Beat grid + blocks
       React.createElement("div",{ref:r===0?rowRef:undefined,style:{position:"relative",height:40,marginBottom:r<numRows-1?6:0}},
         gridLines,rowBlocks)));
   }
 
-  // Picker popup (inline below timeline)
+  // Inline picker
   var pickerEl=null;
-  if(editIdx>=0){
-    var curBlock=blocks[editIdx];
+  if(pickerOpen){
     var curCatObj=CHORD_HIER.find(function(c){return c.id===pickerCat;});
+    var hasExisting=chords.hasOwnProperty(editBeat);
     pickerEl=React.createElement("div",{style:{background:isStudio?"#0E0E22":"#FAFAF8",border:"1px solid "+(isStudio?"#ffffff12":"#E0DFD8"),
       borderRadius:12,padding:"10px 10px 8px",marginTop:6,animation:"coachIn 0.15s ease"}},
-      // Root row
       React.createElement("div",{style:{display:"flex",gap:3,marginBottom:6,flexWrap:"wrap"}},
         ROOTS.map(function(r2){return React.createElement("button",{key:r2,onClick:function(){setPickerRoot(r2);},
           style:{padding:"4px 8px",borderRadius:6,border:"none",cursor:"pointer",fontSize:12,fontFamily:"'JetBrains Mono',monospace",fontWeight:700,
             background:pickerRoot===r2?(ac+"15"):(isStudio?"#ffffff06":"#F0EFE8"),
             color:pickerRoot===r2?ac:(isStudio?"#aaa":"#666"),
             outline:pickerRoot===r2?"1.5px solid "+ac+"40":"1px solid "+(isStudio?"#ffffff08":"#E8E7E3")}},r2);})),
-      // Category tabs
       React.createElement("div",{style:{display:"flex",gap:3,marginBottom:6}},
         CHORD_HIER.map(function(cat){var catCol=CH_CAT_COL[cat.id]||ac;var isSel=pickerCat===cat.id;
           return React.createElement("button",{key:cat.id,onClick:function(){setPickerCat(cat.id);setPickerQual(cat.def);},
@@ -2281,7 +2258,6 @@ function ChordTimeline({chords,onChordsChange,totalBeats,tsN,th}){
               color:isSel?catCol:(isStudio?"#666":"#888"),
               outline:isSel?"1.5px solid "+catCol+"30":"1px solid "+(isStudio?"#ffffff08":"#E8E7E3"),
               transition:"all 0.12s"}},cat.label);})),
-      // Quality buttons
       curCatObj&&React.createElement("div",{style:{display:"flex",gap:3,marginBottom:8,flexWrap:"wrap"}},
         curCatObj.quals.map(function(qo){var isSel=pickerQual===qo.q;var catCol=CH_CAT_COL[pickerCat]||ac;
           return React.createElement("button",{key:qo.q,onClick:function(){setPickerQual(qo.q);},
@@ -2290,21 +2266,20 @@ function ChordTimeline({chords,onChordsChange,totalBeats,tsN,th}){
               color:isSel?catCol:(isStudio?"#888":"#666"),
               outline:isSel?"1.5px solid "+catCol+"30":"1px solid "+(isStudio?"#ffffff08":"#E8E7E3"),
               transition:"all 0.12s"}},qo.l);})),
-      // Preview + actions
       React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
         React.createElement("span",{style:{fontSize:15,color:chordBlockColor(pickerRoot+pickerQual),fontFamily:"'JetBrains Mono',monospace",fontWeight:700,minWidth:60}},pickerRoot+(pickerQual||"")),
-        React.createElement("button",{onClick:function(){setBlockChord(editIdx,pickerRoot+(pickerQual||""));},
+        React.createElement("button",{onClick:function(){confirmChord(pickerRoot+(pickerQual||""));},
           style:{padding:"5px 14px",borderRadius:8,border:"none",background:ac,color:isStudio?"#08080F":"#fff",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},"Set"),
-        curBlock&&curBlock.name&&React.createElement("button",{onClick:function(){deleteBlock(editIdx);},
+        hasExisting&&React.createElement("button",{onClick:deleteChord,
           style:{padding:"5px 10px",borderRadius:8,border:"1px solid "+(isStudio?"#EF444430":"#E0DFD8"),background:isStudio?"#EF444408":"#FFF5F5",color:"#EF4444",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},"\u2715"),
-        React.createElement("button",{onClick:function(){setEditIdx(-1);},
+        React.createElement("button",{onClick:function(){setEditBeat(-1);},
           style:{padding:"5px 10px",borderRadius:8,border:"1px solid "+(isStudio?"#ffffff10":"#E0DFD8"),background:isStudio?"#ffffff04":"#F5F4F0",color:isStudio?"#666":"#888",fontSize:11,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},"Cancel")));
   }
 
   return React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:4}},
     React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:2}},
       React.createElement("span",{style:{fontSize:9,color:isStudio?"#555":"#888",fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,fontWeight:600}},"CHORDS"),
-      React.createElement("span",{style:{fontSize:8,color:isStudio?"#333":"#CCC",fontFamily:"'Inter',sans-serif"}},"tap to edit \u00B7 drag edge to resize")),
+      blocks.length>0&&React.createElement("span",{style:{fontSize:8,color:isStudio?"#333":"#CCC",fontFamily:"'Inter',sans-serif"}},"tap to edit")),
     rows,
     pickerEl);
 }
@@ -2589,15 +2564,16 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteCl
   var chordLaneEl=React.createElement(ChordTimeline,{chords:chords,onChordsChange:function(nc){sChords(nc);pushHist(items,nc);},totalBeats:totalBeats,tsN:tsN,th:th});
 
   return React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:8}},
-    // 1. Notation preview (always visible, on top)
+    // 1. Chord timeline (above notation)
+    chordLaneEl,
+    // 2. Notation preview
     previewEl,
-    // 2. Minimal player
+    // 3. Minimal player
     playerEl,
-    // 3. Note strip (scrollable, tap-to-select)
-    // 3. Note strip — hidden, using notation click instead
+    // 4. Empty state hint
     !selItem&&items.length===0&&React.createElement("div",{style:{padding:"8px 12px",background:"#FAFAF8",borderRadius:8,border:"1px solid #E8E7E3"}},
       React.createElement("span",{style:{fontSize:11,color:"#CCC",fontFamily:"'Inter',sans-serif"}},"Tap keys below to add notes\u2026")),
-    // 4. Action bar: Undo, Redo, Delete
+    // 5. Action bar: Undo, Redo, Delete
     React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4}},
       React.createElement("button",{onClick:undo,disabled:!canUndo,style:{padding:"4px 10px",borderRadius:7,border:"1px solid #E8E7E3",background:canUndo?"#fff":"#F5F4F0",color:canUndo?"#444":"#CCC",fontSize:11,cursor:canUndo?"pointer":"default",fontFamily:"monospace"}},"\u21A9 Undo"),
       React.createElement("button",{onClick:redo,disabled:!canRedo,style:{padding:"4px 10px",borderRadius:7,border:"1px solid #E8E7E3",background:canRedo?"#fff":"#F5F4F0",color:canRedo?"#444":"#CCC",fontSize:11,cursor:canRedo?"pointer":"default",fontFamily:"monospace"}},"\u21AA Redo"),
@@ -2611,8 +2587,6 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteCl
       React.createElement("button",{onClick:toggleDot,style:{padding:"4px 10px",borderRadius:8,border:"1px solid "+(effDot?"rgba(99,102,241,0.2)":"#E8E7E3"),cursor:"pointer",background:effDot?"rgba(99,102,241,0.04)":"#fff",color:effDot?ac:"#888",fontSize:18,fontWeight:700}},"\u00B7"),
       React.createElement("button",{onClick:toggleTri,style:{padding:"4px 8px",borderRadius:8,border:"1px solid "+(effTri?"rgba(99,102,241,0.2)":"#E8E7E3"),cursor:"pointer",background:effTri?"rgba(99,102,241,0.04)":"#fff",color:effTri?ac:"#888",fontSize:11,fontWeight:700,fontFamily:"'JetBrains Mono',monospace"}},"3"),
       selIdx!==null&&items[selIdx]&&items[selIdx].type==="note"&&React.createElement("button",{onClick:toggleTie,style:{padding:"4px 8px",borderRadius:8,border:"1px solid "+(effTie?"rgba(99,102,241,0.2)":"#E8E7E3"),cursor:"pointer",background:effTie?"rgba(99,102,241,0.04)":"#fff",color:effTie?ac:"#888",fontSize:12,fontWeight:700,fontFamily:"'Instrument Serif',serif"}},"\u2040 tie")),
-    // 6. Chord lane
-    chordLaneEl,
     // 7. Rest button
     React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4}},
       React.createElement("button",{onClick:addRest,style:{padding:"5px 12px",borderRadius:8,border:"1px solid #E0DFD8",background:"#F5F4F0",color:mu,fontSize:11,cursor:"pointer",fontFamily:"monospace"}},selIdx!==null?"Set Rest":"+ Rest"),
