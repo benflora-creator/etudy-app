@@ -6865,7 +6865,7 @@ export default function Etudy(){
           React.createElement("span",{style:{fontSize:18,fontFamily:t.titleFont,color:t.text,fontWeight:theme==="studio"?600:400,letterSpacing:0.3}},"\u00C9tudy")),
         // Context label + help button + settings gear
         React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
-          view!=="explore"&&React.createElement("span",{style:{fontSize:11,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5}},view==="train"?"TRAIN":view==="sessions"?"SESSIONS":view==="me"?"ME":""),
+          view!=="explore"&&React.createElement("span",{style:{fontSize:12,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5}},view==="train"?"TRAIN":view==="sessions"?"SESSIONS":view==="me"?"ME":""),
           // ? help button — only after tips have been shown once
           (view==="explore"&&feedTipped||view==="train"&&trainSub==="ear"&&earTipped||view==="train"&&trainSub==="rhythm"&&rhythmTipped)&&React.createElement("button",{onClick:function(){
             if(view==="explore")setFeedShowTips(true);
@@ -6873,12 +6873,12 @@ export default function Etudy(){
             else if(view==="train"&&trainSub==="rhythm")setRhythmShowTips(true);
           },style:{width:22,height:22,borderRadius:11,border:"1px solid "+t.border,background:t.filterBg,color:t.subtle,fontSize:11,fontFamily:"'Inter',sans-serif",fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,transition:"all 0.15s",animation:"helpGlow 0.8s ease"}},"?"),
           // Settings gear
-          React.createElement("button",{onClick:function(){setShowSettings(true);},style:{width:28,height:28,borderRadius:14,background:"none",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,opacity:0.7,transition:"opacity 0.15s"}},IC.gear(18,t.muted)))),
+          React.createElement("button",{onClick:function(){setShowSettings(true);},style:{width:34,height:34,borderRadius:17,background:"none",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,opacity:0.7,transition:"opacity 0.15s"}},IC.gear(20,t.muted)))),
       view==="explore"&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,paddingBottom:6}},
         // Source toggle — takes most space
-        React.createElement("div",{style:{display:"flex",gap:2,background:t.filterBg,borderRadius:8,padding:2,flex:1}},
+        React.createElement("div",{style:{display:"flex",gap:4,background:t.filterBg,borderRadius:10,padding:3,flex:1}},
           [["community","Community"],["mine","My Licks"+(savedSet.size+myLicks.length?" ("+( savedSet.size+myLicks.length)+")":"")]].map(function(m){
-            return React.createElement("button",{key:m[0],onClick:function(){setLickSource(m[0]);},style:{flex:1,padding:"6px 12px",borderRadius:6,border:"none",background:lickSource===m[0]?(t.activeTabBg||t.card):"transparent",color:lickSource===m[0]?t.text:t.subtle,fontSize:11,fontWeight:lickSource===m[0]?600:400,fontFamily:"'Inter',sans-serif",cursor:"pointer",boxShadow:lickSource===m[0]?"0 1px 4px rgba(0,0,0,0.08)":"none",transition:"all 0.15s"}},m[1]);
+            return React.createElement("button",{key:m[0],onClick:function(){setLickSource(m[0]);},style:{flex:1,padding:"8px 12px",borderRadius:8,border:"none",background:lickSource===m[0]?(t.activeTabBg||t.card):"transparent",color:lickSource===m[0]?t.text:t.subtle,fontSize:12,fontWeight:lickSource===m[0]?600:400,fontFamily:"'Inter',sans-serif",cursor:"pointer",boxShadow:lickSource===m[0]?"0 1px 4px rgba(0,0,0,0.08)":"none",transition:"all 0.15s"}},m[1]);
           })),
         // Filter icon — far right
         React.createElement("div",{style:{flexShrink:0}},
@@ -6898,9 +6898,9 @@ export default function Etudy(){
           var privateLicks=fl.filter(function(l){return l.private;});
           var activeLicks=myLicksSub==="saved"?savedLicks:privateLicks;
           return React.createElement("div",null,
-            React.createElement("div",{style:{display:"flex",gap:2,background:t.filterBg,borderRadius:8,padding:2,marginBottom:12}},
+            React.createElement("div",{style:{display:"flex",gap:4,background:t.filterBg,borderRadius:10,padding:3,marginBottom:12}},
               [["saved",(isStudio?"\u2299 ":"\u2605 ")+"Saved ("+savedLicks.length+")"],["private","\uD83D\uDD12 Private ("+privateLicks.length+")"]].map(function(m){
-                return React.createElement("button",{key:m[0],onClick:function(){setMyLicksSub(m[0]);},style:{flex:1,padding:"6px 12px",borderRadius:6,border:"none",background:myLicksSub===m[0]?(t.activeTabBg||t.card):"transparent",color:myLicksSub===m[0]?t.text:t.subtle,fontSize:11,fontWeight:myLicksSub===m[0]?600:400,fontFamily:"'Inter',sans-serif",cursor:"pointer",boxShadow:myLicksSub===m[0]?"0 1px 4px rgba(0,0,0,0.08)":"none",transition:"all 0.15s"}},m[1]);})),
+                return React.createElement("button",{key:m[0],onClick:function(){setMyLicksSub(m[0]);},style:{flex:1,padding:"8px 12px",borderRadius:8,border:"none",background:myLicksSub===m[0]?(t.activeTabBg||t.card):"transparent",color:myLicksSub===m[0]?t.text:t.subtle,fontSize:12,fontWeight:myLicksSub===m[0]?600:400,fontFamily:"'Inter',sans-serif",cursor:"pointer",boxShadow:myLicksSub===m[0]?"0 1px 4px rgba(0,0,0,0.08)":"none",transition:"all 0.15s"}},m[1]);})),
             activeLicks.length>0&&activeLicks.map(function(l){return React.createElement(LickCard,{key:l.id,lick:l,onSelect:openLick,th:t,liked:likedSet.has(l.id),saved:savedSet.has(l.id),onLike:toggleLike,onSave:toggleSave,userInst:userInst});}),
             activeLicks.length===0&&React.createElement("div",{style:{textAlign:"center",padding:"40px 20px",background:t.card,borderRadius:14,border:"1px solid "+t.border}},
               React.createElement("div",{style:{fontSize:12,color:t.subtle,fontFamily:"'Inter',sans-serif"}},myLicksSub==="saved"?"No saved licks yet — "+(isStudio?"target \u2299":"star \u2605")+" licks to save them":"No private licks yet — create one with the + button")));
@@ -7002,9 +7002,9 @@ export default function Etudy(){
     React.createElement("div",{style:{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:520,zIndex:100,background:t.tabBarBg||t.headerBg,backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderTop:"1px solid "+(isStudio?t.borderSub||t.border:t.border),display:"flex",padding:"6px 16px",paddingBottom:"calc(8px + env(safe-area-inset-bottom, 0px))"}},
       [["explore","tabLicks","Licks"],["train","tabTrain","Train"],["sessions","tabSessions","Sessions"],["me","tabMe","Me"]].map(function(tab){
         var active=view===tab[0];var iconC=active?t.accent:t.subtle;
-        return React.createElement("button",{key:tab[0],onClick:function(){switchView(tab[0]);},style:{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2,background:"none",border:"none",cursor:"pointer",padding:"6px 0",transition:"all 0.15s"}},
-          IC[tab[1]](20,iconC,active),
-          React.createElement("span",{style:{fontSize:9,fontFamily:"'Inter',sans-serif",fontWeight:active?600:400,color:active?t.accent:t.subtle,letterSpacing:0.3}},tab[2]));})),
+        return React.createElement("button",{key:tab[0],onClick:function(){switchView(tab[0]);},style:{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,background:"none",border:"none",cursor:"pointer",padding:"8px 0",transition:"all 0.15s"}},
+          IC[tab[1]](24,iconC,active),
+          React.createElement("span",{style:{fontSize:10,fontFamily:"'Inter',sans-serif",fontWeight:active?600:400,color:active?t.accent:t.subtle,letterSpacing:0.3}},tab[2]));})),
     // FAB — only on explore
     view==="explore"&&React.createElement("button",{"data-coach":"fab",onClick:()=>sSE(true),style:{position:"fixed",bottom:"calc(84px + env(safe-area-inset-bottom, 0px))",right:24,width:isStudio?56:52,height:isStudio?56:52,borderRadius:isStudio?18:16,background:t.playBg||t.accent,border:"none",cursor:"pointer",zIndex:500,boxShadow:isStudio?"0 6px 28px "+t.accentGlow+", 0 2px 8px rgba(0,0,0,0.3)":"0 4px 20px "+t.accentGlow,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,color:"#fff",fontWeight:300}},"+"),
     // Overlays
