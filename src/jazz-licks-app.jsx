@@ -1333,7 +1333,7 @@ function getBarInfo(abc){
 // ============================================================
 // NOTATION — theme-aware
 // ============================================================
-function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteIdx,onDeselect,theoryMode,theoryAnalysis}){
+function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteIdx,onDeselect,theoryMode,theoryAnalysis,onChordClick,chordEditBeat}){
   const ref=useRef(null);const ok=useAbcjs();const prevNoteRef=useRef(-1);const rafRef=useRef(null);
   const t=th||TH.classic;
   useEffect(()=>{if(!ok||!ref.current||!window.ABCJS)return;
@@ -1434,7 +1434,81 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
       // Click on SVG background = deselect
       if(onDeselect)svg.addEventListener("click",function(e){if(e.target===svg||e.target.closest(".abcjs-staff")||e.target.closest(".abcjs-staff-extra"))onDeselect();});
       noteEls.forEach(function(el,idx){el.style.cursor="pointer";el.addEventListener("click",function(e){e.stopPropagation();onNoteClick(idx);});});}
-    const hasRange=abRange&&(abRange[0]>0.001||abRange[1]<0.999);
+    // ── CHORD CLICK ZONES: clickable areas above each bar ──
+    if(onChordClick){
+      svg.querySelectorAll(".chord-zone").forEach(function(el){el.remove();});
+      var barEls=svg.querySelectorAll(".abcjs-bar");
+      var staffEls2=svg.querySelectorAll(".abcjs-staff");
+      if(barEls.length>0&&staffEls2.length>0){
+        // Gather bar X positions and staff info
+        var barXs=[];
+        barEls.forEach(function(be){try{var bb=be.getBBox();barXs.push(bb.x);}catch(e){}});
+        barXs.sort(function(a,b2){return a-b2;});
+        // Remove duplicates (threshold 2px)
+        var uniqBarXs=[barXs[0]];
+        for(var bxi=1;bxi<barXs.length;bxi++){if(barXs[bxi]-uniqBarXs[uniqBarXs.length-1]>2)uniqBarXs.push(barXs[bxi]);}
+        // Parse time sig from abc
+        var tsMatch=abc.match(/M:\s*(\d+)\/(\d+)/);
+        var chTsN=tsMatch?parseInt(tsMatch[1]):4;
+        // Staff info for Y positioning
+        var staffInfos=[];
+        staffEls2.forEach(function(s){try{var sb=s.getBBox();staffInfos.push({y:sb.y,h:sb.height});}catch(e){}});
+        // Group bars by staff line
+        var barsByStaff=[];
+        staffInfos.forEach(function(si,sidx){
+          var myBars=[];
+          uniqBarXs.forEach(function(bx){
+            // Check if bar is within ±20px of staff vertical range
+            barEls.forEach(function(be){try{var bb=be.getBBox();
+              if(Math.abs(bb.x-bx)<3&&bb.y>=si.y-5&&bb.y<=si.y+si.h+5)myBars.push(bx);
+            }catch(e){}});
+          });
+          // Deduplicate
+          var um=[];myBars.forEach(function(x){if(um.length===0||x-um[um.length-1]>2)um.push(x);});
+          barsByStaff.push(um);
+        });
+        // Add click zones per bar per staff
+        var globalBar=0;
+        barsByStaff.forEach(function(staffBars,sidx){
+          if(!staffInfos[sidx])return;
+          var staffTop=staffInfos[sidx].y;
+          var zoneY=staffTop-22;// above staff
+          var zoneH=20;
+          for(var sbi=0;sbi<staffBars.length-1;sbi++){
+            var x1=staffBars[sbi];
+            var x2=staffBars[sbi+1];
+            var barW=x2-x1;
+            var beatIdx=globalBar*chTsN;
+            // One clickable zone per beat in this bar
+            var beatW=barW/chTsN;
+            for(var bt=0;bt<chTsN;bt++){
+              var thisBeat=beatIdx+bt;
+              (function(beat,bx,bw){
+                var isEditing=chordEditBeat===beat;
+                var zone=document.createElementNS("http://www.w3.org/2000/svg","rect");
+                zone.setAttribute("class","chord-zone");
+                zone.setAttribute("x",bx);
+                zone.setAttribute("y",zoneY);
+                zone.setAttribute("width",bw);
+                zone.setAttribute("height",zoneH);
+                zone.setAttribute("fill",isEditing?"rgba(99,102,241,0.12)":"transparent");
+                zone.setAttribute("rx","4");
+                zone.style.cursor="pointer";
+                zone.addEventListener("mouseenter",function(){if(!isEditing)zone.setAttribute("fill","rgba(99,102,241,0.06)");});
+                zone.addEventListener("mouseleave",function(){if(!isEditing)zone.setAttribute("fill","transparent");});
+                zone.addEventListener("click",function(e){e.stopPropagation();onChordClick(beat);});
+                svg.appendChild(zone);
+              })(thisBeat,x1+bt*beatW,beatW);
+            }
+            globalBar++;
+          }
+        });
+        // Also make existing chord text clickable
+        svg.querySelectorAll("text.abcjs-chord").forEach(function(ct){
+          ct.style.cursor="pointer";
+        });
+      }
+    }    const hasRange=abRange&&(abRange[0]>0.001||abRange[1]<0.999);
     if(hasRange){
       // Dim out-of-range notes
       noteEls.forEach((el,idx)=>{if(idx>=fracs.length)return;const f=fracs[idx];
@@ -1467,7 +1541,7 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
           if(!bestInR){p.setAttribute("fill-opacity","0.12");p.setAttribute("stroke-opacity","0.12");}
         }catch(e){}});}
     }
-  },[abc,ok,compact,abRange,focus,th,theoryMode,theoryAnalysis]);
+  },[abc,ok,compact,abRange,focus,th,theoryMode,theoryAnalysis,onChordClick,chordEditBeat]);
   // Cursor: poll curNoteRef via rAF — zero React re-renders
   useEffect(()=>{if(!curNoteRef)return;
     const tick=()=>{const cn=curNoteRef.current;
@@ -2062,227 +2136,6 @@ function chordBlockColor(name){
   if(!name)return"#666";var ps=name.match(/^[A-G][b#]?(.*)/);
   if(!ps)return"#666";return CH_CAT_COL[findChordCat(ps[1]||"")]||"#666";
 }
-function flatToBlocks(chords,totalBeats,tsN){
-  var beats=Object.keys(chords).map(Number).sort(function(a,b){return a-b;});
-  if(beats.length===0)return[];
-  return beats.map(function(b,i){
-    var nextB=i<beats.length-1?beats[i+1]:Math.max(b+tsN,Math.ceil((b+1)/tsN)*tsN);
-    if(nextB<=b)nextB=b+tsN;
-    return{beat:b,dur:nextB-b,name:chords[b]};
-  });
-}
-function blocksToFlat(blocks){var obj={};blocks.forEach(function(b){if(b.name)obj[b.beat]=b.name;});return obj;}
-
-// ── CHORD TIMELINE COMPONENT ──
-function ChordTimeline({chords,onChordsChange,totalBeats,tsN,th}){
-  var t=th;var isStudio=t===TH.studio;
-  var ac=isStudio?"#22D89E":"#6366F1";
-  var blocks=useMemo(function(){return flatToBlocks(chords,totalBeats,tsN);},[chords,totalBeats,tsN]);
-  var totalBars=Math.max(1,Math.ceil(totalBeats/tsN));
-  var endBeat=totalBars*tsN;
-  if(blocks.length>0){var lastB=blocks[blocks.length-1];endBeat=Math.max(endBeat,lastB.beat+lastB.dur);}
-  endBeat=Math.ceil(endBeat/tsN)*tsN;
-  var effBars=Math.max(totalBars,endBeat/tsN);
-
-  var[editBeat,setEditBeat]=useState(-1);// beat index being edited, -1=none
-  var[pickerRoot,setPickerRoot]=useState("C");
-  var[pickerCat,setPickerCat]=useState("dom");
-  var[pickerQual,setPickerQual]=useState("7");
-  var dragRef=useRef(null);
-  var rowRef=useRef(null);
-
-  var barsPerRow=2;
-  var beatsPerRow=barsPerRow*tsN;
-  var numRows=Math.ceil(effBars/barsPerRow);
-
-  // Add a new chord at next available beat
-  var addChord=function(){
-    var startBeat=0;
-    if(blocks.length>0){var last=blocks[blocks.length-1];startBeat=last.beat+last.dur;}
-    // Immediately write default chord
-    var nc=Object.assign({},chords);
-    nc[startBeat]="C7";
-    onChordsChange(nc);
-    // Open picker to let user change it
-    setPickerRoot("C");setPickerCat("dom");setPickerQual("7");
-    setEditBeat(startBeat);
-  };
-
-  // Open picker for existing block
-  var openEdit=function(beat,name){
-    if(editBeat===beat){setEditBeat(-1);return;}
-    if(name){var ps=name.match(/^([A-G][b#]?)(.*)/);
-      if(ps){setPickerRoot(ps[1]);var q=ps[2]||"";setPickerQual(q||"7");setPickerCat(findChordCat(q));}}
-    setEditBeat(beat);
-  };
-
-  // Confirm chord change
-  var confirmChord=function(name){
-    if(editBeat<0)return;
-    var nc=Object.assign({},chords);nc[editBeat]=name;
-    onChordsChange(nc);setEditBeat(-1);
-  };
-
-  // Delete chord at editBeat
-  var deleteChord=function(){
-    if(editBeat<0)return;
-    var nc=Object.assign({},chords);delete nc[editBeat];
-    onChordsChange(nc);setEditBeat(-1);
-  };
-
-  // Drag resize
-  var onDragStart=function(e,blockBeat,blockDur){
-    e.stopPropagation();e.preventDefault();
-    var clientX=e.touches?e.touches[0].clientX:e.clientX;
-    var containerW=rowRef.current?rowRef.current.offsetWidth:300;
-    var beatW=containerW/beatsPerRow;
-    dragRef.current={beat:blockBeat,startX:clientX,origDur:blockDur,beatW:beatW};
-    var onMove=function(ev){
-      if(!dragRef.current)return;
-      var cx=ev.touches?ev.touches[0].clientX:ev.clientX;
-      var dx=cx-dragRef.current.startX;
-      var dBeats=Math.round(dx/dragRef.current.beatW);
-      var newEnd=dragRef.current.beat+Math.max(1,dragRef.current.origDur+dBeats);
-      // Find next chord after this one
-      var nextBeat=Infinity;
-      var beats=Object.keys(chords).map(Number).sort(function(a,b2){return a-b2;});
-      for(var k=0;k<beats.length;k++){if(beats[k]>dragRef.current.beat){nextBeat=beats[k];break;}}
-      if(newEnd>nextBeat)newEnd=nextBeat;// don't overlap
-      // Clamp
-      if(newEnd<=dragRef.current.beat)newEnd=dragRef.current.beat+1;
-      // Nothing to actually persist — duration is derived from gap to next chord
-      // The visual feedback works because flatToBlocks computes dur from gaps
-    };
-    var onEnd=function(){dragRef.current=null;
-      window.removeEventListener("mousemove",onMove);window.removeEventListener("mouseup",onEnd);
-      window.removeEventListener("touchmove",onMove);window.removeEventListener("touchend",onEnd);};
-    window.addEventListener("mousemove",onMove);window.addEventListener("mouseup",onEnd);
-    window.addEventListener("touchmove",onMove,{passive:false});window.addEventListener("touchend",onEnd);
-  };
-
-  var ROOTS=["C","Db","D","Eb","E","F","F#","G","Ab","A","Bb","B"];
-  var pickerOpen=editBeat>=0;
-
-  // Render rows
-  var rows=[];
-  for(var r=0;r<numRows;r++){
-    var rowStart=r*beatsPerRow;
-    var rowEnd=rowStart+beatsPerRow;
-    var barLabels=[];
-    for(var bi=0;bi<barsPerRow;bi++){
-      var barNum=r*barsPerRow+bi+1;
-      if(barNum<=effBars)barLabels.push(React.createElement("div",{key:"bl"+bi,style:{flex:1,fontSize:8,color:isStudio?"#444":t.subtle,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,paddingLeft:4}},barNum));
-    }
-    var rowBlocks=[];
-    for(var i=0;i<blocks.length;i++){
-      var b=blocks[i];
-      if(b.beat+b.dur<=rowStart||b.beat>=rowEnd)continue;
-      var visStart=Math.max(b.beat,rowStart);
-      var visEnd=Math.min(b.beat+b.dur,rowEnd);
-      var visDur=visEnd-visStart;
-      var leftPct=((visStart-rowStart)/beatsPerRow)*100;
-      var widthPct=(visDur/beatsPerRow)*100;
-      var col=chordBlockColor(b.name);
-      var isEd=editBeat===b.beat;
-
-      rowBlocks.push(React.createElement("div",{key:"cb"+i,onClick:function(bb,nm){return function(e){e.stopPropagation();openEdit(bb,nm);};}(b.beat,b.name),
-        style:{position:"absolute",top:2,bottom:2,left:leftPct+"%",width:"calc("+widthPct+"% - 2px)",borderRadius:10,
-          background:isStudio?"linear-gradient(135deg,"+col+"18,"+col+"0C)":col+"12",
-          border:isEd?"2px solid "+col:"1.5px solid "+col+"35",
-          display:"flex",alignItems:"center",justifyContent:"center",gap:6,cursor:"pointer",
-          transition:"border-color 0.15s",overflow:"hidden",boxShadow:"0 2px 12px "+col+"10"}},
-        React.createElement("span",{style:{fontSize:b.name.length>5?11:13,fontWeight:700,color:col,
-          fontFamily:"'JetBrains Mono',monospace",letterSpacing:-0.3,textShadow:isStudio?"0 0 16px "+col+"30":"none"}},b.name),
-        visDur>1&&React.createElement("div",{style:{display:"flex",gap:2}},
-          Array.from({length:visDur}).map(function(_,d){return React.createElement("div",{key:d,style:{width:3,height:3,borderRadius:"50%",background:col+"40"}});})),
-        visEnd===b.beat+b.dur&&React.createElement("div",{
-          onMouseDown:function(bb,bd){return function(e){onDragStart(e,bb,bd);};}(b.beat,b.dur),
-          onTouchStart:function(bb,bd){return function(e){onDragStart(e,bb,bd);};}(b.beat,b.dur),
-          style:{position:"absolute",right:0,top:0,bottom:0,width:14,cursor:"ew-resize",
-            display:"flex",alignItems:"center",justifyContent:"center",borderRadius:"0 8px 8px 0",
-            background:isStudio?"#ffffff08":"rgba(0,0,0,0.03)"}},
-          React.createElement("div",{style:{width:2,height:16,borderRadius:1,background:col+"50"}}))));
-    }
-
-    // "+" button
-    var lastBlockEnd=0;
-    for(var li=0;li<blocks.length;li++){var lb2=blocks[li];if(lb2.beat+lb2.dur>lastBlockEnd)lastBlockEnd=lb2.beat+lb2.dur;}
-    var plusInThisRow=lastBlockEnd>=rowStart&&lastBlockEnd<rowEnd;
-    if(plusInThisRow||(r===0&&blocks.length===0)){
-      var plusLeft=blocks.length===0?0:((lastBlockEnd-rowStart)/beatsPerRow)*100;
-      var plusW=blocks.length===0?100:(100-plusLeft);
-      if(plusW>5){
-        rowBlocks.push(React.createElement("div",{key:"plus",onClick:addChord,
-          style:{position:"absolute",top:2,bottom:2,left:plusLeft+"%",width:plusW+"%",
-            display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",
-            borderRadius:10,border:"1.5px dashed "+(isStudio?"#ffffff15":"#E0DFD8"),
-            background:"transparent",transition:"background 0.15s"}},
-          React.createElement("span",{style:{fontSize:18,color:isStudio?"#444":"#CCC",fontWeight:300}},"+"),
-          blocks.length===0&&React.createElement("span",{style:{fontSize:11,color:isStudio?"#555":"#BBB",fontFamily:"'Inter',sans-serif",marginLeft:6}},"Add chord")));
-      }
-    }
-
-    // Beat grid lines
-    var gridLines=[];
-    for(var gi=0;gi<beatsPerRow;gi++){
-      var isBar=gi%tsN===0;
-      gridLines.push(React.createElement("div",{key:"g"+gi,style:{position:"absolute",left:((gi/beatsPerRow)*100)+"%",top:0,bottom:0,
-        width:1,background:isBar?(isStudio?"#ffffff15":"#D5D4CE"):(isStudio?"#ffffff06":"#EEEDE8")}}));
-    }
-    gridLines.push(React.createElement("div",{key:"ge",style:{position:"absolute",right:0,top:0,bottom:0,width:1,background:isStudio?"#ffffff15":"#D5D4CE"}}));
-
-    rows.push(React.createElement("div",{key:"row"+r},
-      React.createElement("div",{style:{display:"flex",marginBottom:2}},barLabels),
-      React.createElement("div",{ref:r===0?rowRef:undefined,style:{position:"relative",height:40,marginBottom:r<numRows-1?6:0}},
-        gridLines,rowBlocks)));
-  }
-
-  // Inline picker
-  var pickerEl=null;
-  if(pickerOpen){
-    var curCatObj=CHORD_HIER.find(function(c){return c.id===pickerCat;});
-    var hasExisting=chords.hasOwnProperty(editBeat);
-    pickerEl=React.createElement("div",{style:{background:isStudio?"#0E0E22":"#FAFAF8",border:"1px solid "+(isStudio?"#ffffff12":"#E0DFD8"),
-      borderRadius:12,padding:"10px 10px 8px",marginTop:6,animation:"coachIn 0.15s ease"}},
-      React.createElement("div",{style:{display:"flex",gap:3,marginBottom:6,flexWrap:"wrap"}},
-        ROOTS.map(function(r2){return React.createElement("button",{key:r2,onClick:function(){setPickerRoot(r2);},
-          style:{padding:"4px 8px",borderRadius:6,border:"none",cursor:"pointer",fontSize:12,fontFamily:"'JetBrains Mono',monospace",fontWeight:700,
-            background:pickerRoot===r2?(ac+"15"):(isStudio?"#ffffff06":"#F0EFE8"),
-            color:pickerRoot===r2?ac:(isStudio?"#aaa":"#666"),
-            outline:pickerRoot===r2?"1.5px solid "+ac+"40":"1px solid "+(isStudio?"#ffffff08":"#E8E7E3")}},r2);})),
-      React.createElement("div",{style:{display:"flex",gap:3,marginBottom:6}},
-        CHORD_HIER.map(function(cat){var catCol=CH_CAT_COL[cat.id]||ac;var isSel=pickerCat===cat.id;
-          return React.createElement("button",{key:cat.id,onClick:function(){setPickerCat(cat.id);setPickerQual(cat.def);},
-            style:{flex:1,padding:"5px 2px",borderRadius:7,border:"none",cursor:"pointer",fontSize:10,fontWeight:isSel?700:500,
-              fontFamily:"'Inter',sans-serif",background:isSel?catCol+"18":(isStudio?"#ffffff06":"#F5F4F0"),
-              color:isSel?catCol:(isStudio?"#666":"#888"),
-              outline:isSel?"1.5px solid "+catCol+"30":"1px solid "+(isStudio?"#ffffff08":"#E8E7E3"),
-              transition:"all 0.12s"}},cat.label);})),
-      curCatObj&&React.createElement("div",{style:{display:"flex",gap:3,marginBottom:8,flexWrap:"wrap"}},
-        curCatObj.quals.map(function(qo){var isSel=pickerQual===qo.q;var catCol=CH_CAT_COL[pickerCat]||ac;
-          return React.createElement("button",{key:qo.q,onClick:function(){setPickerQual(qo.q);},
-            style:{padding:"5px 10px",borderRadius:7,border:"none",cursor:"pointer",fontSize:11,fontFamily:"'JetBrains Mono',monospace",fontWeight:isSel?700:500,
-              background:isSel?catCol+"15":(isStudio?"#ffffff04":"#FAFAF8"),
-              color:isSel?catCol:(isStudio?"#888":"#666"),
-              outline:isSel?"1.5px solid "+catCol+"30":"1px solid "+(isStudio?"#ffffff08":"#E8E7E3"),
-              transition:"all 0.12s"}},qo.l);})),
-      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
-        React.createElement("span",{style:{fontSize:15,color:chordBlockColor(pickerRoot+pickerQual),fontFamily:"'JetBrains Mono',monospace",fontWeight:700,minWidth:60}},pickerRoot+(pickerQual||"")),
-        React.createElement("button",{onClick:function(){confirmChord(pickerRoot+(pickerQual||""));},
-          style:{padding:"5px 14px",borderRadius:8,border:"none",background:ac,color:isStudio?"#08080F":"#fff",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},"Set"),
-        hasExisting&&React.createElement("button",{onClick:deleteChord,
-          style:{padding:"5px 10px",borderRadius:8,border:"1px solid "+(isStudio?"#EF444430":"#E0DFD8"),background:isStudio?"#EF444408":"#FFF5F5",color:"#EF4444",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},"\u2715"),
-        React.createElement("button",{onClick:function(){setEditBeat(-1);},
-          style:{padding:"5px 10px",borderRadius:8,border:"1px solid "+(isStudio?"#ffffff10":"#E0DFD8"),background:isStudio?"#ffffff04":"#F5F4F0",color:isStudio?"#666":"#888",fontSize:11,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},"Cancel")));
-  }
-
-  return React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:4}},
-    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:2}},
-      React.createElement("span",{style:{fontSize:9,color:isStudio?"#555":"#888",fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,fontWeight:600}},"CHORDS"),
-      blocks.length>0&&React.createElement("span",{style:{fontSize:8,color:isStudio?"#333":"#CCC",fontFamily:"'Inter',sans-serif"}},"tap to edit")),
-    rows,
-    pickerEl);
-}
 function e2s(e){if(e===1)return"";if(e===0.5)return"/2";if(e===0.75)return"3/4";if(e===1.5)return"3/2";if(e===3)return"3";if(e===6)return"6";if(e===12)return"12";if(Number.isInteger(e))return String(e);return String(Math.round(e*2))+"/2";}
 var KEY_SIG_ACC={"C":{},"G":{F:1},"D":{F:1,C:1},"A":{F:1,C:1,G:1},"E":{F:1,C:1,G:1,D:1},"B":{F:1,C:1,G:1,D:1,A:1},"F#":{F:1,C:1,G:1,D:1,A:1,E:1},"Gb":{B:-1,E:-1,A:-1,D:-1,G:-1,C:-1},"F":{B:-1},"Bb":{B:-1,E:-1},"Eb":{B:-1,E:-1,A:-1},"Ab":{B:-1,E:-1,A:-1,D:-1},"Db":{B:-1,E:-1,A:-1,D:-1,G:-1}};
 function buildAbc(items,keySig,timeSig,tempo,chords){const[tsN,tsD]=timeSig.split("/").map(Number);const bE=tsN*(8/tsD);const beatE=8/tsD;
@@ -2400,9 +2253,10 @@ function buildAbc(items,keySig,timeSig,tempo,chords){const[tsN,tsD]=timeSig.spli
     else abc+=emitNote(item,ei,barAlts,hasTie);
     pos+=effEi;nc++;}
   if(nc>0)abc+=" |";return abc;}
-function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteClickRef,onSelChange,deselectRef,previewOffset,th}){
+function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteClickRef,onSelChange,deselectRef,previewOffset,th,chordClickRef}){
   const[items,sIt]=useState([]);const[cO,sCO]=useState(4);const[cD,sCD]=useState(2);const[dt,sDt]=useState(false);const[tri,sTri]=useState(false);
   const[chords,sChords]=useState({});
+  const[chEd,sChEd]=useState(-1);const[chRoot,sChRoot]=useState("C");const[chQual,sChQual]=useState("7");const[chCat,sChCat]=useState("dom");
   const[selIdx,setSelIdx]=useState(null);
   // Compute note mapping for current items
   var noteToItemSel=[];var itemToNoteSel={};
@@ -2560,15 +2414,70 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteCl
         React.createElement("span",{style:{fontSize:10,color:isSel?ac:mu}},item.dotted?"rest.":"rest"),noteIcon(item.dur,isSel?ac:"#AAA",14));bg=isSel?"rgba(99,102,241,0.12)":"#F0EFE8";}
     els.push(React.createElement("div",{key:idx,"data-nidx":idx,onClick:function(){tapNote(idx);},style:{minWidth:38,height:48,borderRadius:8,background:bg,color:"#1A1A1A",display:"flex",alignItems:"center",justifyContent:"center",padding:"2px 5px",cursor:"pointer",flexShrink:0,border:isSel?"2px solid "+ac:"1px solid #E8E7E3",transition:"all 0.1s"}},ct));return els;};
 
-  // Chord lane — new timeline component
-  var chordLaneEl=React.createElement(ChordTimeline,{chords:chords,onChordsChange:function(nc){sChords(nc);pushHist(items,nc);},totalBeats:totalBeats,tsN:tsN,th:th});
+  // Wire chord click from notation SVG
+  var chordClickFromNotation=function(beat){
+    if(chEd===beat){sChEd(-1);return;}
+    // If there's already a chord at this beat, load it into picker
+    if(chords[beat]){var ps=chords[beat].match(/^([A-G][b#]?)(.*)/);
+      if(ps){sChRoot(ps[1]);var q=ps[2]||"";sChQual(q||"7");sChCat(findChordCat(q));}}
+    sChEd(beat);
+  };
+  if(chordClickRef)chordClickRef.current=chordClickFromNotation;
+
+  // Inline chord picker (shows below notation when editing)
+  var isStudioNB=th===TH.studio;var acNB=isStudioNB?"#22D89E":"#6366F1";
+  var chordPickerEl=chEd>=0?React.createElement("div",{style:{background:isStudioNB?"#0E0E22":"#FAFAF8",border:"1px solid "+(isStudioNB?"#ffffff12":"#E0DFD8"),
+    borderRadius:12,padding:"10px 10px 8px",marginTop:4,marginBottom:4,animation:"coachIn 0.15s ease"}},
+    React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}},
+      React.createElement("span",{style:{fontSize:9,color:isStudioNB?"#555":"#888",fontFamily:"'JetBrains Mono',monospace",fontWeight:600,letterSpacing:1}},
+        chords[chEd]?"EDIT CHORD":"ADD CHORD"),
+      React.createElement("span",{style:{fontSize:8,color:isStudioNB?"#333":"#BBB",fontFamily:"'Inter',sans-serif"}},
+        "Beat "+(chEd+1))),
+    // Root row
+    React.createElement("div",{style:{display:"flex",gap:3,marginBottom:6,flexWrap:"wrap"}},
+      ["C","Db","D","Eb","E","F","F#","G","Ab","A","Bb","B"].map(function(r){return React.createElement("button",{key:r,onClick:function(){sChRoot(r);},
+        style:{padding:"4px 8px",borderRadius:6,border:"none",cursor:"pointer",fontSize:12,fontFamily:"'JetBrains Mono',monospace",fontWeight:700,
+          background:chRoot===r?(acNB+"15"):(isStudioNB?"#ffffff06":"#F0EFE8"),
+          color:chRoot===r?acNB:(isStudioNB?"#aaa":"#666"),
+          outline:chRoot===r?"1.5px solid "+acNB+"40":"1px solid "+(isStudioNB?"#ffffff08":"#E8E7E3")}},r);})),
+    // Category tabs
+    React.createElement("div",{style:{display:"flex",gap:3,marginBottom:6}},
+      CHORD_HIER.map(function(cat){var catCol=CH_CAT_COL[cat.id]||acNB;var isSel=chCat===cat.id;
+        return React.createElement("button",{key:cat.id,onClick:function(){sChCat(cat.id);sChQual(cat.def);},
+          style:{flex:1,padding:"5px 2px",borderRadius:7,border:"none",cursor:"pointer",fontSize:10,fontWeight:isSel?700:500,
+            fontFamily:"'Inter',sans-serif",background:isSel?catCol+"18":(isStudioNB?"#ffffff06":"#F5F4F0"),
+            color:isSel?catCol:(isStudioNB?"#666":"#888"),
+            outline:isSel?"1.5px solid "+catCol+"30":"1px solid "+(isStudioNB?"#ffffff08":"#E8E7E3"),
+            transition:"all 0.12s"}},cat.label);})),
+    // Quality buttons
+    (function(){var curCatObj=CHORD_HIER.find(function(c){return c.id===chCat;});if(!curCatObj)return null;
+      return React.createElement("div",{style:{display:"flex",gap:3,marginBottom:8,flexWrap:"wrap"}},
+        curCatObj.quals.map(function(qo){var isSel=chQual===qo.q;var catCol=CH_CAT_COL[chCat]||acNB;
+          return React.createElement("button",{key:qo.q,onClick:function(){sChQual(qo.q);},
+            style:{padding:"5px 10px",borderRadius:7,border:"none",cursor:"pointer",fontSize:11,fontFamily:"'JetBrains Mono',monospace",fontWeight:isSel?700:500,
+              background:isSel?catCol+"15":(isStudioNB?"#ffffff04":"#FAFAF8"),
+              color:isSel?catCol:(isStudioNB?"#888":"#666"),
+              outline:isSel?"1.5px solid "+catCol+"30":"1px solid "+(isStudioNB?"#ffffff08":"#E8E7E3"),
+              transition:"all 0.12s"}},qo.l);}));})(),
+    // Preview + actions
+    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
+      React.createElement("span",{style:{fontSize:15,color:chordBlockColor(chRoot+chQual),fontFamily:"'JetBrains Mono',monospace",fontWeight:700,minWidth:60}},chRoot+(chQual||"")),
+      React.createElement("button",{onClick:function(){var nc=Object.assign({},chords);nc[chEd]=chRoot+(chQual||"");sChords(nc);pushHist(items,nc);sChEd(-1);},
+        style:{padding:"5px 14px",borderRadius:8,border:"none",background:acNB,color:isStudioNB?"#08080F":"#fff",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},"Set"),
+      chords[chEd]&&React.createElement("button",{onClick:function(){var nc=Object.assign({},chords);delete nc[chEd];sChords(nc);pushHist(items,nc);sChEd(-1);},
+        style:{padding:"5px 10px",borderRadius:8,border:"1px solid "+(isStudioNB?"#EF444430":"#E0DFD8"),background:isStudioNB?"#EF444408":"#FFF5F5",color:"#EF4444",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},"\u2715 Delete"),
+      React.createElement("button",{onClick:function(){sChEd(-1);},
+        style:{padding:"5px 10px",borderRadius:8,border:"1px solid "+(isStudioNB?"#ffffff10":"#E0DFD8"),background:isStudioNB?"#ffffff04":"#F5F4F0",color:isStudioNB?"#666":"#888",fontSize:11,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},"Cancel"))):null;
 
   return React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:8}},
-    // 1. Chord timeline (above notation)
-    chordLaneEl,
-    // 2. Notation preview
+    // 1. Notation preview
     previewEl,
-    // 3. Minimal player
+    // 2. Inline chord picker (below notation, only when editing)
+    chordPickerEl,
+    // 3. Chord hint (when no chords and has notes)
+    Object.keys(chords).length===0&&items.length>0&&chEd<0&&React.createElement("div",{style:{textAlign:"center",padding:"4px 8px"}},
+      React.createElement("span",{style:{fontSize:10,color:isStudioNB?"#444":"#BBB",fontFamily:"'Inter',sans-serif",fontStyle:"italic"}},"\u2191 tap above the staff to add chords")),
+    // 4. Minimal player
     playerEl,
     // 4. Empty state hint
     !selItem&&items.length===0&&React.createElement("div",{style:{padding:"8px 12px",background:"#FAFAF8",borderRadius:8,border:"1px solid #E8E7E3"}},
@@ -5181,6 +5090,7 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
   const edCurNoteRef=useRef(-1);
   const noteClickRef=useRef(null);
   const deselectRef=useRef(null);
+  const chordClickRef=useRef(null);
   const[edSelIdx,setEdSelIdx]=useState(null);
   var edInstOff=INST_TRANS[userInst]||0;
   // Concert pitch abc for playback (transpose back from instrument transposition)
@@ -5251,12 +5161,12 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
             edInstOff!==0&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",background:isStudio?"rgba(34,216,158,0.06)":"rgba(99,102,241,0.04)",borderRadius:8,border:"1px solid "+(isStudio?"rgba(34,216,158,0.15)":"rgba(99,102,241,0.1)")}},
               React.createElement("span",{style:{fontSize:10,color:isStudio?"#22D89E":t.accent,fontFamily:"'Inter',sans-serif"}},"Entering for "+userInst+" \u2014 will be saved in concert pitch")),
             React.createElement("div",{style:{borderRadius:12,padding:14,border:"1px solid "+t.border}},
-              React.createElement(NoteBuilder,{onAbcChange:sAbc,keySig,timeSig,tempo:parseInt(tempo)||120,noteClickRef:noteClickRef,onSelChange:setEdSelIdx,deselectRef:deselectRef,previewOffset:-edInstOff,th:t,
+              React.createElement(NoteBuilder,{onAbcChange:sAbc,keySig,timeSig,tempo:parseInt(tempo)||120,noteClickRef:noteClickRef,onSelChange:setEdSelIdx,deselectRef:deselectRef,previewOffset:-edInstOff,th:t,chordClickRef:chordClickRef,
                 previewEl:hasNotes?React.createElement("div",{style:{marginBottom:4}},
                   React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}},
                     React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,fontWeight:600}},"PREVIEW"),
                     noteCount>0&&React.createElement("span",{style:{fontSize:9,color:t.accent,fontFamily:"monospace"}},noteCount+" notes")),
-                  React.createElement(Notation,{abc,compact:false,th:t,curNoteRef:edCurNoteRef,selNoteIdx:edSelIdx,onNoteClick:function(idx){if(noteClickRef.current)noteClickRef.current(idx);},onDeselect:function(){if(deselectRef.current)deselectRef.current();}})):null,
+                  React.createElement(Notation,{abc,compact:false,th:t,curNoteRef:edCurNoteRef,selNoteIdx:edSelIdx,onNoteClick:function(idx){if(noteClickRef.current)noteClickRef.current(idx);},onDeselect:function(){if(deselectRef.current)deselectRef.current();},onChordClick:function(beat){if(chordClickRef.current)chordClickRef.current(beat);}})):null,
                 playerEl:React.createElement(Player,{abc:concertAbc,tempo:parseInt(tempo)||120,th:t,initFeel:feel,editorMode:true,onCurNote:function(n){edCurNoteRef.current=n;}})})))),
 
         // STEP 3 — Describe it
