@@ -2697,7 +2697,8 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
   const curNoteRef=useRef(-1);const[focus,setFocus]=useState(false);
   const playerCtrlRef=useRef({toggle:null,playing:false});
   const[trOpen,setTrOpen]=useState(false);const[showTempoPopup,setShowTempoPopup]=useState(false);const[showSoundMenu,setShowSoundMenu]=useState(false);
-  const lc=lick.likes;
+  const initialLikedRef=useRef(liked);
+  const lc=(lick.likes||0)+(liked?1:0)-(initialLikedRef.current?1:0);
   const[burst,sBurst]=useState(null);const burstKeyRef=useRef(0);
   const instOff=INST_TRANS[trInst]||0;
   const notationAbc=transposeAbc(lick.abc,instOff+trMan);
@@ -2731,7 +2732,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
   var hasFullContent=true;// theory+report always available
   // Compute snap heights based on available content
   var halfH=hasHalfContent?DRAWER_HALF:DRAWER_PEEK;
-  var fullMax=Math.min(winH-60,winH-DRAWER_FULL_OFF);// never closer than 60px to top
+  var fullMax=winH-140;// keep handle well below header (safe-area + header ≈ 120px)
   // Build snap points — only include snaps that have content
   var snapPts=[DRAWER_PEEK];
   if(hasHalfContent)snapPts.push(DRAWER_HALF);
@@ -2794,21 +2795,22 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
             !showTips&&onReShowTips&&React.createElement("button",{onClick:onReShowTips,style:{width:20,height:20,borderRadius:10,border:"1px solid "+t.border,background:t.filterBg,color:t.subtle,fontSize:10,fontFamily:"'Inter',sans-serif",fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,marginLeft:2,animation:"helpGlow 0.8s ease"}},"?"))))),
 
     // ═══════ NOTATION AREA (fills space between header and drawer) ═══════
-    React.createElement("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:drawerH,paddingTop:"calc(env(safe-area-inset-top, 0px) + 60px)",overflowY:"auto",WebkitOverflowScrolling:"touch"}},
-      React.createElement("div",{style:{maxWidth:520,margin:"0 auto",padding:"12px 16px 20px"}},
+    React.createElement("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:drawerH,paddingTop:"calc(env(safe-area-inset-top, 0px) + 60px)",display:"flex",flexDirection:"column",overflow:"hidden"}},
+      React.createElement("div",{style:{flex:1,display:"flex",flexDirection:"column",justifyContent:"center",overflowY:"auto",WebkitOverflowScrolling:"touch"}},
+      React.createElement("div",{style:{maxWidth:520,width:"100%",margin:"0 auto",padding:"12px 16px 20px"}},
         // Meta chips
         React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:12,flexWrap:"wrap"}},
           React.createElement("span",{style:{fontSize:10,display:"flex",alignItems:"center",gap:4,color:instC,fontWeight:600,fontFamily:"'JetBrains Mono',monospace",background:instC+"18",padding:"4px 10px",borderRadius:8,border:isStudio?"1px solid "+instC+"30":"none"}},lick.instrument),
           React.createElement("span",{style:{fontSize:10,color:catC,fontWeight:isStudio?600:400,fontFamily:"'JetBrains Mono',monospace",background:isStudio?catC+"18":t.card,padding:"4px 10px",borderRadius:8,border:isStudio?"1px solid "+catC+"30":"1px solid "+t.border}},lick.category),
           React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace",background:t.card,padding:"4px 10px",borderRadius:8,border:"1px solid "+t.border}},keyDisplay),
           React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace",background:t.card,padding:"4px 10px",borderRadius:8,border:"1px solid "+t.border,display:"flex",alignItems:"center",gap:3}},isStudio&&lick.tempo>=160&&IC.flame(11,"#F97316",true),isStudio&&lick.tempo<=100&&IC.slow(11,"#8888A0"),"\u2669="+lick.tempo)),
-        // Notation — clean, no card wrapper
-        React.createElement("div",{style:{position:"relative",padding:"8px 4px"}},
+        // Notation — card with subtle background, no border
+        React.createElement("div",{style:{position:"relative",padding:"14px 10px 10px",borderRadius:16,background:isStudio?"rgba(255,255,255,0.03)":t.settingsBg||"#F8F9FB",boxShadow:isStudio?"inset 0 1px 0 rgba(255,255,255,0.04)":"inset 0 1px 3px rgba(0,0,0,0.03)"}},
           React.createElement("div",{onClick:function(){if(!theoryMode)setFocus(true);},style:{cursor:theoryMode?"default":"zoom-in"}},
             React.createElement(Notation,{abc:notationAbc,compact:false,focus:true,abRange:abOn?[abA,abB]:null,curNoteRef:curNoteRef,th:t,theoryMode:theoryMode,theoryAnalysis:theoryAnalysis})),
           // X-Ray + Fullscreen buttons
           React.createElement("div",{style:{position:"absolute",top:10,right:14,display:"flex",gap:6,alignItems:"center"}},
-            React.createElement("button",{onClick:function(){setTheoryMode(!theoryMode);},title:"X-Ray: Theory Analysis",style:{width:32,height:32,borderRadius:8,background:theoryMode?(isStudio?t.accent+"25":t.accent+"15"):t.accentBg,display:"flex",alignItems:"center",justifyContent:"center",border:theoryMode?"1.5px solid "+(isStudio?t.accent+"60":t.accent):("1px solid "+t.accentBorder),cursor:"pointer",transition:"all 0.2s",boxShadow:theoryMode?("0 0 12px "+(isStudio?t.accent+"30":"rgba(99,102,241,0.15)")):"none"}},IC.xray(15,theoryMode?t.accent:(isStudio?t.subtle:t.muted),theoryMode)),
+            React.createElement("button",{onClick:function(){setTheoryMode(!theoryMode);},title:"Theory Analysis",style:{width:32,height:32,borderRadius:8,background:theoryMode?(isStudio?t.accent+"25":t.accent+"15"):t.accentBg,display:"flex",alignItems:"center",justifyContent:"center",border:theoryMode?"1.5px solid "+(isStudio?t.accent+"60":t.accent):("1px solid "+t.accentBorder),cursor:"pointer",transition:"all 0.2s",boxShadow:theoryMode?("0 0 12px "+(isStudio?t.accent+"30":"rgba(99,102,241,0.15)")):"none"}},IC.xray(15,theoryMode?t.accent:(isStudio?t.subtle:t.muted),theoryMode)),
             !theoryMode&&React.createElement("button",{onClick:function(){setFocus(true);},style:{width:28,height:28,borderRadius:7,background:t.accentBg,display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid "+t.accentBorder,cursor:"pointer"}},React.createElement("span",{style:{fontSize:12,color:t.accent}},"\u26F6")))),
         // Theory info panel
         theoryMode&&theoryAnalysis&&theoryAnalysis.hasChords&&React.createElement("div",{style:{marginTop:10,padding:"10px 12px",borderRadius:12,background:isStudio?t.card:t.settingsBg,border:"1px solid "+(isStudio?t.accent+"20":t.accentBorder),transition:"all 0.2s"}},
@@ -2825,10 +2827,11 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
                 React.createElement("span",{style:{fontWeight:700,color:t.chordFill}},cs.chord),
                 React.createElement("span",{style:{fontWeight:500,color:t.text,opacity:0.75,fontFamily:"'Inter',sans-serif",fontSize:10}},cs.scale));}))),
         theoryMode&&(!theoryAnalysis||!theoryAnalysis.hasChords)&&React.createElement("div",{style:{marginTop:8,padding:"10px 14px",borderRadius:10,background:isStudio?"#F59E0B15":"#FEF3C7",border:"1px solid "+(isStudio?"#F59E0B30":"#FDE68A")}},
-          React.createElement("span",{style:{fontSize:12,color:isStudio?"#FBBF24":"#92400E",fontFamily:"'Inter',sans-serif"}},"No chord symbols found in this lick. X-Ray needs chord annotations (e.g. \"Dm7\") to analyze intervals.")),
-        // Hint to swipe up
-        drawerSnap===0&&!theoryMode&&snapPts.length>1&&React.createElement("div",{onClick:function(){setDrawerSnap(1);},style:{display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginTop:16,cursor:"pointer",opacity:0.5}},
-          React.createElement("span",{style:{fontSize:9,color:t.subtle,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1.5}},"\u25B2 SWIPE UP FOR MORE")))),
+          React.createElement("span",{style:{fontSize:12,color:isStudio?"#FBBF24":"#92400E",fontFamily:"'Inter',sans-serif"}},"No chord symbols found in this lick. Theory mode needs chord annotations (e.g. \"Dm7\") to analyze intervals.")),
+        )),
+      // Swipe hint pinned at bottom of notation area (outside scroll, above drawer handle)
+      drawerSnap===0&&!theoryMode&&snapPts.length>1&&React.createElement("div",{onClick:function(){setDrawerSnap(1);},style:{display:"flex",alignItems:"center",justifyContent:"center",gap:6,padding:"8px 0 6px",cursor:"pointer",flexShrink:0}},
+        React.createElement("span",{style:{fontSize:9,color:t.subtle,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1.5,opacity:0.5}},"\u25B2 SWIPE UP FOR MORE"))),
 
     // ═══════ BOTTOM DRAWER ═══════
     React.createElement("div",{style:{position:"fixed",bottom:0,left:0,right:0,height:drawerH,background:isStudio?t.card:t.card,borderRadius:"20px 20px 0 0",boxShadow:"0 -4px 30px rgba(0,0,0,"+(isStudio?"0.5":"0.12")+"), 0 -1px 0 "+t.border,transition:dragging?"none":"height 0.35s cubic-bezier(0.32,0.72,0,1)",zIndex:150,display:"flex",flexDirection:"column",overflow:"hidden"}},
@@ -2904,7 +2907,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
           React.createElement("div",{style:{marginBottom:14}},
             React.createElement("button",{onClick:function(){setTheoryMode(!theoryMode);},style:{display:"flex",alignItems:"center",gap:8,padding:"10px 16px",borderRadius:12,border:"1.5px solid "+(theoryMode?t.accent:t.border),background:theoryMode?(isStudio?t.accent+"15":t.accent+"08"):t.filterBg,cursor:"pointer",transition:"all 0.2s"}},
               IC.xray(16,theoryMode?t.accent:t.muted,theoryMode),
-              React.createElement("span",{style:{fontSize:12,fontWeight:600,color:theoryMode?t.accent:t.muted,fontFamily:"'Inter',sans-serif"}},theoryMode?"X-Ray ON":"X-Ray OFF"))),
+              React.createElement("span",{style:{fontSize:12,fontWeight:600,color:theoryMode?t.accent:t.muted,fontFamily:"'Inter',sans-serif"}},theoryMode?"Theory ON":"Theory OFF"))),
 
           // Private lick actions
           lick.private&&React.createElement("div",{style:{marginTop:16,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}},
@@ -6104,7 +6107,7 @@ function Filters({instrument,setInstrument,category,setCategory,sq,setSq,th}){
       background:activeCount>0&&!open?t.accentBg:"transparent",
       border:activeCount>0&&!open?"1px solid "+t.accentBorder:"1px solid "+t.border,
       transition:"all 0.15s",position:"relative"}},
-      React.createElement("span",{style:{fontSize:14,color:activeCount>0||open?t.accent:t.subtle}},open?"\u2715":"\u2315"),
+      React.createElement("span",{style:{fontSize:18,color:activeCount>0||open?t.accent:t.subtle}},open?"\u2715":"\u2315"),
       !open&&activeCount>0&&React.createElement("span",{style:{position:"absolute",top:-4,right:-4,width:14,height:14,borderRadius:7,background:t.accent,color:"#fff",fontSize:8,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}},activeCount)),
     // Expanded panel
     open&&React.createElement("div",{onClick:()=>setOpen(false),style:{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:199}}),
