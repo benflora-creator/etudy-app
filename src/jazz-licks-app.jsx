@@ -6103,11 +6103,11 @@ function Filters({instrument,setInstrument,category,setCategory,sq,setSq,th}){
     // Toggle button — icon only when collapsed
     React.createElement("button",{onClick:()=>setOpen(!open),style:{
       display:"flex",alignItems:"center",justifyContent:"center",gap:4,
-      width:32,height:32,borderRadius:16,cursor:"pointer",padding:0,
+      width:36,height:36,borderRadius:18,cursor:"pointer",padding:0,
       background:activeCount>0&&!open?t.accentBg:"transparent",
       border:activeCount>0&&!open?"1px solid "+t.accentBorder:"1px solid "+t.border,
       transition:"all 0.15s",position:"relative"}},
-      React.createElement("span",{style:{fontSize:18,color:activeCount>0||open?t.accent:t.subtle}},open?"\u2715":"\u2315"),
+      React.createElement("span",{style:{fontSize:22,color:activeCount>0||open?t.accent:t.subtle}},open?"\u2715":"\u2315"),
       !open&&activeCount>0&&React.createElement("span",{style:{position:"absolute",top:-4,right:-4,width:14,height:14,borderRadius:7,background:t.accent,color:"#fff",fontSize:8,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}},activeCount)),
     // Expanded panel
     open&&React.createElement("div",{onClick:()=>setOpen(false),style:{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:199}}),
