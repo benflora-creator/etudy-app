@@ -2056,6 +2056,258 @@ function findChordCat(q){
   }
   return"dom";
 }
+// ── CHORD BLOCK HELPERS ──
+var CH_CAT_COL={dur:"#22D89E",dom:"#F59E0B",moll:"#818CF8",dim:"#EF4444",aug:"#EC4899",sus:"#06B6D4"};
+function chordBlockColor(name){
+  if(!name)return"#666";var ps=name.match(/^[A-G][b#]?(.*)/);
+  if(!ps)return"#666";return CH_CAT_COL[findChordCat(ps[1]||"")]||"#666";
+}
+function flatToBlocks(chords,totalBeats,tsN){
+  var beats=Object.keys(chords).map(Number).sort(function(a,b){return a-b;});
+  if(beats.length===0)return[];
+  return beats.map(function(b,i){
+    var nextB=i<beats.length-1?beats[i+1]:Math.max(b+tsN,Math.ceil((b+1)/tsN)*tsN);
+    if(nextB<=b)nextB=b+tsN;
+    return{beat:b,dur:nextB-b,name:chords[b]};
+  });
+}
+function blocksToFlat(blocks){var obj={};blocks.forEach(function(b){if(b.name)obj[b.beat]=b.name;});return obj;}
+
+// ── CHORD TIMELINE COMPONENT ──
+function ChordTimeline({chords,onChordsChange,totalBeats,tsN,th}){
+  var t=th;var isStudio=t===TH.studio;
+  var ac=isStudio?"#22D89E":"#6366F1";
+  var blocks=useMemo(function(){return flatToBlocks(chords,totalBeats,tsN);},[chords,totalBeats,tsN]);
+  var totalBars=Math.max(1,Math.ceil(totalBeats/tsN));
+  // Effective end beat: last block end or totalBars*tsN
+  var endBeat=totalBars*tsN;
+  if(blocks.length>0){var lastB=blocks[blocks.length-1];endBeat=Math.max(endBeat,lastB.beat+lastB.dur);}
+  // Round up to full bars
+  endBeat=Math.ceil(endBeat/tsN)*tsN;
+  var effBars=Math.max(totalBars,endBeat/tsN);
+
+  var[editIdx,setEditIdx]=useState(-1);
+  var[pickerRoot,setPickerRoot]=useState("C");
+  var[pickerCat,setPickerCat]=useState("dom");
+  var[pickerQual,setPickerQual]=useState("7");
+  var dragRef=useRef(null);
+  var rowRef=useRef(null);
+
+  // 2 bars per row
+  var barsPerRow=2;
+  var beatsPerRow=barsPerRow*tsN;
+  var numRows=Math.ceil(effBars/barsPerRow);
+
+  // Find block at beat
+  var blockAtBeat=function(beat){
+    for(var i=0;i<blocks.length;i++){if(beat>=blocks[i].beat&&beat<blocks[i].beat+blocks[i].dur)return i;}
+    return-1;
+  };
+
+  // Add a new block after the last one
+  var addBlock=function(){
+    var startBeat=0;
+    if(blocks.length>0){var last=blocks[blocks.length-1];startBeat=last.beat+last.dur;}
+    var dur=tsN;// default: 1 bar
+    var newBlocks=blocks.concat([{beat:startBeat,dur:dur,name:""}]);
+    // Open picker for new block
+    setEditIdx(newBlocks.length-1);
+    setPickerRoot("C");setPickerCat("dom");setPickerQual("7");
+    onChordsChange(blocksToFlat(newBlocks));
+  };
+
+  // Set chord on block
+  var setBlockChord=function(idx,name){
+    var nb=blocks.map(function(b,i){return i===idx?Object.assign({},b,{name:name}):b;});
+    onChordsChange(blocksToFlat(nb));
+    setEditIdx(-1);
+  };
+
+  // Delete block
+  var deleteBlock=function(idx){
+    var nb=blocks.filter(function(_,i){return i!==idx;});
+    onChordsChange(blocksToFlat(nb));
+    setEditIdx(-1);
+  };
+
+  // Open picker for existing block
+  var openEdit=function(idx){
+    if(editIdx===idx){setEditIdx(-1);return;}
+    var b=blocks[idx];
+    if(b&&b.name){
+      var ps=b.name.match(/^([A-G][b#]?)(.*)/);
+      if(ps){setPickerRoot(ps[1]);var q=ps[2]||"";setPickerQual(q||"7");setPickerCat(findChordCat(q));}
+    }
+    setEditIdx(idx);
+  };
+
+  // Drag resize handler
+  var onDragStart=function(e,idx){
+    e.stopPropagation();e.preventDefault();
+    var clientX=e.touches?e.touches[0].clientX:e.clientX;
+    var containerW=rowRef.current?rowRef.current.offsetWidth:300;
+    var beatW=containerW/beatsPerRow;
+    dragRef.current={idx:idx,startX:clientX,startDur:blocks[idx].dur,beatW:beatW};
+
+    var onMove=function(ev){
+      if(!dragRef.current)return;
+      var cx=ev.touches?ev.touches[0].clientX:ev.clientX;
+      var dx=cx-dragRef.current.startX;
+      var dBeats=Math.round(dx/dragRef.current.beatW);
+      var newDur=Math.max(1,dragRef.current.startDur+dBeats);
+      // Cap: don't overlap next block
+      var bi=dragRef.current.idx;
+      if(bi<blocks.length-1){var maxDur=blocks[bi+1].beat-blocks[bi].beat;newDur=Math.min(newDur,maxDur);}
+      var nb=blocks.map(function(b,i){return i===bi?Object.assign({},b,{dur:newDur}):b;});
+      onChordsChange(blocksToFlat(nb));
+    };
+    var onEnd=function(){
+      dragRef.current=null;
+      window.removeEventListener("mousemove",onMove);window.removeEventListener("mouseup",onEnd);
+      window.removeEventListener("touchmove",onMove);window.removeEventListener("touchend",onEnd);
+    };
+    window.addEventListener("mousemove",onMove);window.addEventListener("mouseup",onEnd);
+    window.addEventListener("touchmove",onMove,{passive:false});window.addEventListener("touchend",onEnd);
+  };
+
+  // Picker roots
+  var ROOTS=["C","Db","D","Eb","E","F","F#","G","Ab","A","Bb","B"];
+
+  // Render rows
+  var rows=[];
+  for(var r=0;r<numRows;r++){
+    var rowStart=r*beatsPerRow;
+    var rowEnd=rowStart+beatsPerRow;
+    // Bar labels
+    var barLabels=[];
+    for(var bi=0;bi<barsPerRow;bi++){
+      var barNum=r*barsPerRow+bi+1;
+      if(barNum<=effBars)barLabels.push(React.createElement("div",{key:"bl"+bi,style:{flex:1,fontSize:8,color:isStudio?"#444":t.subtle,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,paddingLeft:4}},barNum));
+    }
+
+    // Beat grid lines + blocks for this row
+    var rowBlocks=[];
+    for(var i=0;i<blocks.length;i++){
+      var b=blocks[i];
+      // Does this block overlap this row?
+      if(b.beat+b.dur<=rowStart||b.beat>=rowEnd)continue;
+      var visStart=Math.max(b.beat,rowStart);
+      var visEnd=Math.min(b.beat+b.dur,rowEnd);
+      var visDur=visEnd-visStart;
+      var leftPct=((visStart-rowStart)/beatsPerRow)*100;
+      var widthPct=(visDur/beatsPerRow)*100;
+      var col=chordBlockColor(b.name);
+      var isEd=editIdx===i;
+      var isStart=visStart===b.beat;// block starts in this row
+
+      rowBlocks.push(React.createElement("div",{key:"cb"+i,onClick:function(ii){return function(e){e.stopPropagation();openEdit(ii);};}(i),
+        style:{position:"absolute",top:2,bottom:2,left:leftPct+"%",width:"calc("+widthPct+"% - 2px)",borderRadius:10,
+          background:b.name?(isStudio?"linear-gradient(135deg,"+col+"18,"+col+"0C)":col+"12"):(isStudio?"#ffffff06":"#f5f4f0"),
+          border:isEd?"2px solid "+col:(b.name?"1.5px solid "+col+"35":"1.5px dashed "+(isStudio?"#ffffff15":"#D5D4CE")),
+          display:"flex",alignItems:"center",justifyContent:"center",gap:6,cursor:"pointer",
+          transition:"border-color 0.15s",overflow:"hidden",boxShadow:b.name?"0 2px 12px "+col+"10":"none"}},
+        // Chord label
+        b.name?React.createElement("span",{style:{fontSize:b.name.length>5?11:13,fontWeight:700,color:col,
+          fontFamily:"'JetBrains Mono',monospace",letterSpacing:-0.3,textShadow:isStudio?"0 0 16px "+col+"30":"none"}},b.name):
+          React.createElement("span",{style:{fontSize:10,color:isStudio?"#555":"#BBB",fontFamily:"'Inter',sans-serif",fontWeight:500}},"Chord"),
+        // Duration dots
+        visDur>1&&b.name&&React.createElement("div",{style:{display:"flex",gap:2}},
+          Array.from({length:visDur}).map(function(_,d){return React.createElement("div",{key:d,style:{width:3,height:3,borderRadius:"50%",background:col+"40"}});})),
+        // Drag handle on right edge (only if block ends in this row)
+        visEnd===b.beat+b.dur&&React.createElement("div",{onMouseDown:function(ii){return function(e){onDragStart(e,ii);};}(i),
+          onTouchStart:function(ii){return function(e){onDragStart(e,ii);};}(i),
+          style:{position:"absolute",right:0,top:0,bottom:0,width:14,cursor:"ew-resize",
+            display:"flex",alignItems:"center",justifyContent:"center",borderRadius:"0 8px 8px 0",
+            background:isStudio?"#ffffff08":"rgba(0,0,0,0.03)"}},
+          React.createElement("div",{style:{width:2,height:16,borderRadius:1,background:col+"50"}}))));
+    }
+
+    // "+" button in the empty space after blocks
+    var lastBlockEnd=0;
+    for(var li=0;li<blocks.length;li++){var lb2=blocks[li];if(lb2.beat+lb2.dur>lastBlockEnd)lastBlockEnd=lb2.beat+lb2.dur;}
+    var plusInThisRow=lastBlockEnd>=rowStart&&lastBlockEnd<rowEnd;
+    if(plusInThisRow||(r===0&&blocks.length===0)){
+      var plusLeft=blocks.length===0?0:((lastBlockEnd-rowStart)/beatsPerRow)*100;
+      var plusW=blocks.length===0?100:(100-plusLeft);
+      if(plusW>5){
+        rowBlocks.push(React.createElement("div",{key:"plus",onClick:addBlock,
+          style:{position:"absolute",top:2,bottom:2,left:plusLeft+"%",width:plusW+"%",
+            display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",
+            borderRadius:10,border:"1.5px dashed "+(isStudio?"#ffffff10":"#E0DFD8"),
+            background:"transparent",transition:"background 0.15s"}},
+          React.createElement("span",{style:{fontSize:18,color:isStudio?"#333":"#CCC",fontWeight:300}},"+"),
+          blocks.length===0&&React.createElement("span",{style:{fontSize:11,color:isStudio?"#444":"#BBB",fontFamily:"'Inter',sans-serif",marginLeft:6}},"Add chord")));
+      }
+    }
+
+    // Beat grid lines (background)
+    var gridLines=[];
+    for(var gi=0;gi<beatsPerRow;gi++){
+      var isBar=gi%tsN===0;
+      gridLines.push(React.createElement("div",{key:"g"+gi,style:{position:"absolute",left:((gi/beatsPerRow)*100)+"%",top:0,bottom:0,
+        width:1,background:isBar?(isStudio?"#ffffff15":"#D5D4CE"):(isStudio?"#ffffff06":"#EEEDE8")}}));
+    }
+    // Right edge
+    gridLines.push(React.createElement("div",{key:"ge",style:{position:"absolute",right:0,top:0,bottom:0,width:1,background:isStudio?"#ffffff15":"#D5D4CE"}}));
+
+    rows.push(React.createElement("div",{key:"row"+r},
+      // Bar labels
+      React.createElement("div",{style:{display:"flex",marginBottom:2}},barLabels),
+      // Beat grid + blocks
+      React.createElement("div",{ref:r===0?rowRef:undefined,style:{position:"relative",height:40,marginBottom:r<numRows-1?6:0}},
+        gridLines,rowBlocks)));
+  }
+
+  // Picker popup (inline below timeline)
+  var pickerEl=null;
+  if(editIdx>=0){
+    var curBlock=blocks[editIdx];
+    var curCatObj=CHORD_HIER.find(function(c){return c.id===pickerCat;});
+    pickerEl=React.createElement("div",{style:{background:isStudio?"#0E0E22":"#FAFAF8",border:"1px solid "+(isStudio?"#ffffff12":"#E0DFD8"),
+      borderRadius:12,padding:"10px 10px 8px",marginTop:6,animation:"coachIn 0.15s ease"}},
+      // Root row
+      React.createElement("div",{style:{display:"flex",gap:3,marginBottom:6,flexWrap:"wrap"}},
+        ROOTS.map(function(r2){return React.createElement("button",{key:r2,onClick:function(){setPickerRoot(r2);},
+          style:{padding:"4px 8px",borderRadius:6,border:"none",cursor:"pointer",fontSize:12,fontFamily:"'JetBrains Mono',monospace",fontWeight:700,
+            background:pickerRoot===r2?(ac+"15"):(isStudio?"#ffffff06":"#F0EFE8"),
+            color:pickerRoot===r2?ac:(isStudio?"#aaa":"#666"),
+            outline:pickerRoot===r2?"1.5px solid "+ac+"40":"1px solid "+(isStudio?"#ffffff08":"#E8E7E3")}},r2);})),
+      // Category tabs
+      React.createElement("div",{style:{display:"flex",gap:3,marginBottom:6}},
+        CHORD_HIER.map(function(cat){var catCol=CH_CAT_COL[cat.id]||ac;var isSel=pickerCat===cat.id;
+          return React.createElement("button",{key:cat.id,onClick:function(){setPickerCat(cat.id);setPickerQual(cat.def);},
+            style:{flex:1,padding:"5px 2px",borderRadius:7,border:"none",cursor:"pointer",fontSize:10,fontWeight:isSel?700:500,
+              fontFamily:"'Inter',sans-serif",background:isSel?catCol+"18":(isStudio?"#ffffff06":"#F5F4F0"),
+              color:isSel?catCol:(isStudio?"#666":"#888"),
+              outline:isSel?"1.5px solid "+catCol+"30":"1px solid "+(isStudio?"#ffffff08":"#E8E7E3"),
+              transition:"all 0.12s"}},cat.label);})),
+      // Quality buttons
+      curCatObj&&React.createElement("div",{style:{display:"flex",gap:3,marginBottom:8,flexWrap:"wrap"}},
+        curCatObj.quals.map(function(qo){var isSel=pickerQual===qo.q;var catCol=CH_CAT_COL[pickerCat]||ac;
+          return React.createElement("button",{key:qo.q,onClick:function(){setPickerQual(qo.q);},
+            style:{padding:"5px 10px",borderRadius:7,border:"none",cursor:"pointer",fontSize:11,fontFamily:"'JetBrains Mono',monospace",fontWeight:isSel?700:500,
+              background:isSel?catCol+"15":(isStudio?"#ffffff04":"#FAFAF8"),
+              color:isSel?catCol:(isStudio?"#888":"#666"),
+              outline:isSel?"1.5px solid "+catCol+"30":"1px solid "+(isStudio?"#ffffff08":"#E8E7E3"),
+              transition:"all 0.12s"}},qo.l);})),
+      // Preview + actions
+      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
+        React.createElement("span",{style:{fontSize:15,color:chordBlockColor(pickerRoot+pickerQual),fontFamily:"'JetBrains Mono',monospace",fontWeight:700,minWidth:60}},pickerRoot+(pickerQual||"")),
+        React.createElement("button",{onClick:function(){setBlockChord(editIdx,pickerRoot+(pickerQual||""));},
+          style:{padding:"5px 14px",borderRadius:8,border:"none",background:ac,color:isStudio?"#08080F":"#fff",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},"Set"),
+        curBlock&&curBlock.name&&React.createElement("button",{onClick:function(){deleteBlock(editIdx);},
+          style:{padding:"5px 10px",borderRadius:8,border:"1px solid "+(isStudio?"#EF444430":"#E0DFD8"),background:isStudio?"#EF444408":"#FFF5F5",color:"#EF4444",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},"\u2715"),
+        React.createElement("button",{onClick:function(){setEditIdx(-1);},
+          style:{padding:"5px 10px",borderRadius:8,border:"1px solid "+(isStudio?"#ffffff10":"#E0DFD8"),background:isStudio?"#ffffff04":"#F5F4F0",color:isStudio?"#666":"#888",fontSize:11,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},"Cancel")));
+  }
+
+  return React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:4}},
+    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:2}},
+      React.createElement("span",{style:{fontSize:9,color:isStudio?"#555":"#888",fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,fontWeight:600}},"CHORDS"),
+      React.createElement("span",{style:{fontSize:8,color:isStudio?"#333":"#CCC",fontFamily:"'Inter',sans-serif"}},"tap to edit \u00B7 drag edge to resize")),
+    rows,
+    pickerEl);
+}
 function e2s(e){if(e===1)return"";if(e===0.5)return"/2";if(e===0.75)return"3/4";if(e===1.5)return"3/2";if(e===3)return"3";if(e===6)return"6";if(e===12)return"12";if(Number.isInteger(e))return String(e);return String(Math.round(e*2))+"/2";}
 var KEY_SIG_ACC={"C":{},"G":{F:1},"D":{F:1,C:1},"A":{F:1,C:1,G:1},"E":{F:1,C:1,G:1,D:1},"B":{F:1,C:1,G:1,D:1,A:1},"F#":{F:1,C:1,G:1,D:1,A:1,E:1},"Gb":{B:-1,E:-1,A:-1,D:-1,G:-1,C:-1},"F":{B:-1},"Bb":{B:-1,E:-1},"Eb":{B:-1,E:-1,A:-1},"Ab":{B:-1,E:-1,A:-1,D:-1},"Db":{B:-1,E:-1,A:-1,D:-1,G:-1}};
 function buildAbc(items,keySig,timeSig,tempo,chords){const[tsN,tsD]=timeSig.split("/").map(Number);const bE=tsN*(8/tsD);const beatE=8/tsD;
@@ -2173,9 +2425,9 @@ function buildAbc(items,keySig,timeSig,tempo,chords){const[tsN,tsD]=timeSig.spli
     else abc+=emitNote(item,ei,barAlts,hasTie);
     pos+=effEi;nc++;}
   if(nc>0)abc+=" |";return abc;}
-function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteClickRef,onSelChange,deselectRef,previewOffset}){
+function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteClickRef,onSelChange,deselectRef,previewOffset,th}){
   const[items,sIt]=useState([]);const[cO,sCO]=useState(4);const[cD,sCD]=useState(2);const[dt,sDt]=useState(false);const[tri,sTri]=useState(false);
-  const[chords,sChords]=useState({});const[chEd,sChEd]=useState(null);const[chRoot,sChRoot]=useState("C");const[chQual,sChQual]=useState("maj7");const[chCat,sChCat]=useState("dur");
+  const[chords,sChords]=useState({});
   const[selIdx,setSelIdx]=useState(null);
   // Compute note mapping for current items
   var noteToItemSel=[];var itemToNoteSel={};
@@ -2333,39 +2585,8 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteCl
         React.createElement("span",{style:{fontSize:10,color:isSel?ac:mu}},item.dotted?"rest.":"rest"),noteIcon(item.dur,isSel?ac:"#AAA",14));bg=isSel?"rgba(99,102,241,0.12)":"#F0EFE8";}
     els.push(React.createElement("div",{key:idx,"data-nidx":idx,onClick:function(){tapNote(idx);},style:{minWidth:38,height:48,borderRadius:8,background:bg,color:"#1A1A1A",display:"flex",alignItems:"center",justifyContent:"center",padding:"2px 5px",cursor:"pointer",flexShrink:0,border:isSel?"2px solid "+ac:"1px solid #E8E7E3",transition:"all 0.1s"}},ct));return els;};
 
-  // Chord lane
-  var chordLaneEl=React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:4}},
-    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:2}},
-      React.createElement("span",{style:{fontSize:9,color:mu,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,fontWeight:600}},"CHORDS"),
-      React.createElement("span",{style:{fontSize:8,color:"#CCC",fontFamily:"'Inter',sans-serif"}},"tap a beat to add")),
-    React.createElement("div",{style:{display:"flex",gap:2,overflow:"auto"}},
-      Array.from({length:totalBeats},function(_,bi){
-        var ch=chords[bi];var isEd=chEd===bi;var beatNum=(bi%tsN)+1;var isBarStart=bi%tsN===0;
-        return React.createElement("div",{key:bi,onClick:function(){if(isEd){sChEd(null);}else{if(ch){var ps=ch.match(/^([A-G][b#]?)(.*)/);if(ps){sChRoot(ps[1]);var eq=ps[2]||"";sChQual(eq||"maj7");sChCat(findChordCat(eq));}}sChEd(bi);}},style:{flex:1,minWidth:44,padding:ch?"4px 2px":"6px 2px",borderRadius:8,border:isEd?"2px solid "+ac:"1px dashed "+(ch?"rgba(99,102,241,0.3)":"#D5D4CE"),background:isEd?"rgba(99,102,241,0.06)":ch?"rgba(99,102,241,0.03)":"#FAFAF8",cursor:"pointer",textAlign:"center",position:"relative",borderLeft:isBarStart&&bi>0?"2px solid #D0CFc8":undefined}},
-          ch?React.createElement("div",{style:{fontSize:11,fontWeight:600,color:ac,fontFamily:"'Instrument Serif',serif",lineHeight:1.2}},ch):React.createElement("div",{style:{fontSize:8,color:"#BBB",fontFamily:"'Inter',sans-serif"}},"+"),
-          React.createElement("div",{style:{fontSize:7,color:"#BBB",fontFamily:"monospace",lineHeight:1}},beatNum));})),
-    chEd!==null&&React.createElement("div",{style:{background:"rgba(99,102,241,0.03)",border:"1px solid rgba(99,102,241,0.12)",borderRadius:10,padding:8}},
-      // Root row
-      React.createElement("div",{style:{display:"flex",gap:3,marginBottom:6,flexWrap:"wrap"}},["C","D","E","F","G","A","B","Bb","Eb","Ab","Db","F#"].map(function(r){return React.createElement("button",{key:r,onClick:function(){sChRoot(r);},style:{padding:"2px 7px",borderRadius:5,border:"none",cursor:"pointer",fontSize:11,fontFamily:"'Instrument Serif',serif",fontWeight:600,background:chRoot===r?"rgba(99,102,241,0.1)":"#F0EFE8",color:chRoot===r?ac:"#666"}},r);})),
-      // Category tabs
-      React.createElement("div",{style:{display:"flex",gap:2,marginBottom:5}},CHORD_HIER.map(function(cat){
-        var isSel=chCat===cat.id;
-        return React.createElement("button",{key:cat.id,onClick:function(){sChCat(cat.id);sChQual(cat.def);},style:{flex:1,padding:"4px 2px",borderRadius:6,border:isSel?"1.5px solid "+ac:"1px solid #E0DFD8",cursor:"pointer",fontSize:10,fontWeight:isSel?700:500,fontFamily:"'Inter',sans-serif",background:isSel?"rgba(99,102,241,0.08)":"#F5F4F0",color:isSel?ac:mu,transition:"all 0.15s"}},cat.label);
-      })),
-      // Quality chips for selected category
-      React.createElement("div",{style:{display:"flex",gap:3,marginBottom:6,flexWrap:"wrap"}},(function(){
-        var cat=CHORD_HIER.find(function(c){return c.id===chCat;});
-        if(!cat)return null;
-        return cat.quals.map(function(qo){
-          var isSel=chQual===qo.q;
-          return React.createElement("button",{key:qo.q,onClick:function(){sChQual(qo.q);},style:{padding:"3px 8px",borderRadius:6,border:isSel?"1.5px solid "+ac:"1px solid #E8E7E3",cursor:"pointer",fontSize:10,fontFamily:"'JetBrains Mono',monospace",fontWeight:isSel?700:500,background:isSel?"rgba(99,102,241,0.08)":"#FAFAF8",color:isSel?ac:"#666",transition:"all 0.12s"}},qo.l);});
-      })()),
-      // Preview + Set/Delete/Cancel
-      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
-        React.createElement("span",{style:{fontSize:14,color:ac,fontFamily:"'Instrument Serif',serif",fontWeight:600}},chRoot+(chQual||"")),
-        React.createElement("button",{onClick:function(){var nc=Object.assign({},chords);nc[chEd]=chRoot+(chQual||"");mutate(items,nc);sChEd(null);},style:{padding:"4px 12px",borderRadius:7,border:"none",background:ac,color:"#fff",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},"Set"),
-        chords[chEd]&&React.createElement("button",{onClick:function(){var nc=Object.assign({},chords);delete nc[chEd];mutate(items,nc);sChEd(null);},style:{padding:"4px 10px",borderRadius:7,border:"1px solid #E0DFD8",background:"#F5F4F0",color:"#E53935",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},"\u2715"),
-        React.createElement("button",{onClick:function(){sChEd(null);},style:{padding:"4px 10px",borderRadius:7,border:"1px solid #E0DFD8",background:"#F5F4F0",color:mu,fontSize:10,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},"Cancel"))));
+  // Chord lane — new timeline component
+  var chordLaneEl=React.createElement(ChordTimeline,{chords:chords,onChordsChange:function(nc){sChords(nc);pushHist(items,nc);},totalBeats:totalBeats,tsN:tsN,th:th});
 
   return React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:8}},
     // 1. Notation preview (always visible, on top)
@@ -5056,7 +5277,7 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
             edInstOff!==0&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",background:isStudio?"rgba(34,216,158,0.06)":"rgba(99,102,241,0.04)",borderRadius:8,border:"1px solid "+(isStudio?"rgba(34,216,158,0.15)":"rgba(99,102,241,0.1)")}},
               React.createElement("span",{style:{fontSize:10,color:isStudio?"#22D89E":t.accent,fontFamily:"'Inter',sans-serif"}},"Entering for "+userInst+" \u2014 will be saved in concert pitch")),
             React.createElement("div",{style:{borderRadius:12,padding:14,border:"1px solid "+t.border}},
-              React.createElement(NoteBuilder,{onAbcChange:sAbc,keySig,timeSig,tempo:parseInt(tempo)||120,noteClickRef:noteClickRef,onSelChange:setEdSelIdx,deselectRef:deselectRef,previewOffset:-edInstOff,
+              React.createElement(NoteBuilder,{onAbcChange:sAbc,keySig,timeSig,tempo:parseInt(tempo)||120,noteClickRef:noteClickRef,onSelChange:setEdSelIdx,deselectRef:deselectRef,previewOffset:-edInstOff,th:t,
                 previewEl:hasNotes?React.createElement("div",{style:{marginBottom:4}},
                   React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}},
                     React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,fontWeight:600}},"PREVIEW"),
