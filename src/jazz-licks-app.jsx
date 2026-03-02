@@ -1338,17 +1338,22 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
   const t=th||TH.classic;
   useEffect(()=>{if(!ok||!ref.current||!window.ABCJS)return;
     prevNoteRef.current=-1;
-    // Lock current height before re-render to prevent layout shift
     var el=ref.current;var prevH=el.offsetHeight;if(prevH>0)el.style.minHeight=prevH+"px";
-    // Count bars to force stable line breaks across transpositions
     var barInfo=getBarInfo(abc);var nBars=barInfo.nBars;
-    // Force all bars on one line if <=4, otherwise 4 per line — deterministic
     var mpl=nBars<=4?nBars:4;
-    const opts={responsive:"resize",paddingtop:focus?14:theoryMode?18:2,paddingbottom:theoryMode?28:(focus?14:2),paddingleft:0,paddingright:0,add_classes:true};
+    var editorMode=!!onChordClick;
+    // Inject barsperstaff directive for editor mode
+    var renderAbc=abc;
+    if(editorMode){
+      // Insert %%barsperstaff 2 before K: line
+      renderAbc=abc.replace(/(K:[^\n]*)/,"%%barsperstaff 2\n$1");
+    }
+    const opts={responsive:"resize",paddingtop:editorMode?28:(focus?14:theoryMode?18:2),paddingbottom:theoryMode?28:(focus?14:2),paddingleft:0,paddingright:0,add_classes:true};
     if(compact){opts.staffwidth=400;opts.scale=0.85;}
+    else if(editorMode){opts.staffwidth=460;opts.scale=1.1;opts.wrap={minSpacing:1.0,maxSpacing:2.8,preferredMeasuresPerLine:2};}
     else if(focus){opts.staffwidth=500;opts.scale=1.5;opts.wrap={minSpacing:1.0,maxSpacing:2.0,preferredMeasuresPerLine:2};}
     else{opts.staffwidth=420;opts.scale=1.0;opts.wrap={minSpacing:1.0,maxSpacing:1.8,preferredMeasuresPerLine:mpl};}
-    try{window.ABCJS.renderAbc(ref.current,abc,opts);}catch(e){}
+    try{window.ABCJS.renderAbc(ref.current,renderAbc,opts);}catch(e){}
     // Release height lock after paint (double-rAF ensures browser has painted)
     requestAnimationFrame(function(){requestAnimationFrame(function(){if(el)el.style.minHeight="";});});
     if(!ref.current)return;const svg=ref.current.querySelector("svg");if(!svg)return;
@@ -1358,7 +1363,7 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
     svg.querySelectorAll(".abcjs-staff-extra path").forEach(p=>{p.setAttribute("stroke",isStudio?t.staffStroke:t.muted);p.setAttribute("fill",isStudio?t.staffStroke:t.muted);p.setAttribute("stroke-width","0.6");});
     svg.querySelectorAll(".abcjs-bar path").forEach(p=>{p.setAttribute("stroke",t.barStroke);p.setAttribute("stroke-width","0.8");});
     svg.querySelectorAll("text").forEach(p=>p.setAttribute("fill",t.metaFill));
-    svg.querySelectorAll("text.abcjs-chord").forEach(p=>{p.setAttribute("fill",t.chordFill);p.style.fontSize=isStudio?"14px":"12px";p.style.fontWeight=isStudio?"600":"400";if(isStudio)p.style.filter="drop-shadow(0 0 4px "+t.chordFill+"50)";});
+    svg.querySelectorAll("text.abcjs-chord").forEach(p=>{p.setAttribute("fill",t.chordFill);p.style.fontSize=editorMode?"16px":(isStudio?"14px":"12px");p.style.fontWeight=editorMode?"700":(isStudio?"600":"400");p.style.fontFamily="'JetBrains Mono',monospace";if(isStudio)p.style.filter="drop-shadow(0 0 4px "+t.chordFill+"50)";});
     svg.querySelectorAll(".abcjs-title,.abcjs-meta-top").forEach(el=>el.style.display="none");
     const noteEls=svg.querySelectorAll(".abcjs-note");if(!noteEls.length)return;
     const fracs=getNoteTimeFracs(abc);
@@ -2135,7 +2140,7 @@ function chordBlockColor(name){
 }
 function e2s(e){if(e===1)return"";if(e===0.5)return"/2";if(e===0.75)return"3/4";if(e===1.5)return"3/2";if(e===3)return"3";if(e===6)return"6";if(e===12)return"12";if(Number.isInteger(e))return String(e);return String(Math.round(e*2))+"/2";}
 var KEY_SIG_ACC={"C":{},"G":{F:1},"D":{F:1,C:1},"A":{F:1,C:1,G:1},"E":{F:1,C:1,G:1,D:1},"B":{F:1,C:1,G:1,D:1,A:1},"F#":{F:1,C:1,G:1,D:1,A:1,E:1},"Gb":{B:-1,E:-1,A:-1,D:-1,G:-1,C:-1},"F":{B:-1},"Bb":{B:-1,E:-1},"Eb":{B:-1,E:-1,A:-1},"Ab":{B:-1,E:-1,A:-1,D:-1},"Db":{B:-1,E:-1,A:-1,D:-1,G:-1}};
-function buildAbc(items,keySig,timeSig,tempo,chords){const[tsN,tsD]=timeSig.split("/").map(Number);const bE=tsN*(8/tsD);const beatE=8/tsD;
+function buildAbc(items,keySig,timeSig,tempo,chords,minBars){const[tsN,tsD]=timeSig.split("/").map(Number);const bE=tsN*(8/tsD);const beatE=8/tsD;
   // Beam break positions within a bar (in eighths)
   // 4/4: break at half-bar (beat 3) = position 4
   // 3/4: break at each beat = 2, 4
@@ -2249,7 +2254,21 @@ function buildAbc(items,keySig,timeSig,tempo,chords){const[tsN,tsD]=timeSig.spli
     if(item.type==="rest")abc+="z"+e2s(ei);
     else abc+=emitNote(item,ei,barAlts,hasTie);
     pos+=effEi;nc++;}
-  if(nc>0)abc+=" |";return abc;}
+  if(nc>0)abc+=" |";
+  // Pad to minBars with full-bar rests
+  if(minBars&&minBars>0){
+    var currentBars=0;
+    if(nc>0){currentBars=Math.ceil(pos/bE);if(pos>0&&pos%bE<0.01)currentBars=Math.round(pos/bE);if(currentBars<1)currentBars=1;}
+    var restStr="z"+String(bE);// whole bar rest in eighths
+    while(currentBars<minBars){
+      var barStart=currentBars*tsN;
+      var barChord="";
+      for(var cb=0;cb<tsN;cb++){if(chObj[barStart+cb]&&!emittedCh[barStart+cb]){barChord+='"'+chObj[barStart+cb]+'"';emittedCh[barStart+cb]=true;}}
+      abc+=" "+barChord+restStr+" |";
+      currentBars++;
+    }
+  }
+  return abc;}
 function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteClickRef,onSelChange,deselectRef,previewOffset,th,chordClickRef}){
   const[items,sIt]=useState([]);const[cO,sCO]=useState(4);const[cD,sCD]=useState(2);const[dt,sDt]=useState(false);const[tri,sTri]=useState(false);
   const[chords,sChords]=useState({});
@@ -2300,9 +2319,7 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteCl
     return cO;
   };
 
-  // ABC generation
-  var currentAbc=useMemo(function(){return buildAbc(items,keySig,timeSig,tempo,chords);},[items,keySig,timeSig,tempo,chords]);
-  useEffect(function(){onAbcChange(currentAbc);},[currentAbc]);
+  // ABC generation & auto-scroll
   // Auto-scroll note strip
   useEffect(function(){if(sR.current&&selIdx===null)sR.current.scrollLeft=sR.current.scrollWidth;},[items]);
   // Scroll to selected note
@@ -2315,6 +2332,10 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteCl
   const[tsN,tsD]=timeSig.split("/").map(Number);const bE=tsN*(8/tsD);const beatE=8/tsD;
   var tE=0;for(var ii=0;ii<items.length;ii++){var it=items[ii];if(it.type==="note"||it.type==="rest")tE+=DURS[it.dur].eighths*(it.dotted?1.5:1)*(it.tri?2/3:1);}
   const totalBeats=Math.max(tsN,Math.ceil(tE/beatE));
+  // Min bars for editor padding (always even, at least 2)
+  var rawBars=Math.ceil(tE/bE)||0;var edMinBars=Math.max(2,rawBars%2===0?rawBars:rawBars+1);
+  var currentAbc=useMemo(function(){return buildAbc(items,keySig,timeSig,tempo,chords,edMinBars);},[items,keySig,timeSig,tempo,chords,edMinBars]);
+  useEffect(function(){onAbcChange(currentAbc);},[currentAbc]);
 
   // Add note (append or edit selected)
   const addNote=function(n,acc,explOct){
