@@ -271,7 +271,7 @@ const SAMPLE_LICKS = [  { id:1, title:"Classic Charlie Parker ii-V-I", artist:"C
 // ============================================================
 function dbToLick(row) {
   var profile = row.profiles || {};
-  var displayName = profile.display_name || profile.username || row.username || 'Anonymous';
+  var displayName = profile.username || row.username || 'Anonymous';
   return {
     id: row.id,
     title: row.title,
@@ -6885,19 +6885,28 @@ function Onboarding({onComplete, th}) {
   var step = _step[0], setStep = _step[1];
   var _name = useState("");
   var name = _name[0], setName = _name[1];
+  var _handle = useState("");
+  var handle = _handle[0], setHandle = _handle[1];
   var _inst = useState(null);
   var inst = _inst[0], setInst = _inst[1];
   var _level = useState(null);
   var level = _level[0], setLevel = _level[1];
   var _saving = useState(false);
   var saving = _saving[0], setSaving = _saving[1];
+  var _handleErr = useState("");
+  var handleErr = _handleErr[0], setHandleErr = _handleErr[1];
 
-  var canNext = step === 0 ? name.trim().length > 0 : step === 1 ? inst !== null : level !== null;
+  var handleOk = /^[a-zA-Z0-9_]{2,30}$/.test(handle.trim());
+  var canNext = step === 0 ? (name.trim().length > 0 && handleOk) : step === 1 ? inst !== null : level !== null;
 
   var handleNext = function() {
+    if (step === 0) {
+      if (!handleOk) { setHandleErr("2-30 characters, letters/numbers/_ only"); return; }
+      setHandleErr(""); setStep(1); return;
+    }
     if (step < 2) { setStep(step + 1); return; }
     setSaving(true);
-    onComplete({ display_name: name.trim(), instrument: inst, level: level });
+    onComplete({ display_name: name.trim(), username: handle.trim().toLowerCase(), instrument: inst, level: level });
   };
 
   var handleBack = function() {
@@ -6939,25 +6948,47 @@ function Onboarding({onComplete, th}) {
       // Dots
       dots,
 
-      // ─── Screen 0: Name ───
+      // ─── Screen 0: Name + Handle ───
       step === 0 && React.createElement("div", null,
         React.createElement("div", {
           style: { fontSize: 20, fontWeight: 700, color: t.text, fontFamily: "'Inter',sans-serif", textAlign: "center", marginBottom: 6 }
-        }, "What\u2019s your name?"),
+        }, "Create your profile"),
         React.createElement("div", {
           style: { fontSize: 13, color: t.muted, fontFamily: "'Inter',sans-serif", textAlign: "center", marginBottom: 24 }
-        }, "This is how other musicians will see you"),
-        React.createElement("input", {
-          type: "text", placeholder: "Your name", value: name, autoFocus: true,
-          onChange: function(e) { setName(e.target.value); },
-          onKeyDown: function(e) { if (e.key === "Enter" && canNext) handleNext(); },
-          style: {
-            width: "100%", padding: "16px", borderRadius: 14, fontSize: 16, textAlign: "center",
-            border: "2px solid " + (name ? t.accent : t.border), background: t.inputBg || t.filterBg,
-            color: t.text, fontFamily: "'Inter',sans-serif", outline: "none",
-            boxSizing: "border-box", transition: "border-color 0.15s"
-          }
-        })),
+        }, "How other musicians will see you"),
+        React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 } },
+          React.createElement("div", null,
+            React.createElement("div", { style: { fontSize: 10, fontWeight: 600, color: t.muted, fontFamily: "'Inter',sans-serif", letterSpacing: 0.5, marginBottom: 6, textTransform: "uppercase" } }, "Full Name"),
+            React.createElement("input", {
+              type: "text", placeholder: "Your name", value: name, autoFocus: true,
+              onChange: function(e) { setName(e.target.value); },
+              style: {
+                width: "100%", padding: "14px 16px", borderRadius: 12, fontSize: 15,
+                border: "2px solid " + (name ? t.accent : t.border), background: t.inputBg || t.filterBg,
+                color: t.text, fontFamily: "'Inter',sans-serif", outline: "none",
+                boxSizing: "border-box", transition: "border-color 0.15s"
+              }
+            })),
+          React.createElement("div", null,
+            React.createElement("div", { style: { fontSize: 10, fontWeight: 600, color: t.muted, fontFamily: "'Inter',sans-serif", letterSpacing: 0.5, marginBottom: 6, textTransform: "uppercase" } }, "@Handle"),
+            React.createElement("div", { style: { position: "relative" } },
+              React.createElement("span", { style: { position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: t.subtle, fontSize: 15, pointerEvents: "none" } }, "@"),
+              React.createElement("input", {
+                type: "text", placeholder: "yourhandle", value: handle,
+                onChange: function(e) { setHandle(e.target.value.replace(/[^a-zA-Z0-9_]/g, "").toLowerCase()); setHandleErr(""); },
+                onKeyDown: function(e) { if (e.key === "Enter" && canNext) handleNext(); },
+                style: {
+                  width: "100%", paddingLeft: 28, paddingRight: 16, paddingTop: 14, paddingBottom: 14,
+                  borderRadius: 12, fontSize: 15,
+                  border: "2px solid " + (handleErr ? "#EF4444" : handle && handleOk ? t.accent : t.border),
+                  background: t.inputBg || t.filterBg,
+                  color: t.text, fontFamily: "'Inter',sans-serif", outline: "none",
+                  boxSizing: "border-box", transition: "border-color 0.15s"
+                }
+              })),
+            handleErr && React.createElement("div", { style: { fontSize: 11, color: "#EF4444", fontFamily: "'Inter',sans-serif", marginTop: 4 } }, handleErr),
+            !handleErr && React.createElement("div", { style: { fontSize: 10, color: t.subtle, fontFamily: "'Inter',sans-serif", marginTop: 4 } }, "2-30 characters · letters, numbers, _"))
+        )),
 
       // ─── Screen 1: Instrument ───
       step === 1 && React.createElement("div", null,
@@ -7314,7 +7345,7 @@ export default function Etudy(){
   };
   var handleOnboardingComplete=function(data){
     if(!authUser)return;
-    updateProfile(authUser.id,{...data, onboarding_done:true}).then(function(p){
+    updateProfile(authUser.id,{...data, username: data.username||null, onboarding_done:true}).then(function(p){
       setAuthProfile(p);
       setShowOnboarding(false);
       var transMap={"Alto Sax":"Alto Sax","Tenor Sax":"Tenor Sax","Trumpet":"Bb Trumpet","Clarinet":"Clarinet","Trombone":"Trombone","Flute":"Flute"};
@@ -7509,7 +7540,7 @@ export default function Etudy(){
   const fl=srcLicks.filter(l=>{if(lickSource==="community"&&dailyLick&&l.id===dailyLick.id)return false;if(inst!=="All"&&l.instrument!==inst)return false;if(cat!=="All"&&l.category!==cat)return false;if(sq){const q=sq.toLowerCase();return l.title.toLowerCase().includes(q)||l.artist.toLowerCase().includes(q)||l.key.toLowerCase().includes(q)||(l.tune||"").toLowerCase().includes(q)||(l.tags||[]).some(tg2=>tg2.includes(q));}return true;});
   const addLick=d=>{
     if(!authUser){setShowLogin(true);return;}
-    const realUser=authProfile?.display_name||authProfile?.username||authUser?.email?.split("@")[0]||"Anonymous";
+    const realUser=authProfile?.username||authUser?.email?.split("@")[0]||"Anonymous";
     const temp={...d,id:Date.now(),likes:0,user:realUser,userId:authUser.id,tags:d.tags||[]};
     sL([temp,...licks]);sSE(false);openLick(temp);
     insertLick({...d,user:realUser,userId:authUser.id}).then(real=>{
@@ -7517,7 +7548,7 @@ export default function Etudy(){
     });
   };
   const addPrivateLick=d=>{
-    const realUser=authProfile?.display_name||authProfile?.username||authUser?.email?.split("@")[0]||"Anonymous";
+    const realUser=authProfile?.username||authUser?.email?.split("@")[0]||"Anonymous";
     const n={...d,id:Date.now(),likes:0,user:realUser,tags:d.tags||[],private:true};
     setMyLicks(prev=>{const u=[n,...prev];const g=getStg();if(g)g.set("etudy:myLicks",JSON.stringify(u)).catch(()=>{});return u;});
     sSE(false);setLickSource("mine");openLick(n);};
