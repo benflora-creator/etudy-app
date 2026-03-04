@@ -2087,6 +2087,7 @@ function ChordTimeline(props){
   var s5=ST("dom"),pCat=s5[0],setPCat=s5[1];
   var s6=ST("7"),pQual=s6[0],setPQual=s6[1];
   var s7=ST([]),pTens=s7[0],setPTens=s7[1];
+  var s8=ST(false),expanded=s8[0],setExpanded=s8[1];
 
   var barsPerRow=2;var beatsPerRow=barsPerRow*tsN;
   var numRows=Math.ceil(effBars/barsPerRow);
@@ -2120,27 +2121,27 @@ function ChordTimeline(props){
   // === CRUD ===
   var addChordAt=function(beat){
     setPRoot("C");setPCat("dur");setPQual("");setPTens([]);setPStep(0);
-    setEditIsNew(true);setEditBeat(beat);
+    setEditIsNew(true);setEditBeat(beat);setExpanded(true);
   };
   var openEdit=function(beat){
     if(editBeat===beat){cancelEdit();return;}
     var name=chords[beat]||"";
     parseName(name);setPStep(0);
-    setEditIsNew(false);setEditBeat(beat);
+    setEditIsNew(false);setEditBeat(beat);setExpanded(true);
   };
   var confirmChord=function(){
     if(editBeat<0)return;
     var name=buildName();
     if(!name)return;
     var nc=Object.assign({},chords);nc[editBeat]=name;
-    onChordsChange(nc);setEditBeat(-1);setEditIsNew(false);
+    onChordsChange(nc);setEditBeat(-1);setEditIsNew(false);setExpanded(false);
   };
   var deleteChord=function(){
     if(editBeat<0||editIsNew)return;
     var nc=Object.assign({},chords);delete nc[editBeat];
-    onChordsChange(nc);setEditBeat(-1);setEditIsNew(false);
+    onChordsChange(nc);setEditBeat(-1);setEditIsNew(false);setExpanded(false);
   };
-  var cancelEdit=function(){setEditBeat(-1);setEditIsNew(false);};
+  var cancelEdit=function(){setEditBeat(-1);setEditIsNew(false);setExpanded(false);};
 
   // === Render rows ===
   var pickerOpen=editBeat>=0;
@@ -2295,11 +2296,43 @@ function ChordTimeline(props){
     }
   }
 
-  return React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:4}},
-    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:2}},
-      React.createElement("span",{style:{fontSize:9,color:isStudio?"#777":"#666",fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,fontWeight:600}},"CHORDS"),
-      cBeats.length>0?React.createElement("span",{style:{fontSize:8,color:isStudio?"#555":"#999",fontFamily:"'Inter',sans-serif"}},"tap beat to add \u00B7 tap chord to edit"):null),
-    rows);
+  // === Compact collapsed view ===
+  var sortedBeats=cBeats.slice().sort(function(a,b){return a-b;});
+  var compactEl=React.createElement("div",{onClick:function(){setExpanded(true);},
+    style:{display:"flex",alignItems:"center",gap:0,cursor:"pointer",height:24,
+      borderRadius:6,overflow:"hidden",background:isStudio?"#ffffff05":"#F2F1EC",
+      border:"1px solid "+(isStudio?"#ffffff10":"#D8D7D0")}},
+    // Render beat slots compactly
+    (function(){
+      var chips=[];
+      for(var bi2=0;bi2<endBeat;bi2++){
+        var nm2=chords[bi2];var isBar2=bi2%tsN===0;
+        if(nm2){
+          var cl2=chordBlockColor(nm2);
+          chips.push(React.createElement("div",{key:bi2,style:{flex:1,display:"flex",alignItems:"center",justifyContent:"center",
+            height:"100%",background:cl2+"0C",
+            borderLeft:bi2>0?"1px solid "+(isBar2?(isStudio?"#ffffff20":"#C5C4BE"):(isStudio?"#ffffff0C":"#E0DFD8")):"none"}},
+            React.createElement("span",{style:{fontSize:nm2.length>4?8:10,fontWeight:700,color:cl2,
+              fontFamily:"'JetBrains Mono',monospace",letterSpacing:-0.3}},nm2)));
+        }else{
+          chips.push(React.createElement("div",{key:bi2,style:{flex:1,height:"100%",
+            borderLeft:bi2>0?"1px solid "+(isBar2?(isStudio?"#ffffff20":"#C5C4BE"):(isStudio?"#ffffff0C":"#E0DFD8")):"none"}}));
+        }
+      }
+      return chips;
+    })());
+
+  var isOpen=expanded||editBeat>=0;
+
+  return React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:2}},
+    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:1}},
+      React.createElement("span",{onClick:function(){setExpanded(!isOpen);if(isOpen&&editBeat>=0){setEditBeat(-1);setEditIsNew(false);}},
+        style:{fontSize:9,color:isStudio?"#777":"#666",fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,fontWeight:600,cursor:"pointer",userSelect:"none"}},"CHORDS"),
+      React.createElement("span",{onClick:function(){setExpanded(!isOpen);if(isOpen&&editBeat>=0){setEditBeat(-1);setEditIsNew(false);}},
+        style:{fontSize:9,color:isStudio?"#555":"#999",cursor:"pointer",userSelect:"none",transition:"transform 0.2s",
+          transform:isOpen?"rotate(90deg)":"rotate(0deg)"}},"\u25B6"),
+      isOpen&&cBeats.length>0?React.createElement("span",{style:{fontSize:8,color:isStudio?"#555":"#999",fontFamily:"'Inter',sans-serif"}},"tap beat to add \u00B7 tap chord to edit"):null),
+    isOpen?rows:compactEl);
 }
 
 
