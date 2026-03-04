@@ -270,6 +270,9 @@ const SAMPLE_LICKS = [  { id:1, title:"Classic Charlie Parker ii-V-I", artist:"C
 // SUPABASE HELPERS
 // ============================================================
 function dbToLick(row) {
+  // Prefer live profile data (from join) over stored username snapshot
+  var profile = row.profiles || {};
+  var displayName = profile.display_name || profile.username || row.username || 'Anonymous';
   return {
     id: row.id,
     title: row.title,
@@ -284,7 +287,8 @@ function dbToLick(row) {
     youtubeStart: row.youtube_start || 0,
     spotifyId: row.spotify_id || null,
     likes: row.likes || 0,
-    user: row.username || 'Anonymous',
+    user: displayName,
+    userId: row.user_id || null,
     tags: row.tags || [],
     description: row.description || '',
     feel: row.feel || 'straight',
@@ -311,6 +315,7 @@ function lickToDb(d) {
     reports: 0,
     status: 'approved',
     username: d.user || 'Anonymous',
+    user_id: d.userId || null,
     tags: d.tags || [],
     description: d.description || '',
   };
@@ -319,7 +324,7 @@ async function fetchLicks() {
   try {
     const { data, error } = await supabase
       .from('licks')
-      .select('*')
+      .select('*, profiles(display_name, username)')
       .neq('status','reported')
       .order('created_at', { ascending: false });
     if (error) throw error;
@@ -429,13 +434,24 @@ async function fetchPublicProfile(userId) {
 
 async function fetchPublicLicksByUser(username) {
   try {
-    const { data, error } = await supabase
+    // First resolve username -> user_id via profiles
+    const { data: prof } = await supabase
+      .from('profiles')
+      .select('id')
+      .or('username.eq.' + username + ',display_name.eq.' + username)
+      .single();
+    var query = supabase
       .from('licks')
-      .select('*')
-      .eq('username', username)
+      .select('*, profiles(display_name, username)')
       .neq('status', 'reported')
       .neq('status', 'private')
       .order('created_at', { ascending: false });
+    if (prof && prof.id) {
+      query = query.eq('user_id', prof.id);
+    } else {
+      query = query.eq('username', username);
+    }
+    const { data, error } = await query;
     if (error) throw error;
     return data.map(dbToLick);
   } catch (e) {
@@ -7313,12 +7329,12 @@ export default function Etudy(){
     if(!authUser)throw new Error("Not logged in");
     var p=await updateProfile(authUser.id,data);
     setAuthProfile(p);
-    // If instrument changed, sync transposition
     if(data.instrument){
       var transMap={"Alto Sax":"Alto Sax","Tenor Sax":"Tenor Sax","Trumpet":"Bb Trumpet","Clarinet":"Clarinet","Trombone":"Trombone","Flute":"Flute"};
       var mapped=transMap[data.instrument];
       if(mapped){setUserInst(mapped);var g=getStg();if(g)g.set("etudy:userInst",mapped).catch(function(){});}
     }
+    fetchLicks().then(function(fresh){if(fresh&&fresh.length>0)sL(fresh);});
   };
   var handleLogout=function(){
     signOut().then(function(){
@@ -7495,9 +7511,9 @@ export default function Etudy(){
   const addLick=d=>{
     if(!authUser){setShowLogin(true);return;}
     const realUser=authProfile?.display_name||authProfile?.username||authUser?.email?.split("@")[0]||"Anonymous";
-    const temp={...d,id:Date.now(),likes:0,user:realUser,tags:d.tags||[]};
+    const temp={...d,id:Date.now(),likes:0,user:realUser,userId:authUser.id,tags:d.tags||[]};
     sL([temp,...licks]);sSE(false);openLick(temp);
-    insertLick({...d,user:realUser}).then(real=>{
+    insertLick({...d,user:realUser,userId:authUser.id}).then(real=>{
       if(real)sL(prev=>prev.map(l=>l.id===temp.id?real:l));
     });
   };
