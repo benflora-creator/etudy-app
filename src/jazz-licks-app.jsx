@@ -5327,7 +5327,7 @@ function PolyrhythmTrainer({th,sharedInput,sharedMicSilent}){
 // EDITOR — themed
 // ============================================================
 function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.classic;const isStudio=t===TH.studio;
-  const[title,sT]=useState("");const[artist,sA]=useState("");const[tune,sTune]=useState("");const[inst,sI]=useState("Alto Sax");const[cat,sC]=useState("ii-V-I");const[keySig,sK]=useState("C");const[timeSig,sTS]=useState("4/4");const[tempo,sTm]=useState("120");const[abc,sAbc]=useState("X:1\nT:My Lick\nM:4/4\nL:1/8\nQ:1/4=120\nK:C\n");const[feel,setFeel]=useState("straight");const[yu,sYu]=useState("");const[tm,sTmn]=useState("");const[ts,sTs]=useState("");const[sp,sSp]=useState("");const[desc,sD]=useState("");const[tags,sTg]=useState("");
+  const[artist,sA]=useState("");const[tune,sTune]=useState("");const[inst,sI]=useState("Alto Sax");const[cat,sC]=useState("ii-V-I");const[keySig,sK]=useState("C");const[timeSig,sTS]=useState("4/4");const[tempo,sTm]=useState("120");const[abc,sAbc]=useState("X:1\nT:My Lick\nM:4/4\nL:1/8\nQ:1/4=120\nK:C\n");const[feel,setFeel]=useState("straight");const[yu,sYu]=useState("");const[tm,sTmn]=useState("");const[ts,sTs]=useState("");const[sp,sSp]=useState("");const[desc,sD]=useState("");const[tags,sTg]=useState("");
   const edCurNoteRef=useRef(-1);
   const noteClickRef=useRef(null);
   const deselectRef=useRef(null);
@@ -5381,12 +5381,14 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
   const KEYS=["C","Db","D","Eb","E","F","F#","G","Ab","A","Bb","B"];const TS=["4/4","3/4","6/8","5/4","7/8"];const yt=parseYT(yu);const tSec=(parseInt(tm)||0)*60+(parseInt(ts)||0);
   const lb={fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5,display:"block",marginBottom:4};
   const ip={width:"100%",background:t.inputBg,border:"1px solid "+t.inputBorder,borderRadius:10,padding:"10px 14px",color:t.text,fontSize:14,fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"};
-  const hasNotes=abc.split("\n").length>6||abc.includes("|");
   const noteCount=useMemo(()=>countAbcNotes(abc),[abc]);
-  const titleOk=title.trim().length>=3;
   const artistOk=artist.trim().length>=1;
   const notesOk=noteCount>=4;
-  const canPublish=titleOk&&artistOk&&notesOk;
+  const canPublish=artistOk&&notesOk;
+  // Auto-generate title: "Charlie Parker ii-V-I over Confirmation"
+  var autoTitle=artist.trim();
+  if(cat&&cat!=="All")autoTitle+=" "+cat;
+  if(tune.trim())autoTitle+=" over "+tune.trim();
 
   // Compact select helper
   const cSel=(val,opts,onChange,w)=>React.createElement("select",{value:val,onChange:e=>onChange(e.target.value),style:{background:t.inputBg,border:"1px solid "+t.inputBorder,borderRadius:8,padding:"7px 6px",color:t.text,fontSize:12,fontFamily:"'Inter',sans-serif",outline:"none",appearance:"none",cursor:"pointer",width:w||"auto",textAlign:"center"}},opts.map(o=>React.createElement("option",{key:o,value:o,style:{background:t.card}},o)));
@@ -5395,7 +5397,7 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
   const feelBtns=["straight","swing","hard-swing"].map(v=>React.createElement("button",{key:v,onClick:()=>setFeel(v),style:{padding:"6px 10px",borderRadius:7,border:feel===v?"1.5px solid "+t.accent:"1px solid "+t.border,background:feel===v?(isStudio?t.accentBg:t.accent+"10"):t.inputBg,color:feel===v?t.accent:t.muted,fontSize:10,fontWeight:feel===v?600:400,fontFamily:"'Inter',sans-serif",cursor:"pointer",transition:"all 0.15s",whiteSpace:"nowrap"}},v==="straight"?"Straight":v==="swing"?"Swing":"Hard Swing"));
 
   // Submit data builder
-  const buildData=()=>({title,artist,tune,instrument:inst,category:cat,key:concertKey,tempo:parseInt(tempo),feel,abc:concertAbc,chords:chordsRef.current||{},youtubeId:yt.videoId,youtubeStart:tSec,spotifyId:parseSpotify(sp),description:desc,tags:tags.split(",").map(tg2=>tg2.trim()).filter(Boolean)});
+  const buildData=()=>({title:autoTitle,artist,tune,instrument:inst,category:cat,key:concertKey,tempo:parseInt(tempo),feel,abc:concertAbc,chords:chordsRef.current||{},youtubeId:yt.videoId,youtubeStart:tSec,spotifyId:parseSpotify(sp),description:desc,tags:tags.split(",").map(tg2=>tg2.trim()).filter(Boolean)});
 
   // Check bar completeness before publishing
   var tryPublish=function(mode){
@@ -5416,7 +5418,7 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
   };
 
   // Step validation
-  var step1Ok=titleOk&&artistOk;
+  var step1Ok=artistOk;
   var step2Ok=notesOk;
   var stepLabels=["About","Notes","Finish"];
 
@@ -5425,8 +5427,7 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
   if(edStep>=1){
     var parts=[];
     if(keySig)parts.push(keySig);if(timeSig)parts.push(timeSig);if(tempo)parts.push("\u2669"+tempo);if(feel!=="straight")parts.push(feel);
-    if(title.trim())parts.push("\u2014 "+title.trim());
-    if(artist.trim())parts.push("("+artist.trim()+")");
+    if(artist.trim())parts.push("\u2014 "+autoTitle);
     summaryParts.push(parts.join(" "));
   }
   if(edStep>=2&&noteCount>0){
@@ -5480,25 +5481,24 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
               React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"monospace",fontWeight:600}},"Feel"),
               feelBtns)),
           // Describe
-          React.createElement("div",{style:{background:t.card,borderRadius:14,padding:"16px",border:"1px solid "+(titleOk&&artistOk?t.accentBorder:t.border),transition:"border-color 0.3s"}},
+          React.createElement("div",{style:{background:t.card,borderRadius:14,padding:"16px",border:"1px solid "+(artistOk?t.accentBorder:t.border),transition:"border-color 0.3s"}},
             React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:12}},
               React.createElement("div",null,
-                React.createElement("label",{style:lb},"TITLE *"),
-                React.createElement("input",{style:{...ip,fontSize:16,fontWeight:600,padding:"12px 14px"},value:title,onChange:e=>sT(e.target.value),placeholder:'e.g. "Bird\'s ii-V-I in C"'})),
-              React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}},
-                React.createElement("div",null,
-                  React.createElement("label",{style:lb},"ARTIST *"),
-                  React.createElement("input",{style:ip,value:artist,onChange:e=>sA(e.target.value),placeholder:"Charlie Parker"})),
-                React.createElement("div",null,
-                  React.createElement("label",{style:lb},"TUNE"),
-                  React.createElement("input",{style:ip,value:tune,onChange:e=>sTune(e.target.value),placeholder:"Confirmation"}))),
+                React.createElement("label",{style:lb},"ARTIST *"),
+                React.createElement("input",{style:{...ip,fontSize:16,fontWeight:600,padding:"12px 14px"},value:artist,onChange:e=>sA(e.target.value),placeholder:"Charlie Parker"})),
+              React.createElement("div",null,
+                React.createElement("label",{style:lb},"TUNE"),
+                React.createElement("input",{style:{...ip,fontSize:14,padding:"10px 14px"},value:tune,onChange:e=>sTune(e.target.value),placeholder:"Confirmation, Autumn Leaves, ..."})),
               React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}},
                 React.createElement("div",null,
                   React.createElement("label",{style:lb},"INSTRUMENT"),
                   React.createElement("select",{style:{...ip,appearance:"none",cursor:"pointer"},value:inst,onChange:e=>sI(e.target.value)},INST_LIST.filter(i=>i!=="All").map(i=>React.createElement("option",{key:i,value:i,style:{background:t.card}},i)))),
                 React.createElement("div",null,
                   React.createElement("label",{style:lb},"CATEGORY"),
-                  React.createElement("select",{style:{...ip,appearance:"none",cursor:"pointer"},value:cat,onChange:e=>sC(e.target.value)},CAT_LIST.filter(c=>c!=="All").map(c=>React.createElement("option",{key:c,value:c,style:{background:t.card}},c)))))))),
+                  React.createElement("select",{style:{...ip,appearance:"none",cursor:"pointer"},value:cat,onChange:e=>sC(e.target.value)},CAT_LIST.filter(c=>c!=="All").map(c=>React.createElement("option",{key:c,value:c,style:{background:t.card}},c))))),
+              artistOk&&React.createElement("div",{style:{fontSize:11,color:t.muted,fontFamily:"'Inter',sans-serif",padding:"6px 10px",background:t.filterBg,borderRadius:8,lineHeight:1.4}},
+                React.createElement("span",{style:{fontSize:9,color:t.subtle,fontFamily:"'JetBrains Mono',monospace",letterSpacing:0.5,marginRight:6}},"TITLE"),
+                autoTitle))),
 
         // ═══ STEP 1: Notes ═══
         React.createElement("div",{style:{display:edStep===1?"flex":"none",flexDirection:"column",gap:12}},
@@ -5564,7 +5564,7 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
           "Next \u2192"),
         // Hint for step 0
         edStep===0&&!step1Ok&&React.createElement("span",{style:{position:"absolute",left:"50%",transform:"translateX(-50%)",bottom:"calc(100% + 6px)",fontSize:10,color:t.subtle,fontFamily:"'Inter',sans-serif",whiteSpace:"nowrap",background:t.headerBg,padding:"2px 8px",borderRadius:6}},
-          !titleOk?"enter a title to continue":!artistOk?"enter an artist to continue":""),
+          !artistOk?"enter an artist to continue":""),
         // Step 1: Next (needs 4+ notes)
         edStep===1&&React.createElement("button",{onClick:function(){if(step2Ok)setEdStep(2);},
           style:{padding:"10px 24px",borderRadius:10,border:"none",
