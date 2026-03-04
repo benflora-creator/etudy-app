@@ -270,9 +270,7 @@ const SAMPLE_LICKS = [  { id:1, title:"Classic Charlie Parker ii-V-I", artist:"C
 // SUPABASE HELPERS
 // ============================================================
 function dbToLick(row) {
-  // Prefer live profile data (from join) over stored username snapshot
-  var profile = row.profiles || {};
-  var displayName = profile.display_name || profile.username || row.username || 'Anonymous';
+  var displayName = row.username || 'Anonymous';
   return {
     id: row.id,
     title: row.title,
@@ -324,7 +322,7 @@ async function fetchLicks() {
   try {
     const { data, error } = await supabase
       .from('licks')
-      .select('*, profiles(display_name, username)')
+      .select('*')
       .neq('status','reported')
       .order('created_at', { ascending: false });
     if (error) throw error;
@@ -442,7 +440,7 @@ async function fetchPublicLicksByUser(username) {
       .single();
     var query = supabase
       .from('licks')
-      .select('*, profiles(display_name, username)')
+      .select('*')
       .neq('status', 'reported')
       .neq('status', 'private')
       .order('created_at', { ascending: false });
@@ -7329,12 +7327,12 @@ export default function Etudy(){
     if(!authUser)throw new Error("Not logged in");
     var p=await updateProfile(authUser.id,data);
     setAuthProfile(p);
-    // If instrument changed, sync transposition
     if(data.instrument){
       var transMap={"Alto Sax":"Alto Sax","Tenor Sax":"Tenor Sax","Trumpet":"Bb Trumpet","Clarinet":"Clarinet","Trombone":"Trombone","Flute":"Flute"};
       var mapped=transMap[data.instrument];
       if(mapped){setUserInst(mapped);var g=getStg();if(g)g.set("etudy:userInst",mapped).catch(function(){});}
     }
+    fetchLicks().then(function(fresh){if(fresh&&fresh.length>0)sL(fresh);});
   };
   var handleLogout=function(){
     signOut().then(function(){
