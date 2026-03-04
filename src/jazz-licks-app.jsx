@@ -5459,11 +5459,11 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
           summaryParts.join("  \u00B7  ")))),
 
     // Scrollable step content
-    React.createElement("div",{key:"step-"+edStep,style:{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch"}},
+    React.createElement("div",{style:{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch"}},
       React.createElement("div",{style:{maxWidth:520,margin:"0 auto",padding:"16px 16px 100px"}},
 
         // ═══ STEP 0: About ═══
-        edStep===0&&React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:14}},
+        React.createElement("div",{style:{display:edStep===0?"flex":"none",flexDirection:"column",gap:14}},
           // Setup row
           React.createElement("div",{style:{background:t.card,borderRadius:14,padding:"16px",border:"1px solid "+t.border}},
             React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:12}},
@@ -5501,7 +5501,7 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
                   React.createElement("select",{style:{...ip,appearance:"none",cursor:"pointer"},value:cat,onChange:e=>sC(e.target.value)},CAT_LIST.filter(c=>c!=="All").map(c=>React.createElement("option",{key:c,value:c,style:{background:t.card}},c)))))))),
 
         // ═══ STEP 1: Notes ═══
-        edStep===1&&React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:12}},
+        React.createElement("div",{style:{display:edStep===1?"flex":"none",flexDirection:"column",gap:12}},
           edInstOff!==0&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",background:isStudio?"rgba(34,216,158,0.06)":"rgba(99,102,241,0.04)",borderRadius:8,border:"1px solid "+(isStudio?"rgba(34,216,158,0.15)":"rgba(99,102,241,0.1)")}},
             React.createElement("span",{style:{fontSize:10,color:isStudio?"#22D89E":t.accent,fontFamily:"'Inter',sans-serif"}},"Entering for "+userInst+" \u2014 will be saved in concert pitch")),
           React.createElement("div",{style:{borderRadius:12,padding:14,border:"1px solid "+t.border,background:t.card}},
@@ -5514,7 +5514,7 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
               playerEl:React.createElement(Player,{abc:concertAbc,tempo:parseInt(tempo)||120,th:t,initFeel:feel,editorMode:true,onCurNote:function(n){edCurNoteRef.current=n;}})}))),
 
         // ═══ STEP 2: Finish ═══
-        edStep===2&&React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:14}},
+        React.createElement("div",{style:{display:edStep===2?"flex":"none",flexDirection:"column",gap:14}},
           // Extras
           React.createElement("div",{style:{background:t.card,borderRadius:14,padding:"16px",border:"1px solid "+t.border}},
             React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:14}},
