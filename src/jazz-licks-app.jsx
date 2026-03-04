@@ -2734,7 +2734,7 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteCl
     // 8. Scrollable multi-octave piano keyboard
     (function(){
       var octLo=2,octHi=7,wkW=46,bkW=30,bkH=68,octW=wkW*7;
-      var flatKs=["F","Bb","Eb","Ab","Db","Gb"];var useFlats=flatKs.indexOf(keySig)>=0||keySig==="C";
+      var flatKs=["F","Bb","Eb","Ab","Db","Gb"];var abcK=abcKeySig(keySig);var useFlats=flatKs.indexOf(abcK)>=0||abcK==="C";
       var bks=useFlats?
         [{n:"D",a:-1,l:"D\u266D",off:1},{n:"E",a:-1,l:"E\u266D",off:2},{n:"G",a:-1,l:"G\u266D",off:4},{n:"A",a:-1,l:"A\u266D",off:5},{n:"B",a:-1,l:"B\u266D",off:6}]:
         [{n:"C",a:1,l:"C\u266F",off:1},{n:"D",a:1,l:"D\u266F",off:2},{n:"F",a:1,l:"F\u266F",off:4},{n:"G",a:1,l:"G\u266F",off:5},{n:"A",a:1,l:"A\u266F",off:6}];
