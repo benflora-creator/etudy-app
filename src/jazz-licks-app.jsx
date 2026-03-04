@@ -3089,7 +3089,7 @@ function YTPMini({videoId,startTime,endTime,speed,th}){
   }
 
   if(!videoId)return null;
-  return React.createElement('div',{style:{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:12,background:isStudio?'rgba(255,255,255,0.04)':'rgba(0,0,0,0.03)',border:'1px solid '+t.border}},
+  return React.createElement('div',{style:{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:12,background:t===TH.studio?'rgba(255,255,255,0.04)':'rgba(0,0,0,0.03)',border:'1px solid '+t.border}},
     // Invisible 1×1 iframe container — keeps YT player in DOM
     React.createElement('div',{style:{position:'absolute',width:1,height:1,overflow:'hidden',opacity:0,pointerEvents:'none',left:'-9999px'}},
       React.createElement('div',{ref:divRef})),
