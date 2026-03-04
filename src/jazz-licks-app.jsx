@@ -5327,7 +5327,7 @@ function PolyrhythmTrainer({th,sharedInput,sharedMicSilent}){
 // EDITOR — themed
 // ============================================================
 function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.classic;const isStudio=t===TH.studio;
-  const[title,sT]=useState("");const[artist,sA]=useState("");const[tune,sTune]=useState("");const[inst,sI]=useState("Alto Sax");const[cat,sC]=useState("ii-V-I");const[keySig,sK]=useState("C");const[timeSig,sTS]=useState("4/4");const[tempo,sTm]=useState("120");const[abc,sAbc]=useState("X:1\nT:My Lick\nM:4/4\nL:1/8\nQ:1/4=120\nK:C\n");const[feel,setFeel]=useState("straight");const[yu,sYu]=useState("");const[tm,sTmn]=useState("");const[ts,sTs]=useState("");const[sp,sSp]=useState("");const[desc,sD]=useState("");const[tags,sTg]=useState("");const[extrasOpen,setExtrasOpen]=useState(false);
+  const[title,sT]=useState("");const[artist,sA]=useState("");const[tune,sTune]=useState("");const[inst,sI]=useState("Alto Sax");const[cat,sC]=useState("ii-V-I");const[keySig,sK]=useState("C");const[timeSig,sTS]=useState("4/4");const[tempo,sTm]=useState("120");const[abc,sAbc]=useState("X:1\nT:My Lick\nM:4/4\nL:1/8\nQ:1/4=120\nK:C\n");const[feel,setFeel]=useState("straight");const[yu,sYu]=useState("");const[tm,sTmn]=useState("");const[ts,sTs]=useState("");const[sp,sSp]=useState("");const[desc,sD]=useState("");const[tags,sTg]=useState("");
   const edCurNoteRef=useRef(-1);
   const noteClickRef=useRef(null);
   const deselectRef=useRef(null);
@@ -5336,6 +5336,7 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
   const fillBarRef=useRef(null);
   const[edSelIdx,setEdSelIdx]=useState(null);
   const[showBarFill,setShowBarFill]=useState(null);// null or "publish"|"private"
+  const[edStep,setEdStep]=useState(0);// 0=About, 1=Notes, 2=Finish
   var edInstOff=INST_TRANS[userInst]||0;
   // Concert pitch abc for playback (transpose back from instrument transposition)
   var concertAbc=edInstOff?transposeAbc(abc,-edInstOff):abc;
@@ -5386,14 +5387,6 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
   const artistOk=artist.trim().length>=1;
   const notesOk=noteCount>=4;
   const canPublish=titleOk&&artistOk&&notesOk;
-  const extrasCount=(yu&&yt.videoId?1:0)+(sp&&parseSpotify(sp)?1:0)+(desc?1:0)+(tags?1:0);
-
-  // Section wrapper
-  const sec=(num,label,done,children)=>React.createElement("div",{style:{background:t.card,borderRadius:14,padding:"16px 16px 14px",border:"1px solid "+(done?t.accentBorder:t.border),marginBottom:16,transition:"border-color 0.3s"}},
-    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:14}},
-      React.createElement("div",{style:{width:22,height:22,borderRadius:7,background:done?(isStudio?t.accentBg:t.accent+"15"):t.filterBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:done?11:10,fontWeight:700,color:done?t.accent:t.subtle,fontFamily:"'JetBrains Mono',monospace",border:"1px solid "+(done?t.accentBorder:t.border),transition:"all 0.3s"}},done?"\u2713":num),
-      React.createElement("span",{style:{fontSize:13,fontWeight:600,color:t.text,fontFamily:"'Inter',sans-serif"}},label)),
-    children);
 
   // Compact select helper
   const cSel=(val,opts,onChange,w)=>React.createElement("select",{value:val,onChange:e=>onChange(e.target.value),style:{background:t.inputBg,border:"1px solid "+t.inputBorder,borderRadius:8,padding:"7px 6px",color:t.text,fontSize:12,fontFamily:"'Inter',sans-serif",outline:"none",appearance:"none",cursor:"pointer",width:w||"auto",textAlign:"center"}},opts.map(o=>React.createElement("option",{key:o,value:o,style:{background:t.card}},o)));
@@ -5422,21 +5415,58 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
     }
   };
 
+  // Step validation
+  var step1Ok=titleOk&&artistOk;
+  var step2Ok=notesOk;
+  var stepLabels=["About","Notes","Finish"];
+
+  // Mini-summary for completed steps
+  var summaryParts=[];
+  if(edStep>=1){
+    var parts=[];
+    if(keySig)parts.push(keySig);if(timeSig)parts.push(timeSig);if(tempo)parts.push("\u2669"+tempo);if(feel!=="straight")parts.push(feel);
+    if(title.trim())parts.push("\u2014 "+title.trim());
+    if(artist.trim())parts.push("("+artist.trim()+")");
+    summaryParts.push(parts.join(" "));
+  }
+  if(edStep>=2&&noteCount>0){
+    summaryParts.push(noteCount+" notes"+(Object.keys(chordsRef.current||{}).length>0?" + chords":""));
+  }
+
   return React.createElement("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:1000,background:t.bg,display:"flex",flexDirection:"column"}},
-    // Header — full width, outside scroll
-    React.createElement("div",{style:{position:"relative",zIndex:10,background:t.headerBg,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",padding:"14px 16px 12px",paddingTop:"calc(env(safe-area-inset-top, 0px) + 14px)",borderBottom:"1px solid "+t.border}},
-      React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",maxWidth:520,margin:"0 auto"}},
-        React.createElement("div",null,
-          React.createElement("h2",{style:{color:t.text,fontSize:20,margin:0,fontFamily:t.titleFont,fontWeight:isStudio?700:600}},"Share a Lick"),
-          React.createElement("p",{style:{margin:"3px 0 0",fontSize:11,color:t.muted,fontFamily:"'Inter',sans-serif"}},"Add notation, preview it, publish.")),
-        React.createElement("button",{onClick:onClose,style:{background:t.filterBg,border:"1px solid "+t.border,color:t.muted,width:32,height:32,borderRadius:10,fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"\u00D7"))),
-    // Scrollable content
-    React.createElement("div",{style:{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch"}},
-      React.createElement("div",{style:{maxWidth:520,margin:"0 auto",padding:"0 16px",paddingTop:18}},
-        sec("1","Setup",true,
-          React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:10}},
-            // Row: Key, Time, BPM
-            React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}},
+    // Header with progress
+    React.createElement("div",{style:{position:"relative",zIndex:10,background:t.headerBg,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",paddingTop:"calc(env(safe-area-inset-top, 0px) + 10px)",borderBottom:"1px solid "+t.border}},
+      React.createElement("div",{style:{maxWidth:520,margin:"0 auto",padding:"0 16px"}},
+        // Top row: title + close
+        React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}},
+          React.createElement("h2",{style:{color:t.text,fontSize:18,margin:0,fontFamily:t.titleFont,fontWeight:isStudio?700:600}},"Share a Lick"),
+          React.createElement("button",{onClick:onClose,style:{background:t.filterBg,border:"1px solid "+t.border,color:t.muted,width:30,height:30,borderRadius:8,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"\u00D7")),
+        // Progress dots + labels
+        React.createElement("div",{style:{display:"flex",alignItems:"center",gap:0,marginBottom:summaryParts.length>0?6:10}},
+          [0,1,2].map(function(si){
+            var done=si<edStep;var active=si===edStep;var canJump=si===0||(si===1&&step1Ok)||(si===2&&step1Ok&&step2Ok);
+            return React.createElement(React.Fragment,{key:si},
+              si>0&&React.createElement("div",{style:{flex:1,height:2,background:done?t.accent+"60":t.border,borderRadius:1,margin:"0 2px",transition:"background 0.3s"}}),
+              React.createElement("button",{onClick:function(){if(canJump)setEdStep(si);},style:{display:"flex",alignItems:"center",gap:5,padding:"4px 8px",borderRadius:8,border:"none",background:active?(t.accent+"12"):"transparent",cursor:canJump?"pointer":"default",transition:"all 0.2s"}},
+                React.createElement("div",{style:{width:20,height:20,borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",fontSize:done?10:9,fontWeight:700,fontFamily:"'JetBrains Mono',monospace",transition:"all 0.3s",
+                  background:done?(isStudio?t.accent+"20":t.accent+"15"):active?(isStudio?t.accent+"15":t.accent+"08"):t.filterBg,
+                  color:done||active?t.accent:t.subtle,
+                  border:"1.5px solid "+(done?t.accent+"40":active?t.accent+"30":t.border)}},done?"\u2713":(si+1)),
+                React.createElement("span",{style:{fontSize:10,fontWeight:active?600:500,color:active?t.text:done?t.muted:t.subtle,fontFamily:"'Inter',sans-serif",whiteSpace:"nowrap"}},stepLabels[si])));
+          })),
+        // Mini-summary
+        summaryParts.length>0&&React.createElement("div",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace",padding:"0 0 8px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",lineHeight:1.4}},
+          summaryParts.join("  \u00B7  ")))),
+
+    // Scrollable step content
+    React.createElement("div",{key:"step-"+edStep,style:{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch"}},
+      React.createElement("div",{style:{maxWidth:520,margin:"0 auto",padding:"16px 16px 100px"}},
+
+        // ═══ STEP 0: About ═══
+        edStep===0&&React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:14}},
+          // Setup row
+          React.createElement("div",{style:{background:t.card,borderRadius:14,padding:"16px",border:"1px solid "+t.border}},
+            React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:12}},
               React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4}},
                 React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"monospace",fontWeight:600}},"Key"),
                 keyPickerEl),
@@ -5446,94 +5476,109 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
               React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4}},
                 React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"monospace",fontWeight:600}},"\u2669="),
                 React.createElement("input",{type:"number",value:tempo,onChange:e=>sTm(e.target.value),style:{background:t.inputBg,border:"1px solid "+t.inputBorder,borderRadius:8,padding:"7px 6px",color:t.text,fontSize:12,fontFamily:"'JetBrains Mono',monospace",outline:"none",width:48,textAlign:"center"}}))),
-            // Row: Feel
             React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
               React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"monospace",fontWeight:600}},"Feel"),
-              feelBtns))),
+              feelBtns)),
+          // Describe
+          React.createElement("div",{style:{background:t.card,borderRadius:14,padding:"16px",border:"1px solid "+(titleOk&&artistOk?t.accentBorder:t.border),transition:"border-color 0.3s"}},
+            React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:12}},
+              React.createElement("div",null,
+                React.createElement("label",{style:lb},"TITLE *"),
+                React.createElement("input",{style:{...ip,fontSize:16,fontWeight:600,padding:"12px 14px"},value:title,onChange:e=>sT(e.target.value),placeholder:'e.g. "Bird\'s ii-V-I in C"'})),
+              React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}},
+                React.createElement("div",null,
+                  React.createElement("label",{style:lb},"ARTIST *"),
+                  React.createElement("input",{style:ip,value:artist,onChange:e=>sA(e.target.value),placeholder:"Charlie Parker"})),
+                React.createElement("div",null,
+                  React.createElement("label",{style:lb},"TUNE"),
+                  React.createElement("input",{style:ip,value:tune,onChange:e=>sTune(e.target.value),placeholder:"Confirmation"}))),
+              React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}},
+                React.createElement("div",null,
+                  React.createElement("label",{style:lb},"INSTRUMENT"),
+                  React.createElement("select",{style:{...ip,appearance:"none",cursor:"pointer"},value:inst,onChange:e=>sI(e.target.value)},INST_LIST.filter(i=>i!=="All").map(i=>React.createElement("option",{key:i,value:i,style:{background:t.card}},i)))),
+                React.createElement("div",null,
+                  React.createElement("label",{style:lb},"CATEGORY"),
+                  React.createElement("select",{style:{...ip,appearance:"none",cursor:"pointer"},value:cat,onChange:e=>sC(e.target.value)},CAT_LIST.filter(c=>c!=="All").map(c=>React.createElement("option",{key:c,value:c,style:{background:t.card}},c)))))))),
 
-        // STEP 2 — Write the Notes (main area)
-        sec("2","Write the notes",notesOk,
-          React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:12}},
-            edInstOff!==0&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",background:isStudio?"rgba(34,216,158,0.06)":"rgba(99,102,241,0.04)",borderRadius:8,border:"1px solid "+(isStudio?"rgba(34,216,158,0.15)":"rgba(99,102,241,0.1)")}},
-              React.createElement("span",{style:{fontSize:10,color:isStudio?"#22D89E":t.accent,fontFamily:"'Inter',sans-serif"}},"Entering for "+userInst+" \u2014 will be saved in concert pitch")),
-            React.createElement("div",{style:{borderRadius:12,padding:14,border:"1px solid "+t.border}},
-              React.createElement(NoteBuilder,{onAbcChange:sAbc,keySig,timeSig,tempo:parseInt(tempo)||120,noteClickRef:noteClickRef,onSelChange:setEdSelIdx,deselectRef:deselectRef,previewOffset:-edInstOff,th:t,chordsRef:chordsRef,barInfoRef:barInfoRef,fillBarRef:fillBarRef,
-                previewEl:React.createElement("div",{style:{marginBottom:4}},
-                  React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}},
-                    React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,fontWeight:600}},"PREVIEW"),
-                    noteCount>0&&React.createElement("span",{style:{fontSize:9,color:t.accent,fontFamily:"monospace"}},noteCount+" notes")),
-                  React.createElement(Notation,{abc,compact:false,th:t,curNoteRef:edCurNoteRef,selNoteIdx:edSelIdx,onNoteClick:function(idx){if(noteClickRef.current)noteClickRef.current(idx);},onDeselect:function(){if(deselectRef.current)deselectRef.current();}})),
-                playerEl:React.createElement(Player,{abc:concertAbc,tempo:parseInt(tempo)||120,th:t,initFeel:feel,editorMode:true,onCurNote:function(n){edCurNoteRef.current=n;}})})))),
+        // ═══ STEP 1: Notes ═══
+        edStep===1&&React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:12}},
+          edInstOff!==0&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",background:isStudio?"rgba(34,216,158,0.06)":"rgba(99,102,241,0.04)",borderRadius:8,border:"1px solid "+(isStudio?"rgba(34,216,158,0.15)":"rgba(99,102,241,0.1)")}},
+            React.createElement("span",{style:{fontSize:10,color:isStudio?"#22D89E":t.accent,fontFamily:"'Inter',sans-serif"}},"Entering for "+userInst+" \u2014 will be saved in concert pitch")),
+          React.createElement("div",{style:{borderRadius:12,padding:14,border:"1px solid "+t.border,background:t.card}},
+            React.createElement(NoteBuilder,{onAbcChange:sAbc,keySig,timeSig,tempo:parseInt(tempo)||120,noteClickRef:noteClickRef,onSelChange:setEdSelIdx,deselectRef:deselectRef,previewOffset:-edInstOff,th:t,chordsRef:chordsRef,barInfoRef:barInfoRef,fillBarRef:fillBarRef,
+              previewEl:React.createElement("div",{style:{marginBottom:4}},
+                React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}},
+                  React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,fontWeight:600}},"PREVIEW"),
+                  noteCount>0&&React.createElement("span",{style:{fontSize:9,color:t.accent,fontFamily:"monospace"}},noteCount+" notes")),
+                React.createElement(Notation,{abc,compact:false,th:t,curNoteRef:edCurNoteRef,selNoteIdx:edSelIdx,onNoteClick:function(idx){if(noteClickRef.current)noteClickRef.current(idx);},onDeselect:function(){if(deselectRef.current)deselectRef.current();}})),
+              playerEl:React.createElement(Player,{abc:concertAbc,tempo:parseInt(tempo)||120,th:t,initFeel:feel,editorMode:true,onCurNote:function(n){edCurNoteRef.current=n;}})}))),
 
-        // STEP 3 — Describe it
-        sec("3","Describe it",titleOk&&artistOk,
-          React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:12}},
-            React.createElement("div",null,
-              React.createElement("label",{style:lb},"TITLE *"),
-              React.createElement("input",{style:{...ip,fontSize:16,fontWeight:600,padding:"12px 14px"},value:title,onChange:e=>sT(e.target.value),placeholder:'e.g. "Bird\'s ii-V-I in C"'})),
-            React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}},
-              React.createElement("div",null,
-                React.createElement("label",{style:lb},"ARTIST *"),
-                React.createElement("input",{style:ip,value:artist,onChange:e=>sA(e.target.value),placeholder:"Charlie Parker"})),
-              React.createElement("div",null,
-                React.createElement("label",{style:lb},"TUNE"),
-                React.createElement("input",{style:ip,value:tune,onChange:e=>sTune(e.target.value),placeholder:"Confirmation"}))),
-            React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}},
-              React.createElement("div",null,
-                React.createElement("label",{style:lb},"INSTRUMENT"),
-                React.createElement("select",{style:{...ip,appearance:"none",cursor:"pointer"},value:inst,onChange:e=>sI(e.target.value)},INST_LIST.filter(i=>i!=="All").map(i=>React.createElement("option",{key:i,value:i,style:{background:t.card}},i)))),
-              React.createElement("div",null,
-                React.createElement("label",{style:lb},"CATEGORY"),
-                React.createElement("select",{style:{...ip,appearance:"none",cursor:"pointer"},value:cat,onChange:e=>sC(e.target.value)},CAT_LIST.filter(c=>c!=="All").map(c=>React.createElement("option",{key:c,value:c,style:{background:t.card}},c))))))),
-
-        // Extras (collapsible)
-        React.createElement("div",{style:{background:t.card,borderRadius:14,border:"1px solid "+t.border,marginBottom:16,overflow:"hidden"}},
-          React.createElement("button",{onClick:()=>setExtrasOpen(!extrasOpen),style:{width:"100%",background:"none",border:"none",padding:"14px 16px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between"}},
-            React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
+        // ═══ STEP 2: Finish ═══
+        edStep===2&&React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:14}},
+          // Extras
+          React.createElement("div",{style:{background:t.card,borderRadius:14,padding:"16px",border:"1px solid "+t.border}},
+            React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:14}},
               React.createElement("span",{style:{fontSize:13,fontWeight:600,color:t.text,fontFamily:"'Inter',sans-serif"}},"Extras"),
-              extrasCount>0&&React.createElement("span",{style:{fontSize:10,color:t.accent,fontFamily:"'JetBrains Mono',monospace",background:t.accentBg,padding:"1px 6px",borderRadius:6}},extrasCount),
-              React.createElement("span",{style:{fontSize:10,color:t.subtle,fontFamily:"'Inter',sans-serif",fontWeight:400}},"optional")),
-            React.createElement("span",{style:{fontSize:14,color:t.subtle,transition:"transform 0.2s",transform:extrasOpen?"rotate(180deg)":"rotate(0)"}},"\u25BE")),
-          extrasOpen&&React.createElement("div",{style:{padding:"0 16px 16px",display:"flex",flexDirection:"column",gap:14,animation:"fadeIn 0.2s ease"}},
-            React.createElement("div",null,
-              React.createElement("label",{style:{...lb,fontSize:9,opacity:0.7}},"YOUTUBE URL"),
-              React.createElement("input",{style:{...ip,fontSize:13},value:yu,onChange:e=>sYu(e.target.value),placeholder:"https://youtube.com/watch?v=..."}),
-              yu&&yt.videoId&&React.createElement("div",{style:{marginTop:6,display:"flex",alignItems:"center",gap:4}},
-                React.createElement("span",{style:{fontSize:9,color:t.accent,fontFamily:"monospace"}},"\u2713 "+yt.videoId),
-                React.createElement("span",{style:{fontSize:9,color:t.subtle,fontFamily:"monospace"}},yt.startTime>0?" @ "+fT(yt.startTime):"")),
-              yu&&!yt.videoId&&React.createElement("span",{style:{fontSize:9,color:"#EF4444",fontFamily:"monospace",display:"block",marginTop:4}},"Invalid YouTube URL")),
-            yu&&yt.videoId&&React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}},
+              React.createElement("span",{style:{fontSize:10,color:t.subtle,fontFamily:"'Inter',sans-serif"}},"optional")),
+            React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:14}},
               React.createElement("div",null,
-                React.createElement("label",{style:{...lb,fontSize:9,opacity:0.7}},"START MIN"),
-                React.createElement("input",{style:{...ip,fontSize:13},type:"number",min:0,value:tm,onChange:e=>sTmn(e.target.value),placeholder:"0"})),
+                React.createElement("label",{style:{...lb,fontSize:9,opacity:0.7}},"YOUTUBE URL"),
+                React.createElement("input",{style:{...ip,fontSize:13},value:yu,onChange:e=>sYu(e.target.value),placeholder:"https://youtube.com/watch?v=..."}),
+                yu&&yt.videoId&&React.createElement("div",{style:{marginTop:6,display:"flex",alignItems:"center",gap:4}},
+                  React.createElement("span",{style:{fontSize:9,color:t.accent,fontFamily:"monospace"}},"\u2713 "+yt.videoId),
+                  React.createElement("span",{style:{fontSize:9,color:t.subtle,fontFamily:"monospace"}},yt.startTime>0?" @ "+fT(yt.startTime):"")),
+                yu&&!yt.videoId&&React.createElement("span",{style:{fontSize:9,color:"#EF4444",fontFamily:"monospace",display:"block",marginTop:4}},"Invalid YouTube URL")),
+              yu&&yt.videoId&&React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}},
+                React.createElement("div",null,
+                  React.createElement("label",{style:{...lb,fontSize:9,opacity:0.7}},"START MIN"),
+                  React.createElement("input",{style:{...ip,fontSize:13},type:"number",min:0,value:tm,onChange:e=>sTmn(e.target.value),placeholder:"0"})),
+                React.createElement("div",null,
+                  React.createElement("label",{style:{...lb,fontSize:9,opacity:0.7}},"START SEC"),
+                  React.createElement("input",{style:{...ip,fontSize:13},type:"number",min:0,max:59,value:ts,onChange:e=>sTs(e.target.value),placeholder:"0"}))),
               React.createElement("div",null,
-                React.createElement("label",{style:{...lb,fontSize:9,opacity:0.7}},"START SEC"),
-                React.createElement("input",{style:{...ip,fontSize:13},type:"number",min:0,max:59,value:ts,onChange:e=>sTs(e.target.value),placeholder:"0"}))),
-            React.createElement("div",null,
-              React.createElement("label",{style:{...lb,fontSize:9,opacity:0.7}},"SPOTIFY TRACK URL"),
-              React.createElement("input",{style:{...ip,fontSize:13},value:sp,onChange:e=>sSp(e.target.value),placeholder:"https://open.spotify.com/track/..."}),
-              sp&&parseSpotify(sp)&&React.createElement("span",{style:{fontSize:9,color:"#1DB954",fontFamily:"monospace",display:"block",marginTop:4}},"\u2713 Track found"),
-              sp&&!parseSpotify(sp)&&React.createElement("span",{style:{fontSize:9,color:"#EF4444",fontFamily:"monospace",display:"block",marginTop:4}},"Paste a Spotify track URL")),
-            React.createElement("div",null,
-              React.createElement("label",{style:lb},"DESCRIPTION"),
-              React.createElement("textarea",{style:{...ip,height:70,resize:"vertical",fontSize:13},value:desc,onChange:e=>sD(e.target.value),placeholder:"What makes this lick special?"})),
-            React.createElement("div",null,
-              React.createElement("label",{style:lb},"TAGS"),
-              React.createElement("input",{style:{...ip,fontSize:13},value:tags,onChange:e=>sTg(e.target.value),placeholder:"bebop, essential, blues"})))),
+                React.createElement("label",{style:{...lb,fontSize:9,opacity:0.7}},"SPOTIFY TRACK URL"),
+                React.createElement("input",{style:{...ip,fontSize:13},value:sp,onChange:e=>sSp(e.target.value),placeholder:"https://open.spotify.com/track/..."}),
+                sp&&parseSpotify(sp)&&React.createElement("span",{style:{fontSize:9,color:"#1DB954",fontFamily:"monospace",display:"block",marginTop:4}},"\u2713 Track found"),
+                sp&&!parseSpotify(sp)&&React.createElement("span",{style:{fontSize:9,color:"#EF4444",fontFamily:"monospace",display:"block",marginTop:4}},"Paste a Spotify track URL")),
+              React.createElement("div",null,
+                React.createElement("label",{style:lb},"DESCRIPTION"),
+                React.createElement("textarea",{style:{...ip,height:70,resize:"vertical",fontSize:13},value:desc,onChange:e=>sD(e.target.value),placeholder:"What makes this lick special?"})),
+              React.createElement("div",null,
+                React.createElement("label",{style:lb},"TAGS"),
+                React.createElement("input",{style:{...ip,fontSize:13},value:tags,onChange:e=>sTg(e.target.value),placeholder:"bebop, essential, blues"}))))))),
 
-        // Spacer
-        React.createElement("div",{style:{height:80}}))),
-
-    // Sticky publish bar
-    React.createElement("div",{style:{position:"sticky",bottom:0,background:t.headerBg,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",borderTop:"1px solid "+t.border,padding:"12px 16px",paddingBottom:"max(12px, env(safe-area-inset-bottom))"}},
+    // Bottom bar — context-aware
+    React.createElement("div",{style:{position:"sticky",bottom:0,background:t.headerBg,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",borderTop:"1px solid "+t.border,padding:"10px 16px",paddingBottom:"max(10px, env(safe-area-inset-bottom))"}},
       React.createElement("div",{style:{maxWidth:520,margin:"0 auto",display:"flex",alignItems:"center",gap:8}},
-        !canPublish&&React.createElement("div",{style:{flex:1,display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}},
-          !notesOk&&React.createElement("span",{style:{fontSize:10,color:t.subtle,fontFamily:"'Inter',sans-serif",background:t.filterBg,padding:"3px 8px",borderRadius:6}},noteCount>0?"min 4 notes ("+noteCount+" so far)":"add some notes"),
-          notesOk&&!titleOk&&React.createElement("span",{style:{fontSize:10,color:t.subtle,fontFamily:"'Inter',sans-serif",background:t.filterBg,padding:"3px 8px",borderRadius:6}},title.length>0?"title too short (min 3)":"needs a title"),
-          notesOk&&titleOk&&!artistOk&&React.createElement("span",{style:{fontSize:10,color:t.subtle,fontFamily:"'Inter',sans-serif",background:t.filterBg,padding:"3px 8px",borderRadius:6}},"needs an artist")),
-        canPublish&&React.createElement("div",{style:{flex:1}}),
-        React.createElement("button",{onClick:()=>tryPublish("private"),disabled:!canPublish,style:{padding:"12px 20px",background:canPublish?t.card:t.border,color:canPublish?t.text:t.subtle,border:canPublish?"1.5px solid "+t.accent:"none",borderRadius:12,fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:canPublish?"pointer":"default",transition:"all 0.2s"}},"\uD83D\uDD12 Private"),
-        React.createElement("button",{onClick:()=>tryPublish("publish"),disabled:!canPublish,style:{padding:"12px 24px",background:canPublish?(isStudio?t.playBg:t.accent):t.border,color:canPublish?"#fff":t.subtle,border:"none",borderRadius:12,fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:canPublish?"pointer":"default",boxShadow:canPublish?"0 4px 16px "+t.accentGlow:"none",transition:"all 0.2s"}},"Publish"))),
+        // Back button (not on step 0)
+        edStep>0&&React.createElement("button",{onClick:function(){setEdStep(edStep-1);},
+          style:{padding:"10px 16px",borderRadius:10,border:"1px solid "+t.border,background:t.card,color:t.muted,fontSize:13,fontWeight:500,fontFamily:"'Inter',sans-serif",cursor:"pointer"}},"\u2190 Back"),
+        React.createElement("div",{style:{flex:1}}),
+        // Step 0: Next (needs title+artist)
+        edStep===0&&React.createElement("button",{onClick:function(){if(step1Ok)setEdStep(1);},
+          style:{padding:"10px 24px",borderRadius:10,border:"none",
+            background:step1Ok?(isStudio?t.playBg:t.accent):t.border,
+            color:step1Ok?"#fff":t.subtle,fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",
+            cursor:step1Ok?"pointer":"default",
+            boxShadow:step1Ok?"0 4px 16px "+t.accentGlow:"none",transition:"all 0.2s"}},
+          "Next \u2192"),
+        // Hint for step 0
+        edStep===0&&!step1Ok&&React.createElement("span",{style:{position:"absolute",left:"50%",transform:"translateX(-50%)",bottom:"calc(100% + 6px)",fontSize:10,color:t.subtle,fontFamily:"'Inter',sans-serif",whiteSpace:"nowrap",background:t.headerBg,padding:"2px 8px",borderRadius:6}},
+          !titleOk?"enter a title to continue":!artistOk?"enter an artist to continue":""),
+        // Step 1: Next (needs 4+ notes)
+        edStep===1&&React.createElement("button",{onClick:function(){if(step2Ok)setEdStep(2);},
+          style:{padding:"10px 24px",borderRadius:10,border:"none",
+            background:step2Ok?(isStudio?t.playBg:t.accent):t.border,
+            color:step2Ok?"#fff":t.subtle,fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",
+            cursor:step2Ok?"pointer":"default",
+            boxShadow:step2Ok?"0 4px 16px "+t.accentGlow:"none",transition:"all 0.2s"}},
+          "Next \u2192"),
+        edStep===1&&!step2Ok&&React.createElement("span",{style:{position:"absolute",left:"50%",transform:"translateX(-50%)",bottom:"calc(100% + 6px)",fontSize:10,color:t.subtle,fontFamily:"'Inter',sans-serif",whiteSpace:"nowrap",background:t.headerBg,padding:"2px 8px",borderRadius:6}},
+          noteCount>0?"min 4 notes ("+noteCount+" so far)":"add some notes"),
+        // Step 2: Publish buttons
+        edStep===2&&React.createElement(React.Fragment,null,
+          React.createElement("button",{onClick:()=>tryPublish("private"),disabled:!canPublish,style:{padding:"10px 18px",background:canPublish?t.card:t.border,color:canPublish?t.text:t.subtle,border:canPublish?"1.5px solid "+t.accent:"none",borderRadius:10,fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:canPublish?"pointer":"default",transition:"all 0.2s"}},"\uD83D\uDD12 Private"),
+          React.createElement("button",{onClick:()=>tryPublish("publish"),disabled:!canPublish,style:{padding:"10px 22px",background:canPublish?(isStudio?t.playBg:t.accent):t.border,color:canPublish?"#fff":t.subtle,border:"none",borderRadius:10,fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:canPublish?"pointer":"default",boxShadow:canPublish?"0 4px 16px "+t.accentGlow:"none",transition:"all 0.2s"}},"Publish")))),
     // Bar-fill dialog
     showBarFill&&React.createElement("div",{style:{position:"absolute",top:0,left:0,right:0,bottom:0,zIndex:1100,background:"rgba(0,0,0,0.5)",backdropFilter:"blur(4px)",WebkitBackdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}},
       React.createElement("div",{onClick:function(e){e.stopPropagation();},style:{background:t.card,borderRadius:16,padding:"24px 20px",maxWidth:340,width:"100%",border:"1px solid "+t.border,boxShadow:"0 12px 40px rgba(0,0,0,"+(isStudio?"0.6":"0.15")+")"}},
