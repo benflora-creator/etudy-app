@@ -2073,8 +2073,8 @@ function flatToBlocks(chords,totalBeats,tsN){
   if(beats.length===0)return[];
   var totalBars=Math.max(1,Math.ceil(totalBeats/tsN));var endBeat=totalBars*tsN;
   return beats.map(function(b,i){
-    var next=i<beats.length-1?beats[i+1]:endBeat;
-    return{beat:b,dur:next-b,name:chords[b]};
+    var next=i<beats.length-1?beats[i+1]:Math.min(b+1,endBeat);
+    return{beat:b,dur:Math.max(1,next-b),name:chords[b]};
   });
 }
 function ChordTimeline({chords,onChordsChange,totalBeats,tsN,th}){
@@ -2085,7 +2085,7 @@ function ChordTimeline({chords,onChordsChange,totalBeats,tsN,th}){
   var endBeat=totalBars*tsN;
   if(blocks.length>0){var lastB=blocks[blocks.length-1];endBeat=Math.max(endBeat,lastB.beat+lastB.dur);}
   endBeat=Math.ceil(endBeat/tsN)*tsN;
-  var effBars=Math.max(totalBars,endBeat/tsN);
+  var effBars=Math.max(2,totalBars,endBeat/tsN);// at least 2 bars = 1 row
 
   var[editBeat,setEditBeat]=useState(-1);
   var[pickerRoot,setPickerRoot]=useState("C");
@@ -2106,16 +2106,13 @@ function ChordTimeline({chords,onChordsChange,totalBeats,tsN,th}){
   var beatsPerRow=barsPerRow*tsN;
   var numRows=Math.ceil(effBars/barsPerRow);
 
-  // Add chord: open picker at next free beat, don't write yet
-  var addChord=function(){
-    var startBeat=0;
-    if(blocks.length>0){var last=blocks[blocks.length-1];startBeat=last.beat+last.dur;}
-    // Write a temporary placeholder so it shows in the timeline
-    var nc=Object.assign({},chords);nc[startBeat]="C7";
+  // Add chord at a specific beat (1 beat duration)
+  var addChordAt=function(beat){
+    var nc=Object.assign({},chords);nc[beat]="C7";
     onChordsChange(nc);
     setPickerRoot("C");setPickerCat("dom");setPickerQual("7");
-    setPendingBeat(startBeat);
-    setEditBeat(startBeat);
+    setPendingBeat(beat);
+    setEditBeat(beat);
   };
 
   // Open picker for existing block
@@ -2202,6 +2199,10 @@ function ChordTimeline({chords,onChordsChange,totalBeats,tsN,th}){
   var ROOTS=["C","Db","D","Eb","E","F","F#","G","Ab","A","Bb","B"];
   var pickerOpen=editBeat>=0;
 
+  // Build set of beats that have chord starts
+  var chordStartBeats={};
+  for(var ci2=0;ci2<blocks.length;ci2++)chordStartBeats[blocks[ci2].beat]=true;
+
   // Render rows
   var rows=[];
   for(var r=0;r<numRows;r++){
@@ -2212,6 +2213,34 @@ function ChordTimeline({chords,onChordsChange,totalBeats,tsN,th}){
       var barNum=r*barsPerRow+bi+1;
       if(barNum<=effBars)barLabels.push(React.createElement("div",{key:"bl"+bi,style:{flex:1,fontSize:8,color:isStudio?"#444":t.subtle,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,paddingLeft:4}},barNum));
     }
+
+    // Beat grid: "+" buttons on every beat without a chord start
+    var beatCells=[];
+    for(var gi=0;gi<beatsPerRow;gi++){
+      var beatIdx=rowStart+gi;
+      var isBarLine=gi%tsN===0;
+      var hasChord=chordStartBeats[beatIdx];
+      if(!hasChord){
+        (function(bIdx){
+          beatCells.push(React.createElement("div",{key:"bc"+gi,onClick:function(){addChordAt(bIdx);},
+            style:{position:"absolute",left:((gi/beatsPerRow)*100)+"%",width:((1/beatsPerRow)*100)+"%",top:0,bottom:0,
+              display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",
+              borderLeft:"1px solid "+(isBarLine?(isStudio?"#ffffff15":"#D5D4CE"):(isStudio?"#ffffff06":"#EEEDE8")),
+              zIndex:1}},
+            React.createElement("span",{style:{fontSize:14,color:isStudio?"#333":"#D0D0CA",fontWeight:300,
+              opacity:0.6,transition:"opacity 0.15s"}},"+"))); 
+        })(beatIdx);
+      } else {
+        // Just the grid line for beats with chords
+        beatCells.push(React.createElement("div",{key:"bc"+gi,
+          style:{position:"absolute",left:((gi/beatsPerRow)*100)+"%",width:1,top:0,bottom:0,
+            background:isBarLine?(isStudio?"#ffffff15":"#D5D4CE"):(isStudio?"#ffffff06":"#EEEDE8")}}));
+      }
+    }
+    // Right edge line
+    beatCells.push(React.createElement("div",{key:"ge",style:{position:"absolute",right:0,top:0,bottom:0,width:1,background:isStudio?"#ffffff15":"#D5D4CE"}}));
+
+    // Chord blocks (overlay, z-index 2)
     var rowBlocks=[];
     for(var i=0;i<blocks.length;i++){
       var b=blocks[i];
@@ -2229,51 +2258,24 @@ function ChordTimeline({chords,onChordsChange,totalBeats,tsN,th}){
           background:isStudio?"linear-gradient(135deg,"+col+"18,"+col+"0C)":col+"12",
           border:isEd?"2px solid "+col:"1.5px solid "+col+"35",
           display:"flex",alignItems:"center",justifyContent:"center",gap:4,cursor:"pointer",
-          transition:"border-color 0.15s",overflow:"hidden",boxShadow:"0 2px 12px "+col+"10"}},
+          transition:"border-color 0.15s",overflow:"hidden",boxShadow:"0 2px 12px "+col+"10",zIndex:2}},
         React.createElement("span",{style:{fontSize:b.name.length>5?11:13,fontWeight:700,color:col,
           fontFamily:"'JetBrains Mono',monospace",letterSpacing:-0.3,textShadow:isStudio?"0 0 16px "+col+"30":"none"}},b.name),
         visDur>1&&React.createElement("div",{style:{display:"flex",gap:2}},
-          Array.from({length:visDur}).map(function(_,d){return React.createElement("div",{key:d,style:{width:3,height:3,borderRadius:"50%",background:col+"40"}});})),
-        visEnd===b.beat+b.dur&&i<blocks.length-1&&React.createElement("div",{
+          Array.from({length:Math.min(visDur,8)}).map(function(_,d){return React.createElement("div",{key:d,style:{width:3,height:3,borderRadius:"50%",background:col+"40"}});})),
+        visEnd===b.beat+b.dur&&React.createElement("div",{
           onMouseDown:function(bb,bd){return function(e){onDragStart(e,bb,bd,e.currentTarget.parentElement);};}(b.beat,b.dur),
           onTouchStart:function(bb,bd){return function(e){onDragStart(e,bb,bd,e.currentTarget.parentElement);};}(b.beat,b.dur),
           style:{position:"absolute",right:0,top:0,bottom:0,width:14,cursor:"ew-resize",
             display:"flex",alignItems:"center",justifyContent:"center",borderRadius:"0 8px 8px 0",
-            background:isStudio?"#ffffff08":"rgba(0,0,0,0.03)"}},
+            background:isStudio?"#ffffff08":"rgba(0,0,0,0.03)",zIndex:3}},
           React.createElement("div",{style:{width:2,height:16,borderRadius:1,background:col+"50"}}))));
     }
-
-    // "+" button
-    var lastBlockEnd=0;
-    for(var li=0;li<blocks.length;li++){var lb2=blocks[li];if(lb2.beat+lb2.dur>lastBlockEnd)lastBlockEnd=lb2.beat+lb2.dur;}
-    var plusInThisRow=lastBlockEnd>=rowStart&&lastBlockEnd<rowEnd;
-    if(plusInThisRow||(r===0&&blocks.length===0)){
-      var plusLeft=blocks.length===0?0:((lastBlockEnd-rowStart)/beatsPerRow)*100;
-      var plusW=blocks.length===0?100:(100-plusLeft);
-      if(plusW>5){
-        rowBlocks.push(React.createElement("div",{key:"plus",onClick:addChord,
-          style:{position:"absolute",top:2,bottom:2,left:plusLeft+"%",width:plusW+"%",
-            display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",
-            borderRadius:10,border:"1.5px dashed "+(isStudio?"#ffffff15":"#E0DFD8"),
-            background:"transparent",transition:"background 0.15s"}},
-          React.createElement("span",{style:{fontSize:18,color:isStudio?"#444":"#CCC",fontWeight:300}},"+"),
-          blocks.length===0&&React.createElement("span",{style:{fontSize:11,color:isStudio?"#555":"#BBB",fontFamily:"'Inter',sans-serif",marginLeft:6}},"Add chord")));
-      }
-    }
-
-    // Beat grid lines
-    var gridLines=[];
-    for(var gi=0;gi<beatsPerRow;gi++){
-      var isBar=gi%tsN===0;
-      gridLines.push(React.createElement("div",{key:"g"+gi,style:{position:"absolute",left:((gi/beatsPerRow)*100)+"%",top:0,bottom:0,
-        width:1,background:isBar?(isStudio?"#ffffff15":"#D5D4CE"):(isStudio?"#ffffff06":"#EEEDE8")}}));
-    }
-    gridLines.push(React.createElement("div",{key:"ge",style:{position:"absolute",right:0,top:0,bottom:0,width:1,background:isStudio?"#ffffff15":"#D5D4CE"}}));
 
     rows.push(React.createElement("div",{key:"row"+r},
       React.createElement("div",{style:{display:"flex",marginBottom:2}},barLabels),
       React.createElement("div",{ref:r===0?rowRef:undefined,style:{position:"relative",height:40,marginBottom:r<numRows-1?6:0}},
-        gridLines,rowBlocks)));
+        beatCells,rowBlocks)));
   }
 
   // Inline picker
@@ -2318,7 +2320,7 @@ function ChordTimeline({chords,onChordsChange,totalBeats,tsN,th}){
   return React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:4}},
     React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:2}},
       React.createElement("span",{style:{fontSize:9,color:isStudio?"#555":"#888",fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,fontWeight:600}},"CHORDS"),
-      blocks.length>0&&React.createElement("span",{style:{fontSize:8,color:isStudio?"#333":"#CCC",fontFamily:"'Inter',sans-serif"}},"tap to edit \u00B7 drag edge to resize")),
+      blocks.length>0&&React.createElement("span",{style:{fontSize:8,color:isStudio?"#333":"#CCC",fontFamily:"'Inter',sans-serif"}},"tap to edit \u00B7 drag to resize")),
     rows,
     pickerEl);
 }
