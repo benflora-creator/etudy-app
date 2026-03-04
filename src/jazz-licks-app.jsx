@@ -2153,7 +2153,7 @@ function ChordTimeline(props){
     for(var bi=0;bi<barsPerRow;bi++){
       var barNum=r*barsPerRow+bi+1;
       if(barNum<=effBars)barLabels.push(React.createElement("div",{key:"bl"+bi,
-        style:{flex:1,fontSize:8,color:isStudio?"#444":t.subtle,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,paddingLeft:4}},barNum));
+        style:{flex:1,fontSize:8,color:isStudio?"#666":t.muted,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,paddingLeft:4}},barNum));
     }
     // Beat cells
     var cells=[];
@@ -2168,7 +2168,7 @@ function ChordTimeline(props){
           cells.push(React.createElement("div",{key:"c"+gi,onClick:function(){openEdit(bIdx);},
             style:{position:"absolute",left:((gi/beatsPerRow)*100)+"%",width:((1/beatsPerRow)*100)+"%",top:0,bottom:0,
               display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",
-              borderLeft:"1px solid "+(isBarStart?(isStudio?"#ffffff18":"#D0CFC8"):(isStudio?"#ffffff08":"#EEEDE8")),
+              borderLeft:"1px solid "+(isBarStart?(isStudio?"#ffffff28":"#B5B4AD"):(isStudio?"#ffffff14":"#D8D7D0")),
               background:ed?cl+"20":cl+"0C",transition:"background 0.15s",zIndex:2}},
             React.createElement("span",{style:{fontSize:nm.length>4?9:11,fontWeight:700,color:cl,
               fontFamily:"'JetBrains Mono',monospace",letterSpacing:-0.3,
@@ -2179,18 +2179,19 @@ function ChordTimeline(props){
           cells.push(React.createElement("div",{key:"c"+gi,onClick:function(){addChordAt(bIdx);},
             style:{position:"absolute",left:((gi/beatsPerRow)*100)+"%",width:((1/beatsPerRow)*100)+"%",top:0,bottom:0,
               display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",
-              borderLeft:"1px solid "+(isB?(isStudio?"#ffffff18":"#D0CFC8"):(isStudio?"#ffffff08":"#EEEDE8")),zIndex:1}},
-            React.createElement("span",{style:{fontSize:14,color:isStudio?"#282840":"#D5D4CE",fontWeight:300}},"+"))); 
+              borderLeft:"1px solid "+(isB?(isStudio?"#ffffff28":"#B5B4AD"):(isStudio?"#ffffff14":"#D8D7D0")),zIndex:1}},
+            React.createElement("span",{style:{fontSize:14,color:isStudio?"#4A4A68":"#AAA9A2",fontWeight:300}},"+"))); 
         })(beatIdx,isBarStart);
       }
     }
     var rowBeats=Math.min(beatsPerRow,endBeat-rowStart);
-    cells.push(React.createElement("div",{key:"ge",style:{position:"absolute",left:((rowBeats/beatsPerRow)*100)+"%",top:0,bottom:0,width:1,background:isStudio?"#ffffff18":"#D0CFC8"}}));
+    cells.push(React.createElement("div",{key:"ge",style:{position:"absolute",left:((rowBeats/beatsPerRow)*100)+"%",top:0,bottom:0,width:1,background:isStudio?"#ffffff28":"#B5B4AD"}}));
 
     rows.push(React.createElement("div",{key:"row"+r},
       React.createElement("div",{style:{display:"flex",marginBottom:1}},barLabels),
       React.createElement("div",{style:{position:"relative",height:36,marginBottom:r<numRows-1?4:0,
-        borderRadius:6,overflow:"hidden",background:isStudio?"#ffffff03":"#FAFAF8"}},cells)));
+        borderRadius:6,overflow:"hidden",background:isStudio?"#ffffff05":"#F2F1EC",
+        border:"1px solid "+(isStudio?"#ffffff10":"#D8D7D0")}},cells)));
 
     // Speech bubble picker after the row containing editBeat
     if(pickerOpen&&editRowIdx===r){
@@ -2296,8 +2297,8 @@ function ChordTimeline(props){
 
   return React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:4}},
     React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:2}},
-      React.createElement("span",{style:{fontSize:9,color:isStudio?"#555":"#888",fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,fontWeight:600}},"CHORDS"),
-      cBeats.length>0?React.createElement("span",{style:{fontSize:8,color:isStudio?"#333":"#CCC",fontFamily:"'Inter',sans-serif"}},"tap beat to add \u00B7 tap chord to edit"):null),
+      React.createElement("span",{style:{fontSize:9,color:isStudio?"#777":"#666",fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,fontWeight:600}},"CHORDS"),
+      cBeats.length>0?React.createElement("span",{style:{fontSize:8,color:isStudio?"#555":"#999",fontFamily:"'Inter',sans-serif"}},"tap beat to add \u00B7 tap chord to edit"):null),
     rows);
 }
 
