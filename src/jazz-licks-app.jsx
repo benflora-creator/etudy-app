@@ -5327,6 +5327,42 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
   var concertAbc=edInstOff?transposeAbc(abc,-edInstOff):abc;
   var concertKey=edInstOff?trKeyName(keySig,-edInstOff):keySig;
   useEffect(function(){try{Tone.start();}catch(e){}preloadPiano();preloadChordPiano();_ensurePreviewSynth();},[]);
+  var KEY_ROWS=[
+    ["C"],["Db","C#"],["D"],["Eb","D#"],["E"],["F"],
+    ["F#","Gb"],["G"],["Ab","G#"],["A"],["Bb","A#"],["B"]
+  ];
+  const[keyOpen,setKeyOpen]=useState(false);
+  const keyBtnRef=useRef(null);
+  useEffect(function(){
+    if(!keyOpen)return;
+    var handler=function(e){if(keyBtnRef.current&&!keyBtnRef.current.contains(e.target))setKeyOpen(false);};
+    document.addEventListener("mousedown",handler);document.addEventListener("touchstart",handler);
+    return function(){document.removeEventListener("mousedown",handler);document.removeEventListener("touchstart",handler);};
+  },[keyOpen]);
+
+  // Custom key picker element
+  var keyPickerEl=React.createElement("div",{style:{position:"relative",display:"inline-block"},ref:keyBtnRef},
+    React.createElement("button",{onClick:()=>setKeyOpen(!keyOpen),
+      style:{background:t.inputBg,border:"1px solid "+t.inputBorder,borderRadius:8,padding:"7px 10px",color:t.text,
+        fontSize:12,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,cursor:"pointer",minWidth:52,textAlign:"center",
+        outline:keyOpen?"1.5px solid "+t.accent:"none"}},keySig+" \u25BE"),
+    keyOpen&&React.createElement("div",{style:{position:"absolute",top:"100%",left:0,marginTop:4,zIndex:100,
+      background:t.card,border:"1px solid "+t.border,borderRadius:10,padding:4,minWidth:110,
+      boxShadow:"0 8px 24px rgba(0,0,0,"+(isStudio?"0.5":"0.12")+")"}},
+      KEY_ROWS.map(function(row,ri){
+        return React.createElement("div",{key:ri,style:{display:"flex",gap:2,marginBottom:ri<KEY_ROWS.length-1?2:0}},
+          row.map(function(k){
+            var isSel=keySig===k;
+            return React.createElement("button",{key:k,onClick:function(){sK(k);setKeyOpen(false);},
+              style:{flex:1,padding:"5px 4px",borderRadius:6,border:"none",cursor:"pointer",
+                fontSize:11,fontFamily:"'JetBrains Mono',monospace",fontWeight:isSel?700:500,
+                background:isSel?t.accent+"18":(isStudio?"#ffffff06":"#F5F4F0"),
+                color:isSel?t.accent:(isStudio?"#ccc":"#444"),
+                outline:isSel?"1.5px solid "+t.accent+"40":"none",
+                transition:"all 0.1s"}},k);
+          }));
+      })));
+
   const KEYS=["C","Db","D","Eb","E","F","F#","G","Ab","A","Bb","B"];const TS=["4/4","3/4","6/8","5/4","7/8"];const yt=parseYT(yu);const tSec=(parseInt(tm)||0)*60+(parseInt(ts)||0);
   const lb={fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5,display:"block",marginBottom:4};
   const ip={width:"100%",background:t.inputBg,border:"1px solid "+t.inputBorder,borderRadius:10,padding:"10px 14px",color:t.text,fontSize:14,fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"};
@@ -5389,7 +5425,7 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
             React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}},
               React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4}},
                 React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"monospace",fontWeight:600}},"Key"),
-                cSel(keySig,KEYS,sK,"60px")),
+                keyPickerEl),
               React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4}},
                 React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"monospace",fontWeight:600}},"Time"),
                 cSel(timeSig,TS,sTS,"56px")),
