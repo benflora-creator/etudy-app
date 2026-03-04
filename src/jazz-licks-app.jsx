@@ -5337,6 +5337,7 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
   const[edSelIdx,setEdSelIdx]=useState(null);
   const[showBarFill,setShowBarFill]=useState(null);// null or "publish"|"private"
   const[edStep,setEdStep]=useState(0);// 0=About, 1=Notes, 2=Finish
+  const[showChordHint,setShowChordHint]=useState(false);
   var edInstOff=INST_TRANS[userInst]||0;
   // Concert pitch abc for playback (transpose back from instrument transposition)
   var concertAbc=edInstOff?transposeAbc(abc,-edInstOff):abc;
@@ -5566,14 +5567,16 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
         edStep===0&&!step1Ok&&React.createElement("span",{style:{position:"absolute",left:"50%",transform:"translateX(-50%)",bottom:"calc(100% + 6px)",fontSize:10,color:t.subtle,fontFamily:"'Inter',sans-serif",whiteSpace:"nowrap",background:t.headerBg,padding:"2px 8px",borderRadius:6}},
           !artistOk?"enter an artist to continue":""),
         // Step 1: Next (needs 4+ notes)
-        edStep===1&&React.createElement("button",{onClick:function(){if(step2Ok)setEdStep(2);},
+        edStep===1&&React.createElement("button",{onClick:function(){if(!step2Ok)return;var hasChords=Object.keys(chordsRef.current||{}).length>0;if(!hasChords&&!showChordHint){setShowChordHint(true);return;}setShowChordHint(false);setEdStep(2);},
           style:{padding:"10px 24px",borderRadius:10,border:"none",
             background:step2Ok?(isStudio?t.playBg:t.accent):t.border,
             color:step2Ok?"#fff":t.subtle,fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",
             cursor:step2Ok?"pointer":"default",
             boxShadow:step2Ok?"0 4px 16px "+t.accentGlow:"none",transition:"all 0.2s"}},
-          "Next \u2192"),
-        edStep===1&&!step2Ok&&React.createElement("span",{style:{position:"absolute",left:"50%",transform:"translateX(-50%)",bottom:"calc(100% + 6px)",fontSize:10,color:t.subtle,fontFamily:"'Inter',sans-serif",whiteSpace:"nowrap",background:t.headerBg,padding:"2px 8px",borderRadius:6}},
+          showChordHint&&!Object.keys(chordsRef.current||{}).length?"Skip \u2192":"Next \u2192"),
+        edStep===1&&showChordHint&&!Object.keys(chordsRef.current||{}).length&&React.createElement("span",{style:{position:"absolute",left:"50%",transform:"translateX(-50%)",bottom:"calc(100% + 6px)",fontSize:10,color:isStudio?"#F0C050":t.accent,fontFamily:"'Inter',sans-serif",whiteSpace:"nowrap",background:t.headerBg,padding:"3px 10px",borderRadius:6,border:"1px solid "+(isStudio?"rgba(240,192,80,0.3)":t.accentBorder)}},
+          "No chords yet \u2014 tap Skip or add some first"),
+        edStep===1&&!step2Ok&&!showChordHint&&React.createElement("span",{style:{position:"absolute",left:"50%",transform:"translateX(-50%)",bottom:"calc(100% + 6px)",fontSize:10,color:t.subtle,fontFamily:"'Inter',sans-serif",whiteSpace:"nowrap",background:t.headerBg,padding:"2px 8px",borderRadius:6}},
           noteCount>0?"min 4 notes ("+noteCount+" so far)":"add some notes"),
         // Step 2: Publish buttons
         edStep===2&&React.createElement(React.Fragment,null,
