@@ -2385,16 +2385,27 @@ function buildAbc(items,keySig,timeSig,tempo,chords,minBars){const[tsN,tsD]=time
 
   // Helper: emit note name in ABC
   var ksMap=KEY_SIG_ACC[abcKeySig(keySig)]||{};
+  // Determine if ABC key uses flats (user might have picked a sharp key like C# that maps to Db)
+  var abcK2=abcKeySig(keySig);var abcUsesFlats=["F","Bb","Eb","Ab","Db","Gb"].indexOf(abcK2)>=0;
+  var NEXT_LET={C:"D",D:"E",E:"F",F:"G",G:"A",A:"B",B:"C"};
+  var PREV_LET={D:"C",E:"D",F:"E",G:"F",A:"G",B:"A",C:"B"};
   var emitNote=function(item,ei,barAlts,addTie){
     var s="";
     if(item.type==="rest")return "z"+e2s(ei);
-    var ksA=ksMap[item.note]||0;var prevA=barAlts.hasOwnProperty(item.note)?barAlts[item.note]:ksA;
-    var needsAcc=false;if(item.acc!==prevA)needsAcc=true;
-    else if(item.acc===ksA&&barAlts.hasOwnProperty(item.note)&&barAlts[item.note]!==ksA)needsAcc=true;
-    if(needsAcc){if(item.acc===1)s+="^";else if(item.acc===-1)s+="_";else s+="=";}
-    barAlts[item.note]=item.acc;
-    if(item.oct>=5){s+=item.note.toLowerCase();for(var o=6;o<=item.oct;o++)s+="'";}
-    else{s+=item.note.toUpperCase();for(var o2=3;o2>=item.oct;o2--)s+=",";}
+    // Normalize spelling to match ABC key convention
+    var n=item.note,a=item.acc||0,o=item.oct;
+    if(abcUsesFlats&&a===1){
+      var nn=NEXT_LET[n];a=(nn==="F"||nn==="C")?0:-1;if(n==="B")o++;n=nn;
+    }else if(!abcUsesFlats&&a===-1){
+      var pn=PREV_LET[n];a=(pn==="E"||pn==="B")?0:1;if(n==="C")o--;n=pn;
+    }
+    var ksA=ksMap[n]||0;var prevA=barAlts.hasOwnProperty(n)?barAlts[n]:ksA;
+    var needsAcc=false;if(a!==prevA)needsAcc=true;
+    else if(a===ksA&&barAlts.hasOwnProperty(n)&&barAlts[n]!==ksA)needsAcc=true;
+    if(needsAcc){if(a===1)s+="^";else if(a===-1)s+="_";else s+="=";}
+    barAlts[n]=a;
+    if(o>=5){s+=n.toLowerCase();for(var oi=6;oi<=o;oi++)s+="'";}
+    else{s+=n.toUpperCase();for(var o2=3;o2>=o;o2--)s+=",";}
     s+=e2s(ei);
     if(addTie)s+="-";
     return s;
@@ -2734,7 +2745,7 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteCl
     // 8. Scrollable multi-octave piano keyboard
     (function(){
       var octLo=2,octHi=7,wkW=46,bkW=30,bkH=68,octW=wkW*7;
-      var flatKs=["F","Bb","Eb","Ab","Db","Gb"];var abcK=abcKeySig(keySig);var useFlats=flatKs.indexOf(abcK)>=0||abcK==="C";
+      var useFlats=!isSharpKey(keySig);
       var bks=useFlats?
         [{n:"D",a:-1,l:"D\u266D",off:1},{n:"E",a:-1,l:"E\u266D",off:2},{n:"G",a:-1,l:"G\u266D",off:4},{n:"A",a:-1,l:"A\u266D",off:5},{n:"B",a:-1,l:"B\u266D",off:6}]:
         [{n:"C",a:1,l:"C\u266F",off:1},{n:"D",a:1,l:"D\u266F",off:2},{n:"F",a:1,l:"F\u266F",off:4},{n:"G",a:1,l:"G\u266F",off:5},{n:"A",a:1,l:"A\u266F",off:6}];
