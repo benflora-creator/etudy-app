@@ -2031,7 +2031,7 @@ const NOTE_NMS=["C","D","E","F","G","A","B"];
 // ── Enharmonic key/root helpers ──
 var ROOTS_FLAT=["C","Db","D","Eb","E","F","F#","G","Ab","A","Bb","B"];
 var ROOTS_SHARP=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
-var SHARP_KEYS={"C":1,"G":1,"D":1,"A":1,"E":1,"B":1,"F#":1};
+var SHARP_KEYS={"C":1,"G":1,"D":1,"A":1,"E":1,"B":1,"F#":1,"C#":1,"D#":1,"G#":1,"A#":1};
 function isSharpKey(k){return !!SHARP_KEYS[k];}
 var ENHAR_TO_SHARP={"Db":"C#","Eb":"D#","Gb":"F#","Ab":"G#","Bb":"A#"};
 var ENHAR_TO_FLAT={"C#":"Db","D#":"Eb","F#":"F#","G#":"Ab","A#":"Bb"};// F# stays F#
