@@ -3079,38 +3079,32 @@ function EditProfileView({authUser,authProfile,onClose,onSave,th}){
   const[isPublic,setIsPublic]=useState(authProfile?.is_public!==false);
   const[saving,setSaving]=useState(false);
   const[saved,setSaved]=useState(false);
-  const[errors,setErrors]=useState({});
+  const[errs,setErrs]=useState({});
 
-  const ip={width:"100%",background:t.inputBg||t.filterBg,border:"1px solid "+(t.inputBorder||t.border),borderRadius:10,padding:"11px 14px",color:t.text,fontSize:14,fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",transition:"border-color 0.15s"};
-  const fieldLabel=(txt,sub)=>React.createElement("div",{style:{marginBottom:6}},
+  const inputStyle={width:"100%",background:t.inputBg||t.filterBg,border:"1px solid "+(t.inputBorder||t.border),borderRadius:10,padding:"11px 14px",color:t.text,fontSize:14,fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"};
+  const fl=(txt,sub)=>React.createElement("div",{style:{marginBottom:6}},
     React.createElement("div",{style:{fontSize:10,fontWeight:600,color:t.muted,fontFamily:"'Inter',sans-serif",letterSpacing:0.5,textTransform:"uppercase"}},txt),
     sub&&React.createElement("div",{style:{fontSize:10,color:t.subtle,fontFamily:"'Inter',sans-serif",marginTop:1}},sub));
+  const errMsg=(key)=>errs[key]&&React.createElement("div",{style:{fontSize:11,color:"#FF6666",fontFamily:"'Inter',sans-serif",marginTop:4}},errs[key]);
 
   const validate=()=>{
-    var e={};
-    if(!displayName.trim())e.displayName="Name darf nicht leer sein";
-    if(username.trim()&&!/^[a-zA-Z0-9_]{2,30}$/.test(username.trim()))e.username="Nur Buchstaben, Zahlen, _ \u00B7 2\u201330 Zeichen";
-    if(bio.length>160)e.bio="Max. 160 Zeichen";
-    if(websiteUrl.trim()&&!/^https?:\/\/.+/.test(websiteUrl.trim()))e.websiteUrl="URL muss mit http:// oder https:// beginnen";
-    return e;
+    var ev={};
+    if(!displayName.trim())ev.displayName="Name cannot be empty";
+    if(username.trim()&&!/^[a-zA-Z0-9_]{2,30}$/.test(username.trim()))ev.username="Letters, numbers and _ only · 2–30 characters";
+    if(bio.length>160)ev.bio="Max. 160 characters";
+    if(websiteUrl.trim()&&!/^https?:\/\/.+/.test(websiteUrl.trim()))ev.websiteUrl="URL must start with http:// or https://";
+    return ev;
   };
 
   const handleSave=async()=>{
-    var e=validate();if(Object.keys(e).length){setErrors(e);return;}
-    setSaving(true);setErrors({});
+    var ev=validate();if(Object.keys(ev).length){setErrs(ev);return;}
+    setSaving(true);setErrs({});
     try{
-      await onSave({
-        display_name:displayName.trim(),
-        username:username.trim()||null,
-        bio:bio.trim(),
-        instrument:instrument||authProfile?.instrument||"",
-        website_url:websiteUrl.trim()||null,
-        is_public:isPublic,
-      });
+      await onSave({display_name:displayName.trim(),username:username.trim()||null,bio:bio.trim(),instrument:instrument||authProfile?.instrument||"",website_url:websiteUrl.trim()||null,is_public:isPublic});
       setSaved(true);
       setTimeout(function(){onClose();},700);
     }catch(err){
-      setErrors({general:"Speichern fehlgeschlagen. Bitte nochmal versuchen."});
+      setErrs({general:"Save failed. Please try again."});
       setSaving(false);
     }
   };
@@ -3123,9 +3117,9 @@ function EditProfileView({authUser,authProfile,onClose,onSave,th}){
     // HEADER
     React.createElement("div",{style:{position:"sticky",top:0,zIndex:10,background:t.headerBg,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",borderBottom:"1px solid "+t.border,paddingTop:"calc(env(safe-area-inset-top, 0px) + 12px)"}},
       React.createElement("div",{style:{maxWidth:520,margin:"0 auto",padding:"12px 16px",display:"flex",alignItems:"center",gap:10}},
-        React.createElement("button",{onClick:onClose,style:{background:"none",border:"none",cursor:"pointer",color:isStudio?t.accent:t.muted,fontSize:22,padding:"4px 8px 4px 0",display:"flex",alignItems:"center"}},"\u2039"),
+        React.createElement("button",{onClick:onClose,style:{background:"none",border:"none",cursor:"pointer",color:isStudio?t.accent:t.muted,fontSize:22,padding:"4px 8px 4px 0",display:"flex",alignItems:"center"}},"‹"),
         React.createElement("div",{style:{flex:1,fontSize:16,fontWeight:700,color:t.text,fontFamily:"'Inter',sans-serif"}},"Edit Profile"),
-        React.createElement("button",{onClick:handleSave,disabled:saving||saved,style:{padding:"8px 18px",borderRadius:10,border:"none",background:saved?t.accent+"80":t.accent,color:isStudio?"#08080F":"#fff",fontSize:13,fontWeight:700,fontFamily:"'Inter',sans-serif",cursor:saving||saved?"default":"pointer",opacity:saving?0.7:1,transition:"all 0.2s"}},saved?"\u2713 Saved":saving?"Saving\u2026":"Save"))),
+        React.createElement("button",{onClick:handleSave,disabled:saving||saved,style:{padding:"8px 18px",borderRadius:10,border:"none",background:saved?t.accent+"80":t.accent,color:isStudio?"#08080F":"#fff",fontSize:13,fontWeight:700,fontFamily:"'Inter',sans-serif",cursor:saving||saved?"default":"pointer",opacity:saving?0.7:1,transition:"all 0.2s"}},saved?"✓ Saved":saving?"Saving…":"Save"))),
 
     // BODY
     React.createElement("div",{style:{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch"}},
@@ -3137,33 +3131,33 @@ function EditProfileView({authUser,authProfile,onClose,onSave,th}){
             React.createElement("span",{style:{fontSize:28,fontWeight:700,color:instC,fontFamily:"'Inter',sans-serif",letterSpacing:-0.5}},initials))),
 
         // ERROR GENERAL
-        errors.general&&React.createElement("div",{style:{background:"#FF444420",border:"1px solid #FF444440",borderRadius:10,padding:"10px 14px",marginBottom:16,fontSize:12,color:"#FF6666",fontFamily:"'Inter',sans-serif"}},errors.general),
+        errs.general&&React.createElement("div",{style:{background:"#FF444420",border:"1px solid #FF444440",borderRadius:10,padding:"10px 14px",marginBottom:16,fontSize:12,color:"#FF6666",fontFamily:"'Inter',sans-serif"}},errs.general),
 
         // DISPLAY NAME
         React.createElement("div",{style:{marginBottom:18}},
-          fieldLabel("Name","Wird \u00f6ffentlich angezeigt"),
-          React.createElement("input",{value:displayName,onChange:function(e){setDisplayName(e.target.value);},placeholder:"Dein Name",style:{...ip,borderColor:errors.displayName?"#FF4444":(t.inputBorder||t.border)}}),
-          errors.displayName&&React.createElement("div",{style:{fontSize:11,color:"#FF6666",fontFamily:"'Inter',sans-serif",marginTop:4}},errors.displayName)),
+          fl("Name","Shown publicly"),
+          React.createElement("input",{type:"text",value:displayName,onChange:function(ev){setDisplayName(ev.target.value);},placeholder:"Your name",style:{...inputStyle,borderColor:errs.displayName?"#FF4444":(t.inputBorder||t.border)}}),
+          errMsg("displayName")),
 
         // USERNAME
         React.createElement("div",{style:{marginBottom:18}},
-          fieldLabel("Username","Dein @Handle im Feed \u00b7 Buchstaben, Zahlen, _"),
+          fl("Username","Your @handle in the feed · letters, numbers, _"),
           React.createElement("div",{style:{position:"relative"}},
             React.createElement("span",{style:{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",color:t.subtle,fontSize:14,fontFamily:"'Inter',sans-serif",pointerEvents:"none"}},"@"),
-            React.createElement("input",{value:username,onChange:function(e){setUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g,""));},placeholder:"deinhandle",style:{...ip,paddingLeft:26,borderColor:errors.username?"#FF4444":(t.inputBorder||t.border)}})),
-          errors.username&&React.createElement("div",{style:{fontSize:11,color:"#FF6666",fontFamily:"'Inter',sans-serif",marginTop:4}},errors.username)),
+            React.createElement("input",{type:"text",value:username,onChange:function(ev){setUsername(ev.target.value.replace(/[^a-zA-Z0-9_]/g,""));},placeholder:"yourhandle",style:{...inputStyle,paddingLeft:26,borderColor:errs.username?"#FF4444":(t.inputBorder||t.border)}})),
+          errMsg("username")),
 
         // BIO
         React.createElement("div",{style:{marginBottom:18}},
-          fieldLabel("Bio","Max. 160 Zeichen"),
-          React.createElement("textarea",{value:bio,onChange:function(e){setBio(e.target.value);},placeholder:"Ich spiele Tenor Sax und liebe Bebop seit 1987\u2026",rows:3,style:{...ip,resize:"none",lineHeight:1.5,borderColor:errors.bio?"#FF4444":(t.inputBorder||t.border)}}),
+          fl("Bio","Max. 160 characters"),
+          React.createElement("textarea",{value:bio,onChange:function(ev){setBio(ev.target.value);},placeholder:"I play tenor sax and love bebop…",rows:3,style:{...inputStyle,resize:"none",lineHeight:1.6,borderColor:errs.bio?"#FF4444":(t.inputBorder||t.border)}}),
           React.createElement("div",{style:{display:"flex",justifyContent:"space-between",marginTop:4}},
-            errors.bio&&React.createElement("div",{style:{fontSize:11,color:"#FF6666",fontFamily:"'Inter',sans-serif"}},errors.bio),
+            errMsg("bio"),
             React.createElement("div",{style:{fontSize:10,color:bio.length>140?bio.length>160?"#FF6666":"#F59E0B":t.subtle,fontFamily:"'JetBrains Mono',monospace",marginLeft:"auto"}},bio.length+"/160"))),
 
         // INSTRUMENT
         React.createElement("div",{style:{marginBottom:18}},
-          fieldLabel("Instrument"),
+          fl("Instrument"),
           React.createElement("div",{style:{display:"flex",gap:6,flexWrap:"wrap"}},
             ["Alto Sax","Tenor Sax","Trumpet","Piano","Guitar","Trombone","Flute","Clarinet"].map(function(name){
               var sel=instrument===name;var ic=INST_COL[name]||t.accent;
@@ -3171,27 +3165,25 @@ function EditProfileView({authUser,authProfile,onClose,onSave,th}){
 
         // WEBSITE
         React.createElement("div",{style:{marginBottom:18}},
-          fieldLabel("Website / Link","Bandcamp, Instagram, eigene Site \u2014 alles erlaubt"),
-          React.createElement("input",{value:websiteUrl,onChange:function(e){setWebsiteUrl(e.target.value);},placeholder:"https://",style:{...ip,borderColor:errors.websiteUrl?"#FF4444":(t.inputBorder||t.border)}}),
-          errors.websiteUrl&&React.createElement("div",{style:{fontSize:11,color:"#FF6666",fontFamily:"'Inter',sans-serif",marginTop:4}},errors.websiteUrl)),
+          fl("Website / Link","Bandcamp, Instagram, your own site — anything goes"),
+          React.createElement("input",{type:"url",value:websiteUrl,onChange:function(ev){setWebsiteUrl(ev.target.value);},placeholder:"https://",style:{...inputStyle,borderColor:errs.websiteUrl?"#FF4444":(t.inputBorder||t.border)}}),
+          errMsg("websiteUrl")),
 
         // PUBLIC TOGGLE
         React.createElement("div",{style:{background:t.card,borderRadius:14,border:"1px solid "+t.border,padding:"16px",display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:24}},
           React.createElement("div",null,
-            React.createElement("div",{style:{fontSize:13,fontWeight:600,color:t.text,fontFamily:"'Inter',sans-serif",marginBottom:2}},"Profil \u00f6ffentlich"),
-            React.createElement("div",{style:{fontSize:11,color:t.muted,fontFamily:"'Inter',sans-serif"}},"Andere Musiker k\u00f6nnen dein Profil sehen")),
+            React.createElement("div",{style:{fontSize:13,fontWeight:600,color:t.text,fontFamily:"'Inter',sans-serif",marginBottom:2}},"Public profile"),
+            React.createElement("div",{style:{fontSize:11,color:t.muted,fontFamily:"'Inter',sans-serif"}},"Other musicians can view your profile")),
           React.createElement("button",{onClick:function(){setIsPublic(!isPublic);},style:{width:44,height:26,borderRadius:13,background:isPublic?t.accent:t.filterBg,border:"none",cursor:"pointer",position:"relative",transition:"background 0.2s",flexShrink:0}},
             React.createElement("div",{style:{position:"absolute",top:3,left:isPublic?21:3,width:20,height:20,borderRadius:"50%",background:"#fff",transition:"left 0.2s",boxShadow:"0 1px 4px rgba(0,0,0,0.3)"}}))),
 
         // EMAIL (read-only)
         React.createElement("div",{style:{marginBottom:8}},
-          fieldLabel("E-Mail","Kann nicht ge\u00e4ndert werden"),
-          React.createElement("div",{style:{...ip,color:t.subtle,cursor:"default",userSelect:"none",opacity:0.6}},authUser?.email||"\u2014"))
+          fl("Email","Cannot be changed"),
+          React.createElement("div",{style:{...inputStyle,color:t.subtle,cursor:"default",userSelect:"none",opacity:0.6}},authUser?.email||"—"))
       ))
   );
 }
-
-var DRAWER_PEEK=200,DRAWER_HALF=340,DRAWER_FULL_OFF=80;
 
 // ============================================================
 // PUBLIC PROFILE VIEW — full-screen overlay
