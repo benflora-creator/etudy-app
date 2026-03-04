@@ -2548,7 +2548,7 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteCl
   var barsFromChords=Math.ceil(maxChordBeat/tsN)||0;
   var rawBars=Math.max(barsFromNotes,barsFromChords);
   var hasContent=items.length>0||chordKeys.length>0;
-  var edMinBars=hasContent?Math.max(1,rawBars%2===0?rawBars:rawBars+(rawBars>1?1:0)):0;
+  var edMinBars=hasContent?Math.max(1,rawBars):0;
   // Fill bar with rests — returns new ABC for immediate use
   if(fillBarRef)fillBarRef.current=function(){
     if(barRem<=0)return null;
@@ -2561,7 +2561,7 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteCl
     var newTE=0;for(var fi=0;fi<newItems.length;fi++){var ft=newItems[fi];if(ft.type==="note"||ft.type==="rest")newTE+=DURS[ft.dur].eighths*(ft.dotted?1.5:1)*(ft.tri?2/3:1);}
     var newBarsN=Math.ceil(newTE/bE)||0;
     var newRaw=Math.max(newBarsN,barsFromChords);
-    var newMinBars=Math.max(1,newRaw%2===0?newRaw:newRaw+(newRaw>1?1:0));
+    var newMinBars=Math.max(1,newRaw);
     return buildAbc(newItems,keySig,timeSig,tempo,chords,newMinBars);
   };
   var currentAbc=useMemo(function(){return buildAbc(items,keySig,timeSig,tempo,chords,edMinBars);},[items,keySig,timeSig,tempo,chords,edMinBars]);
