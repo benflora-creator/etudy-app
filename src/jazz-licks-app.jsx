@@ -5498,7 +5498,7 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
                   React.createElement("select",{style:{...ip,appearance:"none",cursor:"pointer"},value:cat,onChange:e=>sC(e.target.value)},CAT_LIST.filter(c=>c!=="All").map(c=>React.createElement("option",{key:c,value:c,style:{background:t.card}},c))))),
               artistOk&&React.createElement("div",{style:{fontSize:11,color:t.muted,fontFamily:"'Inter',sans-serif",padding:"6px 10px",background:t.filterBg,borderRadius:8,lineHeight:1.4}},
                 React.createElement("span",{style:{fontSize:9,color:t.subtle,fontFamily:"'JetBrains Mono',monospace",letterSpacing:0.5,marginRight:6}},"TITLE"),
-                autoTitle))),
+                autoTitle)))),
 
         // ═══ STEP 1: Notes ═══
         React.createElement("div",{style:{display:edStep===1?"flex":"none",flexDirection:"column",gap:12}},
@@ -5545,8 +5545,8 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
                 React.createElement("textarea",{style:{...ip,height:70,resize:"vertical",fontSize:13},value:desc,onChange:e=>sD(e.target.value),placeholder:"What makes this lick special?"})),
               React.createElement("div",null,
                 React.createElement("label",{style:lb},"TAGS"),
-                React.createElement("input",{style:{...ip,fontSize:13},value:tags,onChange:e=>sTg(e.target.value),placeholder:"bebop, essential, blues"}))))))),
-
+                React.createElement("input",{style:{...ip,fontSize:13},value:tags,onChange:e=>sTg(e.target.value),placeholder:"bebop, essential, blues"}))))),
+        ),
     // Bottom bar — context-aware
     React.createElement("div",{style:{position:"sticky",bottom:0,background:t.headerBg,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",borderTop:"1px solid "+t.border,padding:"10px 16px",paddingBottom:"max(10px, env(safe-area-inset-bottom))"}},
       React.createElement("div",{style:{maxWidth:520,margin:"0 auto",display:"flex",alignItems:"center",gap:8}},
