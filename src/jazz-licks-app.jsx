@@ -7364,13 +7364,16 @@ export default function Etudy(){
   const fl=srcLicks.filter(l=>{if(lickSource==="community"&&dailyLick&&l.id===dailyLick.id)return false;if(inst!=="All"&&l.instrument!==inst)return false;if(cat!=="All"&&l.category!==cat)return false;if(sq){const q=sq.toLowerCase();return l.title.toLowerCase().includes(q)||l.artist.toLowerCase().includes(q)||l.key.toLowerCase().includes(q)||(l.tune||"").toLowerCase().includes(q)||(l.tags||[]).some(tg2=>tg2.includes(q));}return true;});
   const addLick=d=>{
     if(!authUser){setShowLogin(true);return;}
-    const temp={...d,id:Date.now(),likes:0,user:"You",tags:d.tags||[]};
+    const realUser=authProfile?.display_name||authProfile?.username||authUser?.email?.split("@")[0]||"Anonymous";
+    const temp={...d,id:Date.now(),likes:0,user:realUser,tags:d.tags||[]};
     sL([temp,...licks]);sSE(false);openLick(temp);
-    insertLick({...d,user:"You"}).then(real=>{
+    insertLick({...d,user:realUser}).then(real=>{
       if(real)sL(prev=>prev.map(l=>l.id===temp.id?real:l));
     });
   };
-  const addPrivateLick=d=>{const n={...d,id:Date.now(),likes:0,user:"You",tags:d.tags||[],private:true};
+  const addPrivateLick=d=>{
+    const realUser=authProfile?.display_name||authProfile?.username||authUser?.email?.split("@")[0]||"Anonymous";
+    const n={...d,id:Date.now(),likes:0,user:realUser,tags:d.tags||[],private:true};
     setMyLicks(prev=>{const u=[n,...prev];const g=getStg();if(g)g.set("etudy:myLicks",JSON.stringify(u)).catch(()=>{});return u;});
     sSE(false);setLickSource("mine");openLick(n);};
   const deletePrivateLick=(id)=>{
