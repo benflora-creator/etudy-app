@@ -2028,6 +2028,28 @@ function noteIcon(idx,color,sz){var c=color||"#666",s=sz||22,h=s,w=Math.round(s*
   // 16th: filled oval + stem + double flag
   return React.createElement("svg",{width:w,height:h,viewBox:"0 0 16 22"},React.createElement("ellipse",{cx:7,cy:15,rx:5,ry:3.5,fill:c,transform:"rotate(-15 7 15)"}),React.createElement("line",{x1:12,y1:15,x2:12,y2:2,stroke:c,strokeWidth:1.5}),React.createElement("path",{d:"M12 2 C13 3.5 14.5 5.5 12 8.5",fill:"none",stroke:c,strokeWidth:1.4,strokeLinecap:"round"}),React.createElement("path",{d:"M12 5.5 C13 7 14.5 9 12 12",fill:"none",stroke:c,strokeWidth:1.4,strokeLinecap:"round"}));}
 const NOTE_NMS=["C","D","E","F","G","A","B"];
+// ── Enharmonic key/root helpers ──
+var ROOTS_FLAT=["C","Db","D","Eb","E","F","F#","G","Ab","A","Bb","B"];
+var ROOTS_SHARP=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+var SHARP_KEYS={"C":1,"G":1,"D":1,"A":1,"E":1,"B":1,"F#":1};
+function isSharpKey(k){return !!SHARP_KEYS[k];}
+var ENHAR_TO_SHARP={"Db":"C#","Eb":"D#","Gb":"F#","Ab":"G#","Bb":"A#"};
+var ENHAR_TO_FLAT={"C#":"Db","D#":"Eb","F#":"F#","G#":"Ab","A#":"Bb"};// F# stays F#
+function enharmonicRoot(root,toSharp){
+  if(toSharp)return ENHAR_TO_SHARP[root]||root;
+  return ENHAR_TO_FLAT[root]||root;
+}
+function enharmonicChord(name,toSharp){
+  if(!name)return name;
+  var ps=name.match(/^([A-G][b#]?)(.*)/);
+  if(!ps)return name;
+  return enharmonicRoot(ps[1],toSharp)+ps[2];
+}
+function enharmonicChords(chords,toSharp){
+  var nc={};var keys=Object.keys(chords);
+  for(var i=0;i<keys.length;i++)nc[keys[i]]=enharmonicChord(chords[keys[i]],toSharp);
+  return nc;
+}
 // Hierarchical chord quality picker: Category → qualities
 var CHORD_HIER=[
   {id:"dur",label:"Dur",quals:[
@@ -2069,7 +2091,7 @@ function chordBlockColor(name){
   if(!ps)return"#666";return CH_CAT_COL[findChordCat(ps[1]||"")]||"#666";
 }
 function ChordTimeline(props){
-  var chords=props.chords,onChordsChange=props.onChordsChange,totalBeats=props.totalBeats,tsN=props.tsN,th=props.th;
+  var chords=props.chords,onChordsChange=props.onChordsChange,totalBeats=props.totalBeats,tsN=props.tsN,th=props.th,keySig=props.keySig||"C";
   var t=th;var isStudio=t===TH.studio;
   var ac=isStudio?"#22D89E":"#6366F1";
   var totalBars=Math.max(1,Math.ceil(totalBeats/tsN));
@@ -2091,7 +2113,8 @@ function ChordTimeline(props){
 
   var barsPerRow=2;var beatsPerRow=barsPerRow*tsN;
   var numRows=Math.ceil(effBars/barsPerRow);
-  var ROOTS=["C","Db","D","Eb","E","F","F#","G","Ab","A","Bb","B"];
+  var useSharp=isSharpKey(keySig);
+  var ROOTS=useSharp?ROOTS_SHARP:ROOTS_FLAT;
   var TENSIONS=["b9","9","#9","11","#11","b13","13"];
 
   // Close picker if chord removed externally (undo)
@@ -2474,6 +2497,17 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteCl
   const[items,sIt]=useState([]);const[cO,sCO]=useState(4);const[cD,sCD]=useState(2);const[dt,sDt]=useState(false);const[tri,sTri]=useState(false);
   const[chords,sChords]=useState({});
   useEffect(function(){if(chordsRef)chordsRef.current=chords;},[chords]);
+  // Auto-rename chord roots when keySig changes between sharp/flat
+  var prevKeyRef=useRef(keySig);
+  useEffect(function(){
+    var prev=prevKeyRef.current;prevKeyRef.current=keySig;
+    if(prev===keySig)return;
+    var wasSharp=isSharpKey(prev);var nowSharp=isSharpKey(keySig);
+    if(wasSharp===nowSharp)return;
+    var keys=Object.keys(chords);if(keys.length===0)return;
+    var nc=enharmonicChords(chords,nowSharp);
+    sChords(nc);pushHist(items,nc);
+  },[keySig]);
   const[selIdx,setSelIdx]=useState(null);
   // Compute note mapping for current items
   var noteToItemSel=[];var itemToNoteSel={};
@@ -2663,7 +2697,7 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteCl
     els.push(React.createElement("div",{key:idx,"data-nidx":idx,onClick:function(){tapNote(idx);},style:{minWidth:38,height:48,borderRadius:8,background:bg,color:t.text,display:"flex",alignItems:"center",justifyContent:"center",padding:"2px 5px",cursor:"pointer",flexShrink:0,border:isSel?"2px solid "+ac:"1px solid "+btnBd,transition:"all 0.1s"}},ct));return els;};
 
   // Chord timeline component
-  var chordLaneEl=React.createElement(ChordTimeline,{chords:chords,onChordsChange:function(nc){sChords(nc);pushHist(items,nc);},totalBeats:totalBeats,tsN:tsN,th:th});
+  var chordLaneEl=React.createElement(ChordTimeline,{chords:chords,onChordsChange:function(nc){sChords(nc);pushHist(items,nc);},totalBeats:totalBeats,tsN:tsN,th:th,keySig:keySig});
 
   return React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:8}},
     // 1. Notation preview
