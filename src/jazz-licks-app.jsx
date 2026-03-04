@@ -7329,12 +7329,12 @@ export default function Etudy(){
     if(!authUser)throw new Error("Not logged in");
     var p=await updateProfile(authUser.id,data);
     setAuthProfile(p);
+    // If instrument changed, sync transposition
     if(data.instrument){
       var transMap={"Alto Sax":"Alto Sax","Tenor Sax":"Tenor Sax","Trumpet":"Bb Trumpet","Clarinet":"Clarinet","Trombone":"Trombone","Flute":"Flute"};
       var mapped=transMap[data.instrument];
       if(mapped){setUserInst(mapped);var g=getStg();if(g)g.set("etudy:userInst",mapped).catch(function(){});}
     }
-    fetchLicks().then(function(fresh){if(fresh&&fresh.length>0)sL(fresh);});
   };
   var handleLogout=function(){
     signOut().then(function(){
