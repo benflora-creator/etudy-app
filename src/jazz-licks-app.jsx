@@ -2134,14 +2134,14 @@ function ChordTimeline(props){
     var name=buildName();
     if(!name)return;
     var nc=Object.assign({},chords);nc[editBeat]=name;
-    onChordsChange(nc);setEditBeat(-1);setEditIsNew(false);setExpanded(false);
+    onChordsChange(nc);setEditBeat(-1);setEditIsNew(false);
   };
   var deleteChord=function(){
     if(editBeat<0||editIsNew)return;
     var nc=Object.assign({},chords);delete nc[editBeat];
-    onChordsChange(nc);setEditBeat(-1);setEditIsNew(false);setExpanded(false);
+    onChordsChange(nc);setEditBeat(-1);setEditIsNew(false);
   };
-  var cancelEdit=function(){setEditBeat(-1);setEditIsNew(false);setExpanded(false);};
+  var cancelEdit=function(){setEditBeat(-1);setEditIsNew(false);};
 
   // === Render rows ===
   var pickerOpen=editBeat>=0;
@@ -2329,8 +2329,10 @@ function ChordTimeline(props){
       React.createElement("span",{onClick:function(){setExpanded(!isOpen);if(isOpen&&editBeat>=0){setEditBeat(-1);setEditIsNew(false);}},
         style:{fontSize:9,color:isStudio?"#777":"#666",fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,fontWeight:600,cursor:"pointer",userSelect:"none"}},"CHORDS"),
       React.createElement("span",{onClick:function(){setExpanded(!isOpen);if(isOpen&&editBeat>=0){setEditBeat(-1);setEditIsNew(false);}},
-        style:{fontSize:9,color:isStudio?"#555":"#999",cursor:"pointer",userSelect:"none",transition:"transform 0.2s",
-          transform:isOpen?"rotate(90deg)":"rotate(0deg)"}},"\u25B6"),
+        style:{cursor:"pointer",userSelect:"none",display:"flex",alignItems:"center",transition:"transform 0.2s",
+          transform:isOpen?"rotate(90deg)":"rotate(0deg)"}},
+        S("svg",{width:10,height:10,viewBox:"0 0 24 24",fill:"none",style:{display:"block"}},
+          S("path",{d:"M9 6l6 6-6 6",stroke:isStudio?"#666":"#888",strokeWidth:2.5,strokeLinecap:"round",strokeLinejoin:"round"}))),
       isOpen&&cBeats.length>0?React.createElement("span",{style:{fontSize:8,color:isStudio?"#555":"#999",fontFamily:"'Inter',sans-serif"}},"tap beat to add \u00B7 tap chord to edit"):null),
     isOpen?rows:compactEl);
 }
