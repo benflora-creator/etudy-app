@@ -5386,8 +5386,11 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
   const artistOk=artist.trim().length>=1;
   const notesOk=noteCount>=4;
   const canPublish=artistOk&&notesOk;
-  // Auto-generate title: "Charlie Parker ii-V-I over Confirmation"
-  var autoTitle=artist.trim();
+  // Auto-generate title: "4 bar lick in Eb — Charlie Parker ii-V-I over Confirmation"
+  var barCount=useMemo(function(){try{return getBarInfo(abc).nBars;}catch(e){return 0;}},[abc]);
+  var autoTitle="";
+  if(noteCount>=4)autoTitle+=barCount+" bar lick in "+concertKey;
+  if(artist.trim())autoTitle+=(autoTitle?" \u2014 ":"")+artist.trim();
   if(cat&&cat!=="All")autoTitle+=" "+cat;
   if(tune.trim())autoTitle+=" over "+tune.trim();
 
