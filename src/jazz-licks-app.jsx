@@ -3395,46 +3395,67 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
   const dragRef=useRef({startY:0,startH:0,active:false,moved:false});
   const hRef=useRef(DRAWER_PEEK);
   const snapPtsRef=useRef([DRAWER_PEEK]);
+  const maxHRef=useRef(DRAWER_PEEK);
   const drawerContentRef=useRef(null);
   const halfContentRef=useRef(null);
   const fullContentRef=useRef(null);
   useEffect(function(){hRef.current=drawerH;},[drawerH]);
   const winH=typeof window!=="undefined"?window.innerHeight:800;
 
-  // Measure actual content height via ResizeObserver
-  useEffect(function(){
+  // Measure content height ONCE per lick (and when expandable sections change).
+  // Use setTimeout so DOM has settled. NOT a ResizeObserver — that would fire on
+  // every drag frame (scroll container is flex:1, its rendered height changes).
+  var measureContent=function(){
     if(!drawerContentRef.current)return;
-    var obs=new ResizeObserver(function(){
-      if(!drawerContentRef.current)return;
-      // scrollHeight = total content height regardless of visible drawerH
-      var h=drawerContentRef.current.scrollHeight+48; // +48 for drag handle
-      setMeasuredFullH(Math.min(h,winH-60));
-    });
-    obs.observe(drawerContentRef.current);
-    return function(){obs.disconnect();};
-  },[]);
+    var h=drawerContentRef.current.scrollHeight+48;// +48 for drag handle
+    setMeasuredFullH(Math.min(h,winH-60));
+  };
+  useEffect(function(){var id=setTimeout(measureContent,120);return function(){clearTimeout(id);};},[lick.id]);
+  useEffect(function(){var id=setTimeout(measureContent,60);return function(){clearTimeout(id);};},[theoryMode,trOpen]);
 
-  // Build snap points from measured content
+  // Build snap points
   var hasHalfContent=!!(lick.description||(lick.tags&&lick.tags.length>0)||lick.youtubeId||lick.spotifyId);
-  var HALF_SHOW=DRAWER_PEEK+30;
-  var FULL_SHOW=DRAWER_HALF-20;
-  // fullMax: use measured height once available, else estimate
-  var fullMax=measuredFullH>DRAWER_PEEK+60?measuredFullH:Math.min((hasHalfContent?DRAWER_HALF:DRAWER_PEEK)+220,winH-60);
+  var estFull=Math.min((hasHalfContent?DRAWER_HALF:DRAWER_PEEK)+220,winH-60);
+  var fullMax=measuredFullH>(hasHalfContent?DRAWER_HALF:DRAWER_PEEK)+60?measuredFullH:estFull;
   var snapPts=[DRAWER_PEEK];
   if(hasHalfContent)snapPts.push(DRAWER_HALF);
-  // Only add full snap if it's meaningfully taller than previous snap
-  if(fullMax>(snapPts[snapPts.length-1])+60)snapPts.push(fullMax);
+  if(fullMax>snapPts[snapPts.length-1]+60)snapPts.push(fullMax);
   snapPtsRef.current=snapPts;
-  var maxDrawerH=snapPts[snapPts.length-1];
-  var doSnap=function(h){var closest=0,minD=Infinity;snapPtsRef.current.forEach(function(sp,i){var d=Math.abs(h-sp);if(d<minD){minD=d;closest=i;}});setDrawerH(snapPtsRef.current[closest]);setDrawerSnap(closest);};
-  useEffect(function(){var pts=snapPts;var target=pts[Math.min(drawerSnap,pts.length-1)];setDrawerH(target);},[drawerSnap,fullMax]);
-  var clampH=function(h){return Math.max(DRAWER_PEEK,Math.min(maxDrawerH,h));};
+  maxHRef.current=snapPts[snapPts.length-1];
+
+  var doSnap=function(h){
+    var pts=snapPtsRef.current;
+    var closest=0,minD=Infinity;
+    pts.forEach(function(sp,i){var d=Math.abs(h-sp);if(d<minD){minD=d;closest=i;}});
+    setDrawerH(pts[closest]);setDrawerSnap(closest);
+  };
+  // Only depend on drawerSnap — NOT on fullMax, to avoid fighting drag
+  useEffect(function(){
+    var pts=snapPtsRef.current;
+    setDrawerH(pts[Math.min(drawerSnap,pts.length-1)]);
+  },[drawerSnap]);
+
+  var clampH=function(h){return Math.max(DRAWER_PEEK,Math.min(maxHRef.current,h));};
   var onTouchStart=function(e){dragRef.current={startY:e.touches[0].clientY,startH:hRef.current,active:true,moved:false};setDragging(true);};
   var onTouchMove=function(e){if(!dragRef.current.active)return;var dy=dragRef.current.startY-e.touches[0].clientY;if(Math.abs(dy)>3)dragRef.current.moved=true;setDrawerH(clampH(dragRef.current.startH+dy));};
   var onTouchEnd=function(){if(!dragRef.current.active)return;dragRef.current.active=false;setDragging(false);doSnap(hRef.current);};
   var onMouseDown=function(e){e.preventDefault();dragRef.current={startY:e.clientY,startH:hRef.current,active:true,moved:false};setDragging(true);var mv=function(ev){var dy=dragRef.current.startY-ev.clientY;if(Math.abs(dy)>3)dragRef.current.moved=true;setDrawerH(clampH(dragRef.current.startH+dy));};var up=function(){dragRef.current.active=false;setDragging(false);doSnap(hRef.current);window.removeEventListener("mousemove",mv);window.removeEventListener("mouseup",up);};window.addEventListener("mousemove",mv);window.addEventListener("mouseup",up);};
-  var halfOpacity=drawerH<=DRAWER_PEEK?0:Math.min(1,(drawerH-DRAWER_PEEK)/80);
-  var fullOpacity=drawerH<FULL_SHOW?0:Math.min(1,(drawerH-FULL_SHOW)/80);
+
+  // Opacity derived from actual snap positions — no hardcoded HALF_SHOW/FULL_SHOW constants.
+  // halfOpacity: 0 at snap[0], 1 at snap[1] (only if hasHalfContent)
+  // fullOpacity: 0 at second-to-last snap, 1 at last snap
+  var halfOpacity=0;
+  if(hasHalfContent&&snapPts.length>=2){
+    var hRange=snapPts[1]-snapPts[0];
+    halfOpacity=hRange>0?Math.max(0,Math.min(1,(drawerH-snapPts[0])/hRange)):0;
+  }
+  var fullOpacity=0;
+  if(snapPts.length>=2){
+    var fPrev=snapPts[snapPts.length-2];
+    var fNext=snapPts[snapPts.length-1];
+    var fRange=fNext-fPrev;
+    fullOpacity=fRange>0?Math.max(0,Math.min(1,(drawerH-fPrev)/fRange)):0;
+  }
   var effectiveSnap=0;
   if(snapPts.length===3){effectiveSnap=drawerH>=(snapPts[1]+snapPts[2])/2?2:drawerH>=(snapPts[0]+snapPts[1])/2?1:0;}
   else if(snapPts.length===2){effectiveSnap=drawerH>=(snapPts[0]+snapPts[1])/2?1:0;}
