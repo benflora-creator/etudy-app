@@ -270,7 +270,8 @@ const SAMPLE_LICKS = [  { id:1, title:"Classic Charlie Parker ii-V-I", artist:"C
 // SUPABASE HELPERS
 // ============================================================
 function dbToLick(row) {
-  var displayName = row.username || 'Anonymous';
+  var profile = row.profiles || {};
+  var displayName = profile.display_name || profile.username || row.username || 'Anonymous';
   return {
     id: row.id,
     title: row.title,
@@ -322,7 +323,7 @@ async function fetchLicks() {
   try {
     const { data, error } = await supabase
       .from('licks')
-      .select('*')
+      .select('*, profiles(display_name, username)')
       .neq('status','reported')
       .order('created_at', { ascending: false });
     if (error) throw error;
@@ -440,7 +441,7 @@ async function fetchPublicLicksByUser(username) {
       .single();
     var query = supabase
       .from('licks')
-      .select('*')
+      .select('*, profiles(display_name, username)')
       .neq('status', 'reported')
       .neq('status', 'private')
       .order('created_at', { ascending: false });
