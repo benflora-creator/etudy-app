@@ -7230,7 +7230,7 @@ export default function Etudy(){
   const dayOfYear=Math.floor((Date.now()-new Date(new Date().getFullYear(),0,0))/86400000);
   const dailyLick=licks.length>0?licks[dayOfYear%licks.length]:null;
   const srcLicks=lickSource==="mine"?licks.filter(function(l){return savedSet.has(l.id);}).concat(myLicks):licks;
-  const fl=srcLicks.filter(l=>{if(lickSource==="community"&&dailyLick&&l.id===dailyLick.id)return false;if(inst!=="All"&&l.instrument!==inst)return false;if(cat!=="All"&&l.category!==cat)return false;if(sq){const q=sq.toLowerCase();return l.title.toLowerCase().includes(q)||l.artist.toLowerCase().includes(q)||l.key.toLowerCase().includes(q)||(l.tags||[]).some(tg2=>tg2.includes(q));}return true;});
+  const fl=srcLicks.filter(l=>{if(lickSource==="community"&&dailyLick&&l.id===dailyLick.id)return false;if(inst!=="All"&&l.instrument!==inst)return false;if(cat!=="All"&&l.category!==cat)return false;if(sq){const q=sq.toLowerCase();return l.title.toLowerCase().includes(q)||l.artist.toLowerCase().includes(q)||l.key.toLowerCase().includes(q)||(l.tune||"").toLowerCase().includes(q)||(l.tags||[]).some(tg2=>tg2.includes(q));}return true;});
   const addLick=d=>{
     if(!authUser){setShowLogin(true);return;}
     const temp={...d,id:Date.now(),likes:0,user:"You",tags:d.tags||[]};
