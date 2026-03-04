@@ -3133,7 +3133,8 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
           React.createElement("div",{style:{flex:1,minWidth:0}},
             React.createElement("h1",{style:{fontSize:20,fontWeight:isStudio?700:600,color:t.text,margin:0,fontFamily:t.titleFont,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}},lick.title),
             lick.status==="pending"&&React.createElement("span",{style:{fontSize:9,color:"#F59E0B",fontFamily:"'Inter',sans-serif",fontWeight:600,background:"#F59E0B15",padding:"2px 8px",borderRadius:6,border:"1px solid #F59E0B30",marginTop:2,display:"inline-block"}},"\u23F3 Pending review"),
-            React.createElement("p",{style:{fontSize:11,color:t.muted,margin:"2px 0 0",fontFamily:"'JetBrains Mono',monospace"}},lick.artist)),
+            React.createElement("p",{style:{fontSize:11,color:t.muted,margin:"2px 0 0",fontFamily:"'JetBrains Mono',monospace",display:"flex",alignItems:"center",gap:5}},lick.artist,
+              lick.tune&&React.createElement("span",{style:{fontSize:9,fontFamily:"'Inter',sans-serif",padding:"1px 7px",borderRadius:5,background:isStudio?t.accent+"12":t.accentBg,color:t.accent,border:"1px solid "+(isStudio?t.accent+"20":t.accentBorder)}},lick.tune))),
           React.createElement("div",{style:{display:"flex",gap:8,flexShrink:0,alignItems:"center"}},
             React.createElement("button",{onClick:function(e){onLike(lick.id);if(!liked&&isStudio){var r=e.target.closest("button").getBoundingClientRect();burstKeyRef.current++;sBurst({x:r.left+r.width/2,y:r.top+r.height/2,k:burstKeyRef.current});var b=e.target.closest("button");b.style.animation="none";void b.offsetHeight;b.style.animation="firePop 0.35s ease";}},style:{background:"none",border:"none",cursor:"pointer",padding:"4px",display:"flex",alignItems:"center",gap:5,transition:"all 0.15s"}},isStudio?(liked?IC.flame(22,"#F97316",true):IC.flameOff(22)):React.createElement("span",{style:{fontSize:22,color:liked?"#EF4444":t.muted}},liked?"\u2665":"\u2661"),React.createElement("span",{style:{fontSize:12,fontWeight:600,fontFamily:"'JetBrains Mono',monospace",color:liked?(isStudio?"#F97316":"#EF4444"):t.muted}},lc)),
             React.createElement("button",{onClick:function(e){onSave(lick.id);if(!saved&&isStudio&&e.target.closest("button")){var b=e.target.closest("button");b.style.animation="none";void b.offsetHeight;b.style.animation="firePop 0.35s ease";}},style:{background:"none",border:"none",cursor:"pointer",padding:"4px",display:"flex",alignItems:"center",transition:"all 0.15s"}},isStudio?IC.target(22,saved?"#22D89E":"#55556A"):React.createElement("span",{style:{fontSize:22,color:saved?"#F59E0B":t.muted}},saved?"\u2605":"\u2606")),
@@ -3368,6 +3369,7 @@ function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst}
         React.createElement("h3",{style:{fontSize:isStudio?17:16,fontWeight:isStudio?700:600,color:t.text,margin:"0 0 5px",lineHeight:1.3,fontFamily:t.titleFont,letterSpacing:isStudio?-0.2:0}},lick.title),
         React.createElement("div",{style:{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}},
           React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace"}},lick.artist),
+          lick.tune&&React.createElement("span",{style:{fontSize:9,fontFamily:"'Inter',sans-serif",padding:"2px 7px",borderRadius:5,background:isStudio?t.accent+"12":t.accentBg,color:t.accent,border:"1px solid "+(isStudio?t.accent+"20":t.accentBorder)}},lick.tune),
           isStudio&&React.createElement("span",{style:{fontSize:9,color:catC,fontFamily:"'JetBrains Mono',monospace",background:catC+"15",padding:"2px 8px",borderRadius:6,fontWeight:600,border:"1px solid "+catC+"20"}},lick.category),
           React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace"}},keyDisp),
           React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace"}},"\u2669="+lick.tempo),
@@ -3505,7 +3507,8 @@ function EarTrainer({licks,onLike,onOpen,likedSet,th,userInst:userInst}){
         !isRevealed?React.createElement("h2",{style:{fontSize:20,fontWeight:700,color:t.subtle,margin:"0 0 4px",fontFamily:t.titleFont,fontStyle:"italic"}},"Can you hear it?")
         :React.createElement("div",{style:{animation:"fadeIn 0.4s ease"}},
           React.createElement("h2",{style:{fontSize:20,fontWeight:700,color:t.text,margin:"0 0 4px",fontFamily:t.titleFont}},lick.title),
-          React.createElement("div",{style:{fontSize:12,color:t.muted,fontFamily:"'JetBrains Mono',monospace",marginBottom:2}},lick.artist+(lick.tune?" \u2013 "+lick.tune:""))),
+          React.createElement("div",{style:{fontSize:12,color:t.muted,fontFamily:"'JetBrains Mono',monospace",marginBottom:2,display:"flex",alignItems:"center",gap:5}},lick.artist,
+            lick.tune&&React.createElement("span",{style:{fontSize:9,fontFamily:"'Inter',sans-serif",padding:"1px 7px",borderRadius:5,background:isStudio?t.accent+"12":t.accentBg,color:t.accent,border:"1px solid "+(isStudio?t.accent+"20":t.accentBorder)}},lick.tune))),
 
         // HINTS — shown as chips
         React.createElement("div",{"data-coach":"ear-hints",style:{display:"flex",gap:6,marginTop:10,marginBottom:14}},
