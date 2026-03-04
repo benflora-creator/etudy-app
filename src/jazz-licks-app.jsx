@@ -2072,12 +2072,11 @@ function ChordTimeline(props){
   var chords=props.chords,onChordsChange=props.onChordsChange,totalBeats=props.totalBeats,tsN=props.tsN,th=props.th;
   var t=th;var isStudio=t===TH.studio;
   var ac=isStudio?"#22D89E":"#6366F1";
-  var totalBars=Math.max(2,Math.ceil(totalBeats/tsN));
+  var totalBars=Math.max(1,Math.ceil(totalBeats/tsN));
   var endBeat=totalBars*tsN;
   var cBeats=Object.keys(chords).map(Number);
   for(var ci=0;ci<cBeats.length;ci++){if(cBeats[ci]>=endBeat)endBeat=Math.ceil((cBeats[ci]+1)/tsN)*tsN;}
-  var effBars=Math.max(2,endBeat/tsN);
-  if(effBars%2!==0)effBars++;
+  var effBars=Math.max(1,endBeat/tsN);
   endBeat=effBars*tsN;
 
   var ST=useState;
@@ -2159,7 +2158,8 @@ function ChordTimeline(props){
     // Beat cells
     var cells=[];
     for(var gi=0;gi<beatsPerRow;gi++){
-      var beatIdx=rowStart+gi;var isBarStart=gi%tsN===0;
+      var beatIdx=rowStart+gi;if(beatIdx>=endBeat)break;
+      var isBarStart=gi%tsN===0;
       var chordName=chords[beatIdx];
       var isEd=editBeat===beatIdx;
       if(chordName){
@@ -2184,7 +2184,8 @@ function ChordTimeline(props){
         })(beatIdx,isBarStart);
       }
     }
-    cells.push(React.createElement("div",{key:"ge",style:{position:"absolute",right:0,top:0,bottom:0,width:1,background:isStudio?"#ffffff18":"#D0CFC8"}}));
+    var rowBeats=Math.min(beatsPerRow,endBeat-rowStart);
+    cells.push(React.createElement("div",{key:"ge",style:{position:"absolute",left:((rowBeats/beatsPerRow)*100)+"%",top:0,bottom:0,width:1,background:isStudio?"#ffffff18":"#D0CFC8"}}));
 
     rows.push(React.createElement("div",{key:"row"+r},
       React.createElement("div",{style:{display:"flex",marginBottom:1}},barLabels),
@@ -2508,7 +2509,7 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteCl
   var barsFromChords=Math.ceil(maxChordBeat/tsN)||0;
   var rawBars=Math.max(barsFromNotes,barsFromChords);
   var hasContent=items.length>0||chordKeys.length>0;
-  var edMinBars=hasContent?Math.max(2,rawBars%2===0?rawBars:rawBars+1):0;
+  var edMinBars=hasContent?Math.max(1,rawBars%2===0?rawBars:rawBars+(rawBars>1?1:0)):0;
   var currentAbc=useMemo(function(){return buildAbc(items,keySig,timeSig,tempo,chords,edMinBars);},[items,keySig,timeSig,tempo,chords,edMinBars]);
   useEffect(function(){onAbcChange(currentAbc);},[currentAbc]);
 
