@@ -410,6 +410,40 @@ async function removeUserLick(userId, lickId, type) {
   }
 }
 
+// ── Public Profile helpers ──
+async function fetchPublicProfile(userId) {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, display_name, username, instrument, bio, avatar_url, streak, licks_learned, badge_flags')
+      .eq('id', userId)
+      .eq('is_public', true)
+      .single();
+    if (error) throw error;
+    return data;
+  } catch (e) {
+    console.warn('fetchPublicProfile failed:', e);
+    return null;
+  }
+}
+
+async function fetchPublicLicksByUser(username) {
+  try {
+    const { data, error } = await supabase
+      .from('licks')
+      .select('*')
+      .eq('username', username)
+      .neq('status', 'reported')
+      .neq('status', 'private')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data.map(dbToLick);
+  } catch (e) {
+    console.warn('fetchPublicLicksByUser failed:', e);
+    return [];
+  }
+}
+
 const SOUND_PRESETS = [
   { id:"piano", label:"Piano", sample:true },
   { id:"rhodes", label:"Rhodes", sample:true },
@@ -3034,7 +3068,91 @@ function TempoPopup({bpm,onBpmChange,onClose,th,lickTempo,playerCtrlRef,ci,setCi
 // ── DRAWER CONSTANTS ──
 var DRAWER_PEEK=200,DRAWER_HALF=340,DRAWER_FULL_OFF=80;
 
-function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDone,onReShowTips,defaultInst,onDeletePrivate,onReport}){
+// ============================================================
+// PUBLIC PROFILE VIEW — full-screen overlay
+// ============================================================
+function PublicProfileView({username,onClose,onLickSelect,th,likedSet,savedSet,onLike,onSave,userInst}){
+  const t=th||TH.studio;const isStudio=t===TH.studio;
+  const[profile,setProfile]=useState(null);
+  const[licks,setLicks]=useState([]);
+  const[loading,setLoading]=useState(true);
+
+  useEffect(function(){
+    if(!username)return;
+    setLoading(true);
+    fetchPublicLicksByUser(username).then(function(userLicks){
+      setLicks(userLicks||[]);
+      setLoading(false);
+    });
+  },[username]);
+
+  const initials=username?username.slice(0,2).toUpperCase():"??";
+  const instC=profile&&profile.instrument?(INST_COL[profile.instrument]||t.accent):t.accent;
+  const totalLikes=licks.reduce(function(s,l){return s+(l.likes||0);},0);
+
+  return React.createElement("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:1100,background:t.bg,display:"flex",flexDirection:"column",animation:"fadeIn 0.18s ease"}},
+
+    // HEADER
+    React.createElement("div",{style:{position:"sticky",top:0,zIndex:10,background:t.headerBg,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",borderBottom:"1px solid "+t.border,paddingTop:"calc(env(safe-area-inset-top, 0px) + 12px)"}},
+      React.createElement("div",{style:{maxWidth:520,margin:"0 auto",padding:"12px 16px 12px",display:"flex",alignItems:"center",gap:10}},
+        React.createElement("button",{onClick:onClose,style:{background:"none",border:"none",cursor:"pointer",color:isStudio?t.accent:t.muted,fontSize:22,padding:"4px 8px 4px 0",display:"flex",alignItems:"center"}},"\u2039"),
+        React.createElement("div",{style:{flex:1}},
+          React.createElement("div",{style:{fontSize:11,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5,textTransform:"uppercase"}},"Musician"),
+          React.createElement("div",{style:{fontSize:16,fontWeight:700,color:t.text,fontFamily:"'Inter',sans-serif"}},username)))),
+
+    // SCROLLABLE BODY
+    React.createElement("div",{style:{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch"}},
+      React.createElement("div",{style:{maxWidth:520,margin:"0 auto",padding:"0 16px 100px"}},
+
+        // PROFILE HERO
+        React.createElement("div",{style:{margin:"24px 0 20px",padding:"20px",background:t.card,borderRadius:18,border:"1px solid "+t.border,boxShadow:isStudio?"0 4px 24px rgba(0,0,0,0.3)":"0 2px 12px rgba(0,0,0,0.06)",display:"flex",alignItems:"flex-start",gap:16}},
+          // Avatar
+          React.createElement("div",{style:{width:64,height:64,borderRadius:20,background:isStudio?"linear-gradient(135deg,"+instC+"22,"+instC+"08)":t.accentBg,border:"2px solid "+instC+"50",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:isStudio?"0 0 24px "+instC+"20":"none"}},
+            React.createElement("span",{style:{fontSize:22,fontWeight:700,color:instC,fontFamily:"'Inter',sans-serif",letterSpacing:-0.5}},initials)),
+          // Info
+          React.createElement("div",{style:{flex:1,minWidth:0}},
+            React.createElement("div",{style:{fontSize:18,fontWeight:700,color:t.text,fontFamily:"'Inter',sans-serif",marginBottom:4}},username),
+            profile&&profile.instrument&&React.createElement("div",{style:{display:"inline-flex",alignItems:"center",gap:4,fontSize:10,fontWeight:600,color:instC,background:instC+"15",padding:"3px 10px",borderRadius:8,border:"1px solid "+instC+"25",fontFamily:"'JetBrains Mono',monospace",marginBottom:8}},profile.instrument),
+            profile&&profile.bio&&React.createElement("div",{style:{fontSize:12,color:t.muted,fontFamily:"'Inter',sans-serif",lineHeight:1.5}},profile.bio))),
+
+        // STATS ROW
+        React.createElement("div",{style:{display:"flex",gap:8,marginBottom:20}},
+          [{label:"Licks",value:licks.length,icon:null},{label:"Likes received",value:totalLikes,icon:null},{label:"Day streak",value:profile?(profile.streak||0):"—",icon:"🔥"}].map(function(s,i){
+            return React.createElement("div",{key:i,style:{flex:1,background:t.card,borderRadius:12,padding:"12px 10px",border:"1px solid "+t.border,textAlign:"center",boxShadow:isStudio?"0 2px 10px rgba(0,0,0,0.25)":"0 1px 4px rgba(0,0,0,0.04)"}},
+              React.createElement("div",{style:{fontSize:20,fontWeight:700,color:t.text,fontFamily:"'JetBrains Mono',monospace"}},(s.icon?s.icon+" ":"")+s.value),
+              React.createElement("div",{style:{fontSize:9,color:t.muted,fontFamily:"'Inter',sans-serif",marginTop:3,letterSpacing:0.3,textTransform:"uppercase"}},s.label));
+          })),
+
+        // LICKS SECTION HEADER
+        React.createElement("div",{style:{fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5,textTransform:"uppercase",marginBottom:10}},"Published Licks"),
+
+        // LICK LIST
+        loading
+          ?React.createElement("div",{style:{textAlign:"center",padding:"40px 20px",color:t.subtle,fontSize:12,fontFamily:"'Inter',sans-serif"}},"Loading\u2026")
+          :licks.length===0
+            ?React.createElement("div",{style:{background:t.card,borderRadius:14,border:"1px solid "+t.border,padding:"32px 20px",textAlign:"center"}},
+              React.createElement("div",{style:{fontSize:28,marginBottom:8}},"🎷"),
+              React.createElement("div",{style:{fontSize:13,color:t.muted,fontFamily:"'Inter',sans-serif"}},"No published licks yet"))
+            :React.createElement("div",null,
+              licks.map(function(lick){
+                var cc=getCatColor(lick.category,t);
+                return React.createElement("div",{key:lick.id,onClick:function(){onLickSelect(lick);},style:{background:isStudio?(t.cardRaised||t.card):t.card,borderRadius:14,border:"1px solid "+(isStudio?cc+"20":t.border),padding:"14px 16px",marginBottom:10,cursor:"pointer",display:"flex",alignItems:"center",gap:12,boxShadow:isStudio?"0 2px 12px "+cc+"10":"0 1px 6px rgba(0,0,0,0.04)",transition:"all 0.15s"}},
+                  isStudio&&React.createElement("div",{style:{width:4,height:40,borderRadius:2,background:cc,flexShrink:0}}),
+                  React.createElement("div",{style:{flex:1,minWidth:0}},
+                    React.createElement("div",{style:{fontSize:14,fontWeight:600,color:t.text,fontFamily:"'Inter',sans-serif",marginBottom:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}},lick.title),
+                    React.createElement("div",{style:{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}},
+                      React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace"}},lick.artist),
+                      React.createElement("span",{style:{fontSize:9,color:cc,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,background:cc+"15",padding:"2px 7px",borderRadius:5}},lick.category),
+                      React.createElement("span",{style:{fontSize:9,color:t.subtle,fontFamily:"'JetBrains Mono',monospace"}},"\u2669="+lick.tempo))),
+                  React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4,flexShrink:0}},
+                    isStudio?IC.flame(14,"#F97316",likedSet&&likedSet.has(lick.id)):React.createElement("span",{style:{fontSize:13,color:t.muted}},"\u2661"),
+                    React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace",fontWeight:600}},lick.likes||0)));
+              }))
+      ))
+  );
+}
+
+function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDone,onReShowTips,defaultInst,onDeletePrivate,onReport,onUserClick}){
   const t=th||TH.classic;const isStudio=t===TH.studio;
   const[trInst,setTrInst]=useState(defaultInst||"Concert");const[trMan,setTrMan]=useState(0);
   const[pT,sPT]=useState(lick.tempo);
@@ -3134,6 +3252,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
             React.createElement("h1",{style:{fontSize:20,fontWeight:isStudio?700:600,color:t.text,margin:0,fontFamily:t.titleFont,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}},lick.title),
             lick.status==="pending"&&React.createElement("span",{style:{fontSize:9,color:"#F59E0B",fontFamily:"'Inter',sans-serif",fontWeight:600,background:"#F59E0B15",padding:"2px 8px",borderRadius:6,border:"1px solid #F59E0B30",marginTop:2,display:"inline-block"}},"\u23F3 Pending review"),
             React.createElement("p",{style:{fontSize:11,color:t.muted,margin:"2px 0 0",fontFamily:"'JetBrains Mono',monospace",display:"flex",alignItems:"center",gap:5}},lick.artist,
+              lick.user&&lick.user!=="Anonymous"&&React.createElement("button",{onClick:function(e){e.stopPropagation();if(onUserClick)onUserClick(lick.user);},style:{background:"none",border:"none",cursor:"pointer",padding:"0 0 0 4px",color:isStudio?t.accent+"99":t.accent,fontSize:10,fontFamily:"'Inter',sans-serif",fontWeight:600}},"@"+lick.user),
               lick.tune&&React.createElement("span",{style:{fontSize:9,fontFamily:"'Inter',sans-serif",padding:"1px 7px",borderRadius:5,background:isStudio?t.accent+"12":t.accentBg,color:t.accent,border:"1px solid "+(isStudio?t.accent+"20":t.accentBorder)}},lick.tune))),
           React.createElement("div",{style:{display:"flex",gap:8,flexShrink:0,alignItems:"center"}},
             React.createElement("button",{onClick:function(e){onLike(lick.id);if(!liked&&isStudio){var r=e.target.closest("button").getBoundingClientRect();burstKeyRef.current++;sBurst({x:r.left+r.width/2,y:r.top+r.height/2,k:burstKeyRef.current});var b=e.target.closest("button");b.style.animation="none";void b.offsetHeight;b.style.animation="firePop 0.35s ease";}},style:{background:"none",border:"none",cursor:"pointer",padding:"4px",display:"flex",alignItems:"center",gap:5,transition:"all 0.15s"}},isStudio?(liked?IC.flame(22,"#F97316",true):IC.flameOff(22)):React.createElement("span",{style:{fontSize:22,color:liked?"#EF4444":t.muted}},liked?"\u2665":"\u2661"),React.createElement("span",{style:{fontSize:12,fontWeight:600,fontFamily:"'JetBrains Mono',monospace",color:liked?(isStudio?"#F97316":"#EF4444"):t.muted}},lc)),
@@ -3354,7 +3473,7 @@ function DailyLickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:user
 // ============================================================
 // LICK CARD — compact, themed
 // ============================================================
-function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst}){
+function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst,onUserClick}){
   const t=th||TH.classic;const isStudio=t===TH.studio;
   const uOff=INST_TRANS[userInst]||0;const cardAbc=uOff?transposeAbc(lick.abc,uOff):lick.abc;
   const keyDisp=uOff?trKeyName(lick.key.split(" ")[0],uOff):lick.key;
@@ -3369,6 +3488,8 @@ function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst}
         React.createElement("h3",{style:{fontSize:isStudio?17:16,fontWeight:isStudio?700:600,color:t.text,margin:"0 0 5px",lineHeight:1.3,fontFamily:t.titleFont,letterSpacing:isStudio?-0.2:0}},lick.title),
         React.createElement("div",{style:{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}},
           React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace"}},lick.artist),
+          lick.user&&lick.user!=="Anonymous"&&React.createElement("button",{onClick:function(e){e.stopPropagation();if(onUserClick)onUserClick(lick.user);},style:{background:"none",border:"none",cursor:"pointer",padding:0,display:"flex",alignItems:"center"}},
+            React.createElement("span",{style:{fontSize:9,color:isStudio?t.accent+"99":t.accent,fontFamily:"'Inter',sans-serif",fontWeight:600,background:isStudio?t.accent+"10":"transparent",padding:isStudio?"2px 6px":"0",borderRadius:5}},"\u0040"+lick.user)),
           lick.tune&&React.createElement("span",{style:{fontSize:9,fontFamily:"'Inter',sans-serif",padding:"2px 7px",borderRadius:5,background:isStudio?t.accent+"12":t.accentBg,color:t.accent,border:"1px solid "+(isStudio?t.accent+"20":t.accentBorder)}},lick.tune),
           isStudio&&React.createElement("span",{style:{fontSize:9,color:catC,fontFamily:"'JetBrains Mono',monospace",background:catC+"15",padding:"2px 8px",borderRadius:6,fontWeight:600,border:"1px solid "+catC+"20"}},lick.category),
           React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace"}},keyDisp),
@@ -7124,6 +7245,16 @@ export default function Etudy(){
   const[streakDays,setStreakDays]=useState(0);
   const[runningPlan,setRunningPlan]=useState(null);
   const[historyRefresh,setHistoryRefresh]=useState(0);
+  const[publicProfileUser,setPublicProfileUser]=useState(null);
+  const openPublicProfile=useCallback(function(username){
+    if(!username||username==="Anonymous")return;
+    previewStop();
+    setPublicProfileUser(username);
+    window.scrollTo(0,0);
+  },[]);
+  const closePublicProfile=useCallback(function(){
+    setPublicProfileUser(null);
+  },[]);
   const exploreScrollRef=useRef(0);const viewRef=useRef("explore");
   const switchView=useCallback((nv)=>{
     previewStop();
@@ -7379,12 +7510,12 @@ export default function Etudy(){
             React.createElement("div",{style:{display:"flex",gap:4,background:t.filterBg,borderRadius:10,padding:3,marginBottom:12}},
               [["saved",(isStudio?"\u2299 ":"\u2605 ")+"Saved ("+savedLicks.length+")"],["private","\uD83D\uDD12 Private ("+privateLicks.length+")"]].map(function(m){
                 return React.createElement("button",{key:m[0],onClick:function(){setMyLicksSub(m[0]);},style:{flex:1,padding:"8px 12px",borderRadius:8,border:"none",background:myLicksSub===m[0]?(t.activeTabBg||t.card):"transparent",color:myLicksSub===m[0]?t.text:t.subtle,fontSize:12,fontWeight:myLicksSub===m[0]?600:400,fontFamily:"'Inter',sans-serif",cursor:"pointer",boxShadow:myLicksSub===m[0]?"0 1px 4px rgba(0,0,0,0.08)":"none",transition:"all 0.15s"}},m[1]);})),
-            activeLicks.length>0&&activeLicks.map(function(l){return React.createElement(LickCard,{key:l.id,lick:l,onSelect:openLick,th:t,liked:likedSet.has(l.id),saved:savedSet.has(l.id),onLike:toggleLike,onSave:toggleSave,userInst:userInst});}),
+            activeLicks.length>0&&activeLicks.map(function(l){return React.createElement(LickCard,{key:l.id,lick:l,onSelect:openLick,th:t,liked:likedSet.has(l.id),saved:savedSet.has(l.id),onLike:toggleLike,onSave:toggleSave,userInst:userInst,onUserClick:openPublicProfile});}),
             activeLicks.length===0&&React.createElement("div",{style:{textAlign:"center",padding:"40px 20px",background:t.card,borderRadius:14,border:"1px solid "+t.border}},
               React.createElement("div",{style:{fontSize:12,color:t.subtle,fontFamily:"'Inter',sans-serif"}},myLicksSub==="saved"?"No saved licks yet — "+(isStudio?"target \u2299":"star \u2605")+" licks to save them":"No private licks yet — create one with the + button")));
         })(),
         lickSource==="community"&&React.createElement("div",{style:{fontSize:11,color:t.subtle,fontFamily:"'Inter',sans-serif",marginBottom:10,fontWeight:500}},fl.length+" lick"+(fl.length!==1?"s":"")),
-        lickSource==="community"&&fl.map(l=>React.createElement(LickCard,{key:l.id,lick:l,onSelect:openLick,th:t,liked:likedSet.has(l.id),saved:savedSet.has(l.id),onLike:toggleLike,onSave:toggleSave,userInst:userInst})),
+        lickSource==="community"&&fl.map(l=>React.createElement(LickCard,{key:l.id,lick:l,onSelect:openLick,th:t,liked:likedSet.has(l.id),saved:savedSet.has(l.id),onLike:toggleLike,onSave:toggleSave,userInst:userInst,onUserClick:openPublicProfile})),
         fl.length===0&&!(lickSource==="mine"&&!sq&&inst==="All"&&cat==="All")&&React.createElement("div",{style:{textAlign:"center",padding:"60px 20px"}},React.createElement("p",{style:{fontFamily:t.titleFont,fontSize:16,color:t.subtle,fontStyle:theme==="studio"?"normal":"italic"}},"No licks found"))),
       view==="train"&&React.createElement("div",null,
         // Train sub-tabs: Ear | Rhythm (later: Scales)
@@ -7489,7 +7620,8 @@ export default function Etudy(){
     feedShowTips&&view==="explore"&&!selectedLick&&!showEd&&React.createElement(CoachMarks,{tips:FEED_TIPS,onDone:markFeedTipped,th:t}),
     earShowTips&&view==="train"&&trainSub==="ear"&&!selectedLick&&React.createElement(CoachMarks,{tips:EAR_TIPS,onDone:markEarTipped,th:t}),
     rhythmShowTips&&view==="train"&&trainSub==="rhythm"&&React.createElement(CoachMarks,{tips:RHYTHM_TIPS,onDone:markRhythmTipped,th:t}),
-    selectedLick&&React.createElement(LickDetail,{key:selectedLick.id,lick:selectedLick,onBack:closeLick,th:t,liked:likedSet.has(selectedLick.id),saved:savedSet.has(selectedLick.id),onLike:toggleLike,onSave:toggleSave,showTips:detailShowTips,onTipsDone:markDetailTipped,onReShowTips:detailTipped?function(){setDetailShowTips(true);}:null,defaultInst:userInst,onDeletePrivate:deletePrivateLick,onReport:handleReport}),
+    selectedLick&&React.createElement(LickDetail,{key:selectedLick.id,lick:selectedLick,onBack:closeLick,th:t,liked:likedSet.has(selectedLick.id),saved:savedSet.has(selectedLick.id),onLike:toggleLike,onSave:toggleSave,showTips:detailShowTips,onTipsDone:markDetailTipped,onReShowTips:detailTipped?function(){setDetailShowTips(true);}:null,defaultInst:userInst,onDeletePrivate:deletePrivateLick,onReport:handleReport,onUserClick:openPublicProfile}),
+    publicProfileUser&&React.createElement(PublicProfileView,{key:publicProfileUser,username:publicProfileUser,onClose:closePublicProfile,onLickSelect:function(lick){closePublicProfile();openLick(lick);},th:t,likedSet:likedSet,savedSet:savedSet,onLike:toggleLike,onSave:toggleSave,userInst:userInst}),
     showEd&&React.createElement(Editor,{onClose:()=>sSE(false),onSubmit:addLick,onSubmitPrivate:addPrivateLick,th:t,userInst:userInst}),
     runningPlan&&React.createElement(PlanRunner,{plan:runningPlan,onClose:function(){setRunningPlan(null);},th:t,licks:allLicks,userInst:userInst,keyProgress:keyProgress,onUpdateKeyProgress:onUpdateKeyProgress,onSessionSaved:function(){setHistoryRefresh(function(k){return k+1;});var s=getStg();if(s)s.get("practice-log").then(function(r){if(r&&r.value){try{var sess=JSON.parse(r.value);calcStreak(sess);calcHours(sess);}catch(e){}}}).catch(function(){});}}),
     // Settings sheet
