@@ -2846,32 +2846,87 @@ function SheetFocus({abc,onClose,abRange,curNoteRef,th,playerCtrlRef,theoryMode,
 function parseYT(u){if(!u)return{videoId:"",startTime:0};let v="",s=0;const m=u.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);if(m)v=m[1];const t1=u.match(/[?&]t=(\d+)m(\d+)s/);if(t1)s=parseInt(t1[1])*60+parseInt(t1[2]);else{const t2=u.match(/[?&]t=(\d+)/);if(t2)s=parseInt(t2[1]);}const t3=u.match(/[?&]start=(\d+)/);if(t3)s=parseInt(t3[1]);return{videoId:v,startTime:s};}
 function fT(s){return Math.floor(s/60)+":"+String(s%60).padStart(2,"0");}
 function YTP({videoId,startTime,endTime,isActive,th}){
-  const t=th||TH.classic;
-  const[on,sO]=useState(false);
-  const iframeRef=useRef(null);
-  const loopRef=useRef(null);
-  const start=startTime||0;
-  const end=(endTime&&endTime>start)?endTime:null;
+  var t=th||TH.classic;
+  var _on=useState(false); var on=_on[0],sO=_on[1];
+  var divRef=useRef(null);
+  var playerRef=useRef(null);
+  var pollRef=useRef(null);
+  var start=startTime||0;
+  var end=(endTime&&endTime>start)?endTime:null;
+
+  // Load YT IFrame API once globally
   useEffect(function(){
-    if(!on||!end)return;
-    var duration=(end-start)*1000;
-    loopRef.current=setInterval(function(){
-      if(iframeRef.current){var src=iframeRef.current.src;iframeRef.current.src="";setTimeout(function(){if(iframeRef.current)iframeRef.current.src=src;},80);}
-    },duration);
-    return function(){if(loopRef.current)clearInterval(loopRef.current);};
-  },[on,start,end]);
+    if(window.YT&&window.YT.Player)return;
+    if(document.querySelector('script[src*="youtube.com/iframe_api"]'))return;
+    var tag=document.createElement('script');
+    tag.src='https://www.youtube.com/iframe_api';
+    document.head.appendChild(tag);
+  },[]);
+
+  // Create player + start loop poll when user presses play
+  useEffect(function(){
+    if(!on||!videoId||!divRef.current)return;
+    var destroyed=false;
+    function startPoll(){
+      if(!end)return;
+      if(pollRef.current)clearInterval(pollRef.current);
+      pollRef.current=setInterval(function(){
+        try{
+          var p=playerRef.current;
+          if(!p||!p.getCurrentTime)return;
+          var state=p.getPlayerState(); // 1=playing
+          if(state!==1)return;
+          var cur=p.getCurrentTime();
+          if(cur>=end){
+            p.seekTo(start,true);
+          }
+        }catch(e){}
+      },200);
+    }
+    function create(){
+      if(destroyed||!divRef.current)return;
+      try{
+        playerRef.current=new window.YT.Player(divRef.current,{
+          videoId:videoId,
+          playerVars:{start:start,autoplay:1,rel:0,modestbranding:1},
+          events:{
+            onReady:function(){startPoll();},
+            onStateChange:function(e){
+              if(e.data===1)startPoll(); // (re)start poll on play
+            }
+          }
+        });
+      }catch(err){}
+    }
+    if(window.YT&&window.YT.Player){create();}
+    else{
+      var prev=window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady=function(){if(prev)prev();create();};
+    }
+    return function(){
+      destroyed=true;
+      if(pollRef.current){clearInterval(pollRef.current);pollRef.current=null;}
+      try{if(playerRef.current){playerRef.current.destroy();playerRef.current=null;}}catch(e){}
+    };
+  },[on,videoId,start,end]);
+
   if(!isActive||!videoId)return null;
-  var embedSrc="https://www.youtube.com/embed/"+videoId+"?start="+start+(end?"&end="+end:"")+"&autoplay=1&rel=0";
-  return React.createElement("div",{style:{marginTop:12}},
-    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:6}},
-      React.createElement("span",{style:{fontSize:10,color:t.subtle,fontFamily:"monospace",letterSpacing:1}},"ORIGINAL"),
-      start>0&&React.createElement("span",{style:{fontSize:10,fontFamily:"monospace",color:t.accent,background:t.accentBg,padding:"2px 8px",borderRadius:8}},"\u23F1 "+fT(start)+(end?" \u2014 "+fT(end)+" \uD83D\uDD01":""))),
-    React.createElement("div",{style:{position:"relative",paddingBottom:"56.25%",borderRadius:12,overflow:"hidden",background:"#1A1A1A"}},
-      on?React.createElement("iframe",{ref:iframeRef,src:embedSrc,style:{position:"absolute",top:0,left:0,width:"100%",height:"100%",border:"none"},allow:"autoplay; encrypted-media",allowFullScreen:true}):
-      React.createElement("button",{onClick:function(e){e.stopPropagation();sO(true);},style:{position:"absolute",top:0,left:0,width:"100%",height:"100%",background:"linear-gradient(135deg,#2a2a3e,#1a1a2e)",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:10}},
-        React.createElement("div",{style:{width:52,height:52,borderRadius:"50%",background:t.accent,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 20px "+t.accentGlow}},
-          React.createElement("div",{style:{width:0,height:0,borderTop:"10px solid transparent",borderBottom:"10px solid transparent",borderLeft:"16px solid #fff",marginLeft:3}})),
-        React.createElement("span",{style:{color:"rgba(255,255,255,0.4)",fontSize:11,fontFamily:"monospace"}},start>0?"\u25B6 "+fT(start)+(end?" \u2014 "+fT(end):""):"\u25B6 PLAY"))))
+  // Note: no &end= param — we handle loop via polling for accuracy
+  var embedSrc='https://www.youtube.com/embed/'+videoId+'?start='+start+'&autoplay=1&rel=0&enablejsapi=1';
+  return React.createElement('div',{style:{marginTop:12}},
+    React.createElement('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:6}},
+      React.createElement('span',{style:{fontSize:10,color:t.subtle,fontFamily:'monospace',letterSpacing:1}},'ORIGINAL'),
+      start>0&&React.createElement('span',{style:{fontSize:10,fontFamily:'monospace',color:t.accent,background:t.accentBg,padding:'2px 8px',borderRadius:8}},
+        '\u23F1 '+fT(start)+(end?' \u2014 '+fT(end)+' \uD83D\uDD01':''))),
+    on
+      ?React.createElement('div',{style:{position:'relative',paddingBottom:'56.25%',borderRadius:12,overflow:'hidden',background:'#1A1A1A'}},
+          React.createElement('div',{ref:divRef,style:{position:'absolute',top:0,left:0,width:'100%',height:'100%'}}))
+      :React.createElement('div',{style:{position:'relative',paddingBottom:'56.25%',borderRadius:12,overflow:'hidden',background:'linear-gradient(135deg,#2a2a3e,#1a1a2e)'}},
+          React.createElement('button',{onClick:function(e){e.stopPropagation();sO(true);},style:{position:'absolute',top:0,left:0,width:'100%',height:'100%',background:'transparent',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:10}},
+            React.createElement('div',{style:{width:52,height:52,borderRadius:'50%',background:t.accent,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 4px 20px '+t.accentGlow}},
+              React.createElement('div',{style:{width:0,height:0,borderTop:'10px solid transparent',borderBottom:'10px solid transparent',borderLeft:'16px solid #fff',marginLeft:3}})),
+            React.createElement('span',{style:{color:'rgba(255,255,255,0.4)',fontSize:11,fontFamily:'monospace'}},
+              start>0?'\u25B6 '+fT(start)+(end?' \u2014 '+fT(end):''):'\u25B6 PLAY'))))
 }
 
 function parseSpotify(u){if(!u)return"";const m=u.match(/open\.spotify\.com\/track\/([a-zA-Z0-9]+)/);if(m)return m[1];const m2=u.match(/spotify:track:([a-zA-Z0-9]+)/);return m2?m2[1]:"";}
@@ -3336,40 +3391,48 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
   const[drawerSnap,setDrawerSnap]=useState(0);
   const[drawerH,setDrawerH]=useState(DRAWER_PEEK);
   const[dragging,setDragging]=useState(false);
+  const[measuredFullH,setMeasuredFullH]=useState(0);
   const dragRef=useRef({startY:0,startH:0,active:false,moved:false});
   const hRef=useRef(DRAWER_PEEK);
+  const snapPtsRef=useRef([DRAWER_PEEK]);
   const drawerContentRef=useRef(null);
-  const halfContentRef=useRef(null);
-  const fullContentRef=useRef(null);
   useEffect(function(){hRef.current=drawerH;},[drawerH]);
   const winH=typeof window!=="undefined"?window.innerHeight:800;
-  // Height thresholds for content reveal (not snap-based — visible during drag)
-  var HALF_SHOW=DRAWER_PEEK+30;// start fading in half content
-  var FULL_SHOW=DRAWER_HALF-20;// start fading in full content
-  // Check if half/full sections have actual content to show
+
+  // Measure actual content height via ResizeObserver
+  useEffect(function(){
+    if(!drawerContentRef.current)return;
+    var obs=new ResizeObserver(function(){
+      if(!drawerContentRef.current)return;
+      // scrollHeight = total content height regardless of visible drawerH
+      var h=drawerContentRef.current.scrollHeight+48; // +48 for drag handle
+      setMeasuredFullH(Math.min(h,winH-60));
+    });
+    obs.observe(drawerContentRef.current);
+    return function(){obs.disconnect();};
+  },[]);
+
+  // Build snap points from measured content
   var hasHalfContent=!!(lick.description||(lick.tags&&lick.tags.length>0)||lick.youtubeId||lick.spotifyId);
-  // Full section = theory + delete/report. Fixed height — never nearly full-screen.
-  // Add extra for YouTube embed if present (~220px), otherwise compact (~200px)
-  var fullExtra=lick.youtubeId?220:0;
-  var fullMax=Math.min((hasHalfContent?DRAWER_HALF:DRAWER_PEEK)+200+fullExtra, winH-100);
-  var hasFullContent=fullMax>(hasHalfContent?DRAWER_HALF:DRAWER_PEEK)+60;
-  // Build snap points — only include snaps that have content
+  var HALF_SHOW=DRAWER_PEEK+30;
+  var FULL_SHOW=DRAWER_HALF-20;
+  // fullMax: use measured height once available, else estimate
+  var fullMax=measuredFullH>DRAWER_PEEK+60?measuredFullH:Math.min((hasHalfContent?DRAWER_HALF:DRAWER_PEEK)+220,winH-60);
   var snapPts=[DRAWER_PEEK];
   if(hasHalfContent)snapPts.push(DRAWER_HALF);
-  if(hasFullContent)snapPts.push(fullMax);
-  // If no half content, full is snap index 1
+  // Only add full snap if it's meaningfully taller than previous snap
+  if(fullMax>(snapPts[snapPts.length-1])+60)snapPts.push(fullMax);
+  snapPtsRef.current=snapPts;
   var maxDrawerH=snapPts[snapPts.length-1];
-  var doSnap=function(h){var closest=0,minD=Infinity;snapPts.forEach(function(sp,i){var d=Math.abs(h-sp);if(d<minD){minD=d;closest=i;}});setDrawerH(snapPts[closest]);setDrawerSnap(closest);};
-  useEffect(function(){var target=snapPts[Math.min(drawerSnap,snapPts.length-1)];setDrawerH(target);},[drawerSnap]);
+  var doSnap=function(h){var closest=0,minD=Infinity;snapPtsRef.current.forEach(function(sp,i){var d=Math.abs(h-sp);if(d<minD){minD=d;closest=i;}});setDrawerH(snapPtsRef.current[closest]);setDrawerSnap(closest);};
+  useEffect(function(){var pts=snapPts;var target=pts[Math.min(drawerSnap,pts.length-1)];setDrawerH(target);},[drawerSnap,fullMax]);
   var clampH=function(h){return Math.max(DRAWER_PEEK,Math.min(maxDrawerH,h));};
   var onTouchStart=function(e){dragRef.current={startY:e.touches[0].clientY,startH:hRef.current,active:true,moved:false};setDragging(true);};
   var onTouchMove=function(e){if(!dragRef.current.active)return;var dy=dragRef.current.startY-e.touches[0].clientY;if(Math.abs(dy)>3)dragRef.current.moved=true;setDrawerH(clampH(dragRef.current.startH+dy));};
   var onTouchEnd=function(){if(!dragRef.current.active)return;dragRef.current.active=false;setDragging(false);doSnap(hRef.current);};
   var onMouseDown=function(e){e.preventDefault();dragRef.current={startY:e.clientY,startH:hRef.current,active:true,moved:false};setDragging(true);var mv=function(ev){var dy=dragRef.current.startY-ev.clientY;if(Math.abs(dy)>3)dragRef.current.moved=true;setDrawerH(clampH(dragRef.current.startH+dy));};var up=function(){dragRef.current.active=false;setDragging(false);doSnap(hRef.current);window.removeEventListener("mousemove",mv);window.removeEventListener("mouseup",up);};window.addEventListener("mousemove",mv);window.addEventListener("mouseup",up);};
-  // Height-based opacity for smooth reveal during drag (not snap-dependent)
   var halfOpacity=drawerH<=DRAWER_PEEK?0:Math.min(1,(drawerH-DRAWER_PEEK)/80);
   var fullOpacity=drawerH<FULL_SHOW?0:Math.min(1,(drawerH-FULL_SHOW)/80);
-  // Effective snap index for dot indicator (derived from height during drag)
   var effectiveSnap=0;
   if(snapPts.length===3){effectiveSnap=drawerH>=(snapPts[1]+snapPts[2])/2?2:drawerH>=(snapPts[0]+snapPts[1])/2?1:0;}
   else if(snapPts.length===2){effectiveSnap=drawerH>=(snapPts[0]+snapPts[1])/2?1:0;}
@@ -3507,7 +3570,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
               React.createElement(ABRangeBar,{abc:notationAbc,abA:abA,abB:abB,setAbA:setAbA,setAbB:setAbB,onReset:function(){setAbA(0);setAbB(1);},th:t,compact:true})))),
 
         // ══ HALF: MEDIA + EXTRAS ══
-        React.createElement("div",{ref:halfContentRef,style:{padding:"14px 16px 0",opacity:halfOpacity,maxHeight:halfOpacity>0?"none":0,overflow:halfOpacity>0?"visible":"hidden",transition:dragging?"none":"opacity 0.3s",pointerEvents:halfOpacity>0.3?"auto":"none"}},
+        React.createElement("div",{ref:halfContentRef,style:{padding:"14px 16px 0",opacity:halfOpacity,visibility:halfOpacity>0?"visible":"hidden",transition:dragging?"none":"opacity 0.3s",pointerEvents:halfOpacity>0.3?"auto":"none"}},
           // Description
           lick.description&&React.createElement("p",{style:{fontSize:13,color:t.muted,lineHeight:1.7,margin:"0 0 10px",fontStyle:"italic",fontFamily:t.titleFont}},lick.description),
           // Tags
@@ -3520,7 +3583,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
           React.createElement(SpotifyEmbed,{trackId:lick.spotifyId,th:t})),
 
         // ══ FULL: THEORY + PRIVATE + REPORT ══
-        React.createElement("div",{ref:fullContentRef,style:{padding:"0 16px 32px",opacity:fullOpacity,maxHeight:fullOpacity>0?"none":0,overflow:fullOpacity>0?"visible":"hidden",transition:dragging?"none":"opacity 0.3s",pointerEvents:fullOpacity>0.3?"auto":"none"}},
+        React.createElement("div",{ref:fullContentRef,style:{padding:"0 16px 32px",opacity:fullOpacity,visibility:fullOpacity>0?"visible":"hidden",transition:dragging?"none":"opacity 0.3s",pointerEvents:fullOpacity>0.3?"auto":"none"}},
           // Theory X-Ray
           React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:14}},
             React.createElement("div",{style:{height:1,flex:1,background:t.border}}),
