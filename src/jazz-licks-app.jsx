@@ -426,7 +426,7 @@ const TRANS_INSTRUMENTS = ["Concert","Alto Sax","Tenor Sax","Bb Trumpet","Clarin
 // ============================================================
 // MUSIC THEORY
 // ============================================================
-const KEY_SIG={C:{},"Am":{},G:{f:1},"Em":{f:1},D:{f:1,c:1},"Bm":{f:1,c:1},A:{f:1,c:1,g:1},E:{f:1,c:1,g:1,d:1},B:{f:1,c:1,g:1,d:1,a:1},"F#":{f:1,c:1,g:1,d:1,a:1,e:1},F:{b:-1},"Dm":{b:-1},Bb:{b:-1,e:-1},"Gm":{b:-1,e:-1},Eb:{b:-1,e:-1,a:-1},"Cm":{b:-1,e:-1,a:-1},Ab:{b:-1,e:-1,a:-1,d:-1},"Fm":{b:-1,e:-1,a:-1,d:-1},Db:{b:-1,e:-1,a:-1,d:-1,g:-1},Gb:{b:-1,e:-1,a:-1,d:-1,g:-1,c:-1}};
+const KEY_SIG={C:{},"Am":{},G:{f:1},"Em":{f:1},D:{f:1,c:1},"Bm":{f:1,c:1},A:{f:1,c:1,g:1},E:{f:1,c:1,g:1,d:1},B:{f:1,c:1,g:1,d:1,a:1},"F#":{f:1,c:1,g:1,d:1,a:1,e:1},"C#":{f:1,c:1,g:1,d:1,a:1,e:1,b:1},F:{b:-1},"Dm":{b:-1},Bb:{b:-1,e:-1},"Gm":{b:-1,e:-1},Eb:{b:-1,e:-1,a:-1},"Cm":{b:-1,e:-1,a:-1},Ab:{b:-1,e:-1,a:-1,d:-1},"Fm":{b:-1,e:-1,a:-1,d:-1},Db:{b:-1,e:-1,a:-1,d:-1,g:-1},Gb:{b:-1,e:-1,a:-1,d:-1,g:-1,c:-1}};
 const N2M={C:0,D:2,E:4,F:5,G:7,A:9,B:11};
 const KEY_NAMES=["C","Db","D","Eb","E","F","F#","G","Ab","A","Bb","B"];
 const FLAT_ROOTS=new Set([1,3,5,8,10]);
@@ -2031,7 +2031,7 @@ const NOTE_NMS=["C","D","E","F","G","A","B"];
 // ── Enharmonic key/root helpers ──
 var ROOTS_FLAT=["C","Db","D","Eb","E","F","F#","G","Ab","A","Bb","B"];
 var ROOTS_SHARP=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
-var SHARP_KEYS={"C":1,"G":1,"D":1,"A":1,"E":1,"B":1,"F#":1,"C#":1,"D#":1,"G#":1,"A#":1};
+var SHARP_KEYS={"C":1,"G":1,"D":1,"A":1,"E":1,"B":1,"F#":1,"C#":1};
 function isSharpKey(k){return !!SHARP_KEYS[k];}
 var ENHAR_TO_SHARP={"Db":"C#","Eb":"D#","Gb":"F#","Ab":"G#","Bb":"A#"};
 var ENHAR_TO_FLAT={"C#":"Db","D#":"Eb","F#":"F#","G#":"Ab","A#":"Bb"};// F# stays F#
@@ -2363,9 +2363,9 @@ function ChordTimeline(props){
 
 function e2s(e){if(e===1)return"";if(e===0.5)return"/2";if(e===0.75)return"3/4";if(e===1.5)return"3/2";if(e===3)return"3";if(e===6)return"6";if(e===12)return"12";if(Number.isInteger(e))return String(e);return String(Math.round(e*2))+"/2";}
 // Map user-facing key to ABC-compatible key (ABC doesn't support C#, D#, G#, A#)
-var ABC_KEY_MAP={"C#":"Db","D#":"Eb","G#":"Ab","A#":"Bb"};
+var ABC_KEY_MAP={"D#":"Eb","G#":"Ab","A#":"Bb"};// C# is valid ABC (7 sharps)
 function abcKeySig(k){return ABC_KEY_MAP[k]||k;}
-var KEY_SIG_ACC={"C":{},"G":{F:1},"D":{F:1,C:1},"A":{F:1,C:1,G:1},"E":{F:1,C:1,G:1,D:1},"B":{F:1,C:1,G:1,D:1,A:1},"F#":{F:1,C:1,G:1,D:1,A:1,E:1},"Gb":{B:-1,E:-1,A:-1,D:-1,G:-1,C:-1},"F":{B:-1},"Bb":{B:-1,E:-1},"Eb":{B:-1,E:-1,A:-1},"Ab":{B:-1,E:-1,A:-1,D:-1},"Db":{B:-1,E:-1,A:-1,D:-1,G:-1}};
+var KEY_SIG_ACC={"C":{},"G":{F:1},"D":{F:1,C:1},"A":{F:1,C:1,G:1},"E":{F:1,C:1,G:1,D:1},"B":{F:1,C:1,G:1,D:1,A:1},"F#":{F:1,C:1,G:1,D:1,A:1,E:1},"C#":{F:1,C:1,G:1,D:1,A:1,E:1,B:1},"Gb":{B:-1,E:-1,A:-1,D:-1,G:-1,C:-1},"F":{B:-1},"Bb":{B:-1,E:-1},"Eb":{B:-1,E:-1,A:-1},"Ab":{B:-1,E:-1,A:-1,D:-1},"Db":{B:-1,E:-1,A:-1,D:-1,G:-1}};
 function chN(ch){return ch&&typeof ch==="object"?ch.n:ch||"";}
 function buildAbc(items,keySig,timeSig,tempo,chords,minBars){const[tsN,tsD]=timeSig.split("/").map(Number);const bE=tsN*(8/tsD);const beatE=8/tsD;
   // Beam break positions within a bar (in eighths)
@@ -5342,8 +5342,8 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
   var concertKey=edInstOff?trKeyName(abcKeySig(keySig),-edInstOff):abcKeySig(keySig);
   useEffect(function(){try{Tone.start();}catch(e){}preloadPiano();preloadChordPiano();_ensurePreviewSynth();},[]);
   var KEY_ROWS=[
-    ["C"],["Db","C#"],["D"],["Eb","D#"],["E"],["F"],
-    ["F#","Gb"],["G"],["Ab","G#"],["A"],["Bb","A#"],["B"]
+    ["C"],["Db","C#"],["D"],["Eb"],["E"],["F"],
+    ["F#","Gb"],["G"],["Ab"],["A"],["Bb"],["B"]
   ];
   const[keyOpen,setKeyOpen]=useState(false);
   const keyBtnRef=useRef(null);
