@@ -5386,18 +5386,11 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
   const artistOk=artist.trim().length>=1;
   const notesOk=noteCount>=4;
   const canPublish=artistOk&&notesOk;
-  // Auto-generate title: "2 bar ii-V-I lick in Eb — Charlie Parker over Confirmation"
-  var barCount=useMemo(function(){try{return getBarInfo(abc).nBars;}catch(e){return 0;}},[abc]);
-  var autoTitle="";
-  if(noteCount>=4){
-    autoTitle+=barCount+" bar";
-    if(cat&&cat!=="All")autoTitle+=" "+cat;
-    autoTitle+=" lick in "+concertKey;
-  }else{
-    if(cat&&cat!=="All")autoTitle+=cat+" lick";
-  }
-  if(artist.trim())autoTitle+=(autoTitle?" \u2014 ":"")+artist.trim();
-  if(tune.trim())autoTitle+=" over "+tune.trim();
+  const[label,setLabel]=useState("");
+  // Auto-generate title: "Charlie Parker — ii-V-I" or "Charlie Parker — ii-V-I · bridge turnaround"
+  var autoTitle=artist.trim();
+  if(cat&&cat!=="All")autoTitle+=(autoTitle?" \u2014 ":"")+cat;
+  if(label.trim())autoTitle+=" \u00B7 "+label.trim();
 
   // Compact select helper
   const cSel=(val,opts,onChange,w)=>React.createElement("select",{value:val,onChange:e=>onChange(e.target.value),style:{...ip,appearance:"none",cursor:"pointer",width:w||"100%"}},opts.map(o=>React.createElement("option",{key:o,value:o,style:{background:t.card}},o)));
@@ -5405,7 +5398,7 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
   // Feel buttons inline
 
   // Submit data builder
-  const buildData=()=>({title:autoTitle,artist,tune,instrument:inst,category:cat,key:concertKey,tempo:parseInt(tempo),feel,abc:concertAbc,chords:chordsRef.current||{},youtubeId:yt.videoId,youtubeStart:tSec,spotifyId:parseSpotify(sp),description:desc,tags:tags.split(",").map(tg2=>tg2.trim()).filter(Boolean)});
+  const buildData=()=>({title:autoTitle,artist,tune,label:label.trim(),instrument:inst,category:cat,key:concertKey,tempo:parseInt(tempo),feel,abc:concertAbc,chords:chordsRef.current||{},youtubeId:yt.videoId,youtubeStart:tSec,spotifyId:parseSpotify(sp),description:desc,tags:tags.split(",").map(tg2=>tg2.trim()).filter(Boolean)});
 
   // Check bar completeness before publishing
   var tryPublish=function(mode){
@@ -5434,9 +5427,10 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
   var summaryParts=[];
   if(edStep>=1){
     var parts=[];
-    if(keySig)parts.push(keySig);if(timeSig)parts.push(timeSig);if(tempo)parts.push("\u2669"+tempo);if(feel!=="straight")parts.push(feel);
-    if(artist.trim())parts.push("\u2014 "+autoTitle);
-    summaryParts.push(parts.join(" "));
+    if(autoTitle)parts.push(autoTitle);
+    parts.push(concertKey);parts.push(timeSig);if(feel!=="straight")parts.push(feel);
+    if(tune.trim())parts.push(tune.trim());
+    summaryParts.push(parts.join(" \u00B7 "));
   }
   if(edStep>=2&&noteCount>0){
     summaryParts.push(noteCount+" notes"+(Object.keys(chordsRef.current||{}).length>0?" + chords":""));
@@ -5508,10 +5502,18 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
                 React.createElement("div",null,
                   React.createElement("label",{style:lb},"CATEGORY"),
                   React.createElement("select",{style:{...ip,appearance:"none",cursor:"pointer"},value:cat,onChange:e=>sC(e.target.value)},CAT_LIST.filter(c=>c!=="All").map(c=>React.createElement("option",{key:c,value:c,style:{background:t.card}},c))))),
-              // Auto title preview
-              artistOk&&React.createElement("div",{style:{fontSize:11,color:t.muted,fontFamily:"'Inter',sans-serif",padding:"6px 10px",background:t.filterBg,borderRadius:8,lineHeight:1.4}},
-                React.createElement("span",{style:{fontSize:9,color:t.subtle,fontFamily:"'JetBrains Mono',monospace",letterSpacing:0.5,marginRight:6}},"TITLE"),
-                autoTitle)))),
+              // Optional label
+              React.createElement("div",null,
+                React.createElement("label",{style:lb},"LABEL"),
+                React.createElement("input",{style:ip,value:label,onChange:e=>{if(e.target.value.length<=30)setLabel(e.target.value);},placeholder:"optional, e.g. bridge turnaround",maxLength:30})),
+              // Auto title preview + chips
+              artistOk&&React.createElement("div",{style:{padding:"8px 10px",background:t.filterBg,borderRadius:8}},
+                React.createElement("div",{style:{fontSize:13,fontWeight:600,color:t.text,fontFamily:"'Inter',sans-serif",marginBottom:6}},autoTitle),
+                React.createElement("div",{style:{display:"flex",gap:4,flexWrap:"wrap"}},
+                  tune.trim()&&React.createElement("span",{style:{fontSize:10,fontFamily:"'Inter',sans-serif",padding:"2px 8px",borderRadius:6,background:t.accentBg,color:t.accent,border:"1px solid "+t.accentBorder}},tune.trim()),
+                  React.createElement("span",{style:{fontSize:10,fontFamily:"'JetBrains Mono',monospace",padding:"2px 8px",borderRadius:6,background:isStudio?"#ffffff08":"#F0EFE8",color:t.muted}},concertKey),
+                  React.createElement("span",{style:{fontSize:10,fontFamily:"'JetBrains Mono',monospace",padding:"2px 8px",borderRadius:6,background:isStudio?"#ffffff08":"#F0EFE8",color:t.muted}},timeSig),
+                  feel!=="straight"&&React.createElement("span",{style:{fontSize:10,fontFamily:"'Inter',sans-serif",padding:"2px 8px",borderRadius:6,background:isStudio?"#ffffff08":"#F0EFE8",color:t.muted}},feel)))))),
 
         // ═══ STEP 1: Notes ═══
         React.createElement("div",{style:{display:edStep===1?"flex":"none",flexDirection:"column",gap:12}},
