@@ -2470,7 +2470,7 @@ function buildAbc(items,keySig,timeSig,tempo,chords,minBars){const[tsN,tsD]=time
     }
   }
   return abc;}
-function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteClickRef,onSelChange,deselectRef,previewOffset,th,chordsRef}){
+function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteClickRef,onSelChange,deselectRef,previewOffset,th,chordsRef,barInfoRef,fillBarRef}){
   const[items,sIt]=useState([]);const[cO,sCO]=useState(4);const[cD,sCD]=useState(2);const[dt,sDt]=useState(false);const[tri,sTri]=useState(false);
   const[chords,sChords]=useState({});
   useEffect(function(){if(chordsRef)chordsRef.current=chords;},[chords]);
@@ -2535,6 +2535,19 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteCl
 
   const[tsN,tsD]=timeSig.split("/").map(Number);const bE=tsN*(8/tsD);const beatE=8/tsD;
   var tE=0;for(var ii=0;ii<items.length;ii++){var it=items[ii];if(it.type==="note"||it.type==="rest")tE+=DURS[it.dur].eighths*(it.dotted?1.5:1)*(it.tri?2/3:1);}
+  // Expose bar completeness
+  var barRem=tE>0?(bE-tE%bE)%bE:0;
+  if(barInfoRef)barInfoRef.current={complete:tE===0||barRem===0,remaining:barRem,bE:bE,tE:tE};
+  // Fill bar with rests
+  if(fillBarRef)fillBarRef.current=function(){
+    if(barRem<=0)return;
+    var rem=barRem;var newItems=items.slice();
+    var restVals=[{dur:0,e:8},{dur:1,e:4},{dur:2,e:2},{dur:3,e:1},{dur:4,e:0.5}];
+    for(var rv=0;rv<restVals.length;rv++){
+      while(rem>=restVals[rv].e){newItems.push({type:"rest",dur:restVals[rv].dur});rem-=restVals[rv].e;}
+    }
+    mutate(newItems,chords);
+  };
   // Min bars: consider both notes AND chord positions
   var maxChordBeat=0;
   var chordKeys=Object.keys(chords);
@@ -5266,7 +5279,10 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
   const noteClickRef=useRef(null);
   const deselectRef=useRef(null);
   const chordsRef=useRef({});
+  const barInfoRef=useRef({complete:true,remaining:0});
+  const fillBarRef=useRef(null);
   const[edSelIdx,setEdSelIdx]=useState(null);
+  const[showBarFill,setShowBarFill]=useState(null);// null or "publish"|"private"
   var edInstOff=INST_TRANS[userInst]||0;
   // Concert pitch abc for playback (transpose back from instrument transposition)
   var concertAbc=edInstOff?transposeAbc(abc,-edInstOff):abc;
@@ -5298,6 +5314,21 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
 
   // Submit data builder
   const buildData=()=>({title,artist,tune,instrument:inst,category:cat,key:concertKey,tempo:parseInt(tempo),feel,abc:concertAbc,chords:chordsRef.current||{},youtubeId:yt.videoId,youtubeStart:tSec,spotifyId:parseSpotify(sp),description:desc,tags:tags.split(",").map(tg2=>tg2.trim()).filter(Boolean)});
+
+  // Check bar completeness before publishing
+  var tryPublish=function(mode){
+    if(!canPublish)return;
+    var bi=barInfoRef.current;
+    if(bi&&!bi.complete&&bi.tE>0){setShowBarFill(mode);return;}
+    if(mode==="private")onSubmitPrivate(buildData());else onSubmit(buildData());
+  };
+  var doFillAndPublish=function(){
+    if(fillBarRef.current)fillBarRef.current();
+    var mode=showBarFill;setShowBarFill(null);
+    setTimeout(function(){
+      var d2=buildData();if(mode==="private")onSubmitPrivate(d2);else onSubmit(d2);
+    },80);
+  };
 
   return React.createElement("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:1000,background:t.bg,display:"flex",flexDirection:"column"}},
     // Header — full width, outside scroll
@@ -5334,7 +5365,7 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
             edInstOff!==0&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",background:isStudio?"rgba(34,216,158,0.06)":"rgba(99,102,241,0.04)",borderRadius:8,border:"1px solid "+(isStudio?"rgba(34,216,158,0.15)":"rgba(99,102,241,0.1)")}},
               React.createElement("span",{style:{fontSize:10,color:isStudio?"#22D89E":t.accent,fontFamily:"'Inter',sans-serif"}},"Entering for "+userInst+" \u2014 will be saved in concert pitch")),
             React.createElement("div",{style:{borderRadius:12,padding:14,border:"1px solid "+t.border}},
-              React.createElement(NoteBuilder,{onAbcChange:sAbc,keySig,timeSig,tempo:parseInt(tempo)||120,noteClickRef:noteClickRef,onSelChange:setEdSelIdx,deselectRef:deselectRef,previewOffset:-edInstOff,th:t,chordsRef:chordsRef,
+              React.createElement(NoteBuilder,{onAbcChange:sAbc,keySig,timeSig,tempo:parseInt(tempo)||120,noteClickRef:noteClickRef,onSelChange:setEdSelIdx,deselectRef:deselectRef,previewOffset:-edInstOff,th:t,chordsRef:chordsRef,barInfoRef:barInfoRef,fillBarRef:fillBarRef,
                 previewEl:React.createElement("div",{style:{marginBottom:4}},
                   React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}},
                     React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,fontWeight:600}},"PREVIEW"),
@@ -5409,8 +5440,20 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
           notesOk&&!titleOk&&React.createElement("span",{style:{fontSize:10,color:t.subtle,fontFamily:"'Inter',sans-serif",background:t.filterBg,padding:"3px 8px",borderRadius:6}},title.length>0?"title too short (min 3)":"needs a title"),
           notesOk&&titleOk&&!artistOk&&React.createElement("span",{style:{fontSize:10,color:t.subtle,fontFamily:"'Inter',sans-serif",background:t.filterBg,padding:"3px 8px",borderRadius:6}},"needs an artist")),
         canPublish&&React.createElement("div",{style:{flex:1}}),
-        React.createElement("button",{onClick:()=>{if(!canPublish)return;onSubmitPrivate(buildData());},disabled:!canPublish,style:{padding:"12px 20px",background:canPublish?t.card:t.border,color:canPublish?t.text:t.subtle,border:canPublish?"1.5px solid "+t.accent:"none",borderRadius:12,fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:canPublish?"pointer":"default",transition:"all 0.2s"}},"\uD83D\uDD12 Private"),
-        React.createElement("button",{onClick:()=>{if(!canPublish)return;onSubmit(buildData());},disabled:!canPublish,style:{padding:"12px 24px",background:canPublish?(isStudio?t.playBg:t.accent):t.border,color:canPublish?"#fff":t.subtle,border:"none",borderRadius:12,fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:canPublish?"pointer":"default",boxShadow:canPublish?"0 4px 16px "+t.accentGlow:"none",transition:"all 0.2s"}},"Publish"))));}
+        React.createElement("button",{onClick:()=>tryPublish("private"),disabled:!canPublish,style:{padding:"12px 20px",background:canPublish?t.card:t.border,color:canPublish?t.text:t.subtle,border:canPublish?"1.5px solid "+t.accent:"none",borderRadius:12,fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:canPublish?"pointer":"default",transition:"all 0.2s"}},"\uD83D\uDD12 Private"),
+        React.createElement("button",{onClick:()=>tryPublish("publish"),disabled:!canPublish,style:{padding:"12px 24px",background:canPublish?(isStudio?t.playBg:t.accent):t.border,color:canPublish?"#fff":t.subtle,border:"none",borderRadius:12,fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:canPublish?"pointer":"default",boxShadow:canPublish?"0 4px 16px "+t.accentGlow:"none",transition:"all 0.2s"}},"Publish"))),
+    // Bar-fill dialog
+    showBarFill&&React.createElement("div",{style:{position:"absolute",top:0,left:0,right:0,bottom:0,zIndex:1100,background:"rgba(0,0,0,0.5)",backdropFilter:"blur(4px)",WebkitBackdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}},
+      React.createElement("div",{onClick:function(e){e.stopPropagation();},style:{background:t.card,borderRadius:16,padding:"24px 20px",maxWidth:340,width:"100%",border:"1px solid "+t.border,boxShadow:"0 12px 40px rgba(0,0,0,"+(isStudio?"0.6":"0.15")+")"}},
+        React.createElement("div",{style:{fontSize:15,fontWeight:700,color:t.text,fontFamily:"'Inter',sans-serif",marginBottom:8}},"Incomplete bar"),
+        React.createElement("p",{style:{fontSize:12,color:t.muted,fontFamily:"'Inter',sans-serif",margin:"0 0 16px",lineHeight:1.5}},
+          "The last bar isn\u2019t complete yet. For clean looping, fill the remaining beats with rests?"),
+        React.createElement("div",{style:{display:"flex",gap:8}},
+          React.createElement("button",{onClick:doFillAndPublish,
+            style:{flex:1,padding:"10px",borderRadius:10,border:"none",background:ac,color:isStudio?"#08080F":"#fff",fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer"}},"Fill & Save"),
+          React.createElement("button",{onClick:function(){setShowBarFill(null);},
+            style:{flex:1,padding:"10px",borderRadius:10,border:"1px solid "+t.border,background:t.filterBg,color:t.muted,fontSize:13,fontWeight:500,fontFamily:"'Inter',sans-serif",cursor:"pointer"}},"Back")))));}
+
 
 
 // ============================================================
