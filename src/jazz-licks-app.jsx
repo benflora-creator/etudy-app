@@ -5450,7 +5450,7 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
           "The last bar isn\u2019t complete yet. For clean looping, fill the remaining beats with rests?"),
         React.createElement("div",{style:{display:"flex",gap:8}},
           React.createElement("button",{onClick:doFillAndPublish,
-            style:{flex:1,padding:"10px",borderRadius:10,border:"none",background:ac,color:isStudio?"#08080F":"#fff",fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer"}},"Fill & Save"),
+            style:{flex:1,padding:"10px",borderRadius:10,border:"none",background:t.accent,color:isStudio?"#08080F":"#fff",fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer"}},"Fill & Save"),
           React.createElement("button",{onClick:function(){setShowBarFill(null);},
             style:{flex:1,padding:"10px",borderRadius:10,border:"1px solid "+t.border,background:t.filterBg,color:t.muted,fontSize:13,fontWeight:500,fontFamily:"'Inter',sans-serif",cursor:"pointer"}},"Back")))));}
 
