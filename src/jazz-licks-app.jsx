@@ -2538,16 +2538,6 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteCl
   // Expose bar completeness
   var barRem=tE>0?(bE-tE%bE)%bE:0;
   if(barInfoRef)barInfoRef.current={complete:tE===0||barRem===0,remaining:barRem,bE:bE,tE:tE};
-  // Fill bar with rests
-  if(fillBarRef)fillBarRef.current=function(){
-    if(barRem<=0)return;
-    var rem=barRem;var newItems=items.slice();
-    var restVals=[{dur:0,e:8},{dur:1,e:4},{dur:2,e:2},{dur:3,e:1},{dur:4,e:0.5}];
-    for(var rv=0;rv<restVals.length;rv++){
-      while(rem>=restVals[rv].e){newItems.push({type:"rest",dur:restVals[rv].dur});rem-=restVals[rv].e;}
-    }
-    mutate(newItems,chords);
-  };
   // Min bars: consider both notes AND chord positions
   var maxChordBeat=0;
   var chordKeys=Object.keys(chords);
@@ -2559,6 +2549,21 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteCl
   var rawBars=Math.max(barsFromNotes,barsFromChords);
   var hasContent=items.length>0||chordKeys.length>0;
   var edMinBars=hasContent?Math.max(1,rawBars%2===0?rawBars:rawBars+(rawBars>1?1:0)):0;
+  // Fill bar with rests — returns new ABC for immediate use
+  if(fillBarRef)fillBarRef.current=function(){
+    if(barRem<=0)return null;
+    var rem=barRem;var newItems=items.slice();
+    var restVals=[{dur:0,e:8},{dur:1,e:4},{dur:2,e:2},{dur:3,e:1},{dur:4,e:0.5}];
+    for(var rv=0;rv<restVals.length;rv++){
+      while(rem>=restVals[rv].e){newItems.push({type:"rest",dur:restVals[rv].dur});rem-=restVals[rv].e;}
+    }
+    mutate(newItems,chords);
+    var newTE=0;for(var fi=0;fi<newItems.length;fi++){var ft=newItems[fi];if(ft.type==="note"||ft.type==="rest")newTE+=DURS[ft.dur].eighths*(ft.dotted?1.5:1)*(ft.tri?2/3:1);}
+    var newBarsN=Math.ceil(newTE/bE)||0;
+    var newRaw=Math.max(newBarsN,barsFromChords);
+    var newMinBars=Math.max(1,newRaw%2===0?newRaw:newRaw+(newRaw>1?1:0));
+    return buildAbc(newItems,keySig,timeSig,tempo,chords,newMinBars);
+  };
   var currentAbc=useMemo(function(){return buildAbc(items,keySig,timeSig,tempo,chords,edMinBars);},[items,keySig,timeSig,tempo,chords,edMinBars]);
   useEffect(function(){onAbcChange(currentAbc);},[currentAbc]);
 
@@ -5323,11 +5328,14 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
     if(mode==="private")onSubmitPrivate(buildData());else onSubmit(buildData());
   };
   var doFillAndPublish=function(){
-    if(fillBarRef.current)fillBarRef.current();
+    var newAbc=fillBarRef.current?fillBarRef.current():null;
     var mode=showBarFill;setShowBarFill(null);
-    setTimeout(function(){
-      var d2=buildData();if(mode==="private")onSubmitPrivate(d2);else onSubmit(d2);
-    },80);
+    if(newAbc){
+      sAbc(newAbc);// update Editor state for consistency
+      var cAbc=edInstOff?transposeAbc(newAbc,-edInstOff):newAbc;
+      var d2=buildData();d2.abc=cAbc;
+      if(mode==="private")onSubmitPrivate(d2);else onSubmit(d2);
+    }
   };
 
   return React.createElement("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:1000,background:t.bg,display:"flex",flexDirection:"column"}},
