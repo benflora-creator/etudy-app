@@ -2507,7 +2507,7 @@ function buildAbc(items,keySig,timeSig,tempo,chords,minBars){const[tsN,tsD]=time
     }
   }
   return abc;}
-function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteClickRef,onSelChange,deselectRef,previewOffset,th,chordsRef,barInfoRef,fillBarRef}){
+function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteClickRef,onSelChange,deselectRef,previewOffset,th,chordsRef,barInfoRef,fillBarRef,visible}){
   const[items,sIt]=useState([]);const[cO,sCO]=useState(4);const[cD,sCD]=useState(2);const[dt,sDt]=useState(false);const[tri,sTri]=useState(false);
   const[chords,sChords]=useState({});
   useEffect(function(){if(chordsRef)chordsRef.current=chords;},[chords]);
@@ -2578,8 +2578,8 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteCl
   useEffect(function(){if(sR.current&&selIdx!==null){var el=sR.current.querySelector("[data-nidx='"+selIdx+"']");if(el)el.scrollIntoView({block:"nearest",inline:"center",behavior:"smooth"});}},[selIdx]);
   // Auto-scroll piano to current octave
   useEffect(function(){if(pianoRef.current){var el=pianoRef.current.querySelector("[data-oct='"+effOct+"']");if(el){var container=pianoRef.current;container.scrollTo({left:el.offsetLeft-container.clientWidth/2+el.clientWidth/2,behavior:"smooth"});}}},[effOct]);
-  // Initial piano scroll (no animation)
-  useEffect(function(){requestAnimationFrame(function(){if(pianoRef.current){var el=pianoRef.current.querySelector("[data-oct='4']");if(el){var container=pianoRef.current;container.scrollLeft=el.offsetLeft-container.clientWidth/2+el.clientWidth/2;}}});},[]);
+  // Initial piano scroll (no animation) — also re-trigger when becoming visible
+  useEffect(function(){requestAnimationFrame(function(){if(pianoRef.current){var el=pianoRef.current.querySelector("[data-oct='4']");if(el){var container=pianoRef.current;container.scrollLeft=el.offsetLeft-container.clientWidth/2+el.clientWidth/2;}}});},[visible]);
 
   const[tsN,tsD]=timeSig.split("/").map(Number);const bE=tsN*(8/tsD);const beatE=8/tsD;
   var tE=0;for(var ii=0;ii<items.length;ii++){var it=items[ii];if(it.type==="note"||it.type==="rest")tE+=DURS[it.dur].eighths*(it.dotted?1.5:1)*(it.tri?2/3:1);}
@@ -5505,7 +5505,7 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
           edInstOff!==0&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",background:isStudio?"rgba(34,216,158,0.06)":"rgba(99,102,241,0.04)",borderRadius:8,border:"1px solid "+(isStudio?"rgba(34,216,158,0.15)":"rgba(99,102,241,0.1)")}},
             React.createElement("span",{style:{fontSize:10,color:isStudio?"#22D89E":t.accent,fontFamily:"'Inter',sans-serif"}},"Entering for "+userInst+" \u2014 will be saved in concert pitch")),
           React.createElement("div",{style:{borderRadius:12,padding:14,border:"1px solid "+t.border,background:t.card}},
-            React.createElement(NoteBuilder,{onAbcChange:sAbc,keySig,timeSig,tempo:parseInt(tempo)||120,noteClickRef:noteClickRef,onSelChange:setEdSelIdx,deselectRef:deselectRef,previewOffset:-edInstOff,th:t,chordsRef:chordsRef,barInfoRef:barInfoRef,fillBarRef:fillBarRef,
+            React.createElement(NoteBuilder,{onAbcChange:sAbc,keySig,timeSig,tempo:parseInt(tempo)||120,noteClickRef:noteClickRef,onSelChange:setEdSelIdx,deselectRef:deselectRef,previewOffset:-edInstOff,th:t,chordsRef:chordsRef,barInfoRef:barInfoRef,fillBarRef:fillBarRef,visible:edStep===1,
               previewEl:React.createElement("div",{style:{marginBottom:4}},
                 React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}},
                   React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,fontWeight:600}},"PREVIEW"),
