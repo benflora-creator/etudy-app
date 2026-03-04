@@ -2362,6 +2362,9 @@ function ChordTimeline(props){
 
 
 function e2s(e){if(e===1)return"";if(e===0.5)return"/2";if(e===0.75)return"3/4";if(e===1.5)return"3/2";if(e===3)return"3";if(e===6)return"6";if(e===12)return"12";if(Number.isInteger(e))return String(e);return String(Math.round(e*2))+"/2";}
+// Map user-facing key to ABC-compatible key (ABC doesn't support C#, D#, G#, A#)
+var ABC_KEY_MAP={"C#":"Db","D#":"Eb","G#":"Ab","A#":"Bb"};
+function abcKeySig(k){return ABC_KEY_MAP[k]||k;}
 var KEY_SIG_ACC={"C":{},"G":{F:1},"D":{F:1,C:1},"A":{F:1,C:1,G:1},"E":{F:1,C:1,G:1,D:1},"B":{F:1,C:1,G:1,D:1,A:1},"F#":{F:1,C:1,G:1,D:1,A:1,E:1},"Gb":{B:-1,E:-1,A:-1,D:-1,G:-1,C:-1},"F":{B:-1},"Bb":{B:-1,E:-1},"Eb":{B:-1,E:-1,A:-1},"Ab":{B:-1,E:-1,A:-1,D:-1},"Db":{B:-1,E:-1,A:-1,D:-1,G:-1}};
 function chN(ch){return ch&&typeof ch==="object"?ch.n:ch||"";}
 function buildAbc(items,keySig,timeSig,tempo,chords,minBars){const[tsN,tsD]=timeSig.split("/").map(Number);const bE=tsN*(8/tsD);const beatE=8/tsD;
@@ -2381,7 +2384,7 @@ function buildAbc(items,keySig,timeSig,tempo,chords,minBars){const[tsN,tsD]=time
   else{for(var g2=1;g2<tsN;g2++){beamBreaks.push(g2*beatE);beamBreaks16.push(g2*beatE);}}
 
   // Helper: emit note name in ABC
-  var ksMap=KEY_SIG_ACC[keySig]||{};
+  var ksMap=KEY_SIG_ACC[abcKeySig(keySig)]||{};
   var emitNote=function(item,ei,barAlts,addTie){
     var s="";
     if(item.type==="rest")return "z"+e2s(ei);
@@ -2397,7 +2400,7 @@ function buildAbc(items,keySig,timeSig,tempo,chords,minBars){const[tsN,tsD]=time
     return s;
   };
 
-  let abc="X:1\nT:My Lick\nM:"+timeSig+"\nL:1/8\nQ:1/4="+tempo+"\nK:"+keySig+"\n";
+  let abc="X:1\nT:My Lick\nM:"+timeSig+"\nL:1/8\nQ:1/4="+tempo+"\nK:"+abcKeySig(keySig)+"\n";
   let pos=0,nc=0;var barAlts={};var triCount=0;var chObj=chords||{};var emittedCh={};
 
   // ── Enharmonic respelling pre-pass ──
@@ -5325,7 +5328,7 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
   var edInstOff=INST_TRANS[userInst]||0;
   // Concert pitch abc for playback (transpose back from instrument transposition)
   var concertAbc=edInstOff?transposeAbc(abc,-edInstOff):abc;
-  var concertKey=edInstOff?trKeyName(keySig,-edInstOff):keySig;
+  var concertKey=edInstOff?trKeyName(abcKeySig(keySig),-edInstOff):abcKeySig(keySig);
   useEffect(function(){try{Tone.start();}catch(e){}preloadPiano();preloadChordPiano();_ensurePreviewSynth();},[]);
   var KEY_ROWS=[
     ["C"],["Db","C#"],["D"],["Eb","D#"],["E"],["F"],
