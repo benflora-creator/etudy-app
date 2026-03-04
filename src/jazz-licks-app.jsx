@@ -3127,6 +3127,112 @@ function YTPMini({videoId,startTime,endTime,speed,th}){
       })));
 }
 
+// YTCardBtn — invisible iframe player, compact card button
+// Renders a single pill button: [▶ ORIG] or [⏸ ORIG]
+// The YT iframe sits 1×1px off-screen; audio only, no video visible.
+function YTCardBtn({videoId,startTime,endTime,th}){
+  var t=th||TH.studio;
+  var _pl=useState(false);  var playing=_pl[0],setPlaying=_pl[1];
+  var _lo=useState(false);  var loaded=_lo[0],setLoaded=_lo[1];
+  var divRef=useRef(null);
+  var playerRef=useRef(null);
+  var pollRef=useRef(null);
+  var start=startTime||0;
+  var end=(endTime&&endTime>start)?endTime:null;
+
+  // Load IFrame API once
+  useEffect(function(){
+    if(window.YT&&window.YT.Player)return;
+    if(document.querySelector('script[src*="youtube.com/iframe_api"]'))return;
+    var tag=document.createElement('script');
+    tag.src='https://www.youtube.com/iframe_api';
+    document.head.appendChild(tag);
+  },[]);
+
+  useEffect(function(){
+    if(!videoId||!divRef.current)return;
+    var destroyed=false;
+    function startPoll(){
+      if(pollRef.current)clearInterval(pollRef.current);
+      pollRef.current=setInterval(function(){
+        try{
+          var p=playerRef.current;
+          if(!p||!p.getCurrentTime)return;
+          var state=p.getPlayerState();
+          setPlaying(state===1);
+          if(end&&state===1&&p.getCurrentTime()>=end)p.seekTo(start,true);
+        }catch(e){}
+      },200);
+    }
+    function create(){
+      if(destroyed||!divRef.current)return;
+      try{
+        playerRef.current=new window.YT.Player(divRef.current,{
+          videoId:videoId,
+          playerVars:{start:start,autoplay:0,rel:0,controls:0,disablekb:1,modestbranding:1},
+          events:{
+            onReady:function(){setLoaded(true);startPoll();},
+            onStateChange:function(e){setPlaying(e.data===1);if(e.data===1)startPoll();}
+          }
+        });
+      }catch(err){}
+    }
+    if(window.YT&&window.YT.Player){create();}
+    else{
+      var prev=window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady=function(){if(prev)prev();if(!destroyed)create();};
+    }
+    return function(){
+      destroyed=true;
+      if(pollRef.current){clearInterval(pollRef.current);pollRef.current=null;}
+      try{if(playerRef.current){playerRef.current.destroy();playerRef.current=null;setLoaded(false);setPlaying(false);}}catch(e){}
+    };
+  },[videoId,start,end]);
+
+  if(!videoId)return null;
+
+  function toggle(e){
+    e.stopPropagation();
+    if(!playerRef.current)return;
+    try{
+      if(playing){playerRef.current.pauseVideo();}
+      else{playerRef.current.seekTo(start,true);playerRef.current.playVideo();}
+    }catch(ex){}
+  }
+
+  var isActive=playing;
+  return React.createElement(React.Fragment,null,
+    // Invisible off-screen iframe container
+    React.createElement('div',{style:{position:'fixed',left:'-9999px',top:0,width:1,height:1,overflow:'hidden',pointerEvents:'none',zIndex:-1}},
+      React.createElement('div',{ref:divRef})),
+    // The visible pill button
+    React.createElement('button',{
+      onClick:toggle,
+      title:isActive?'Pause original':'Play original recording',
+      style:{
+        display:'flex',alignItems:'center',gap:4,
+        padding:'4px 9px',borderRadius:8,
+        border:'1.5px solid '+(isActive?'#EF444480':'rgba(239,68,68,0.25)'),
+        background:isActive?'rgba(239,68,68,0.12)':'transparent',
+        cursor:loaded?'pointer':'default',
+        opacity:loaded?1:0.45,
+        transition:'all 0.15s',
+        flexShrink:0,
+      }},
+      // Play/Pause icon
+      isActive
+        ?React.createElement('div',{style:{display:'flex',gap:2,flexShrink:0}},
+            React.createElement('div',{style:{width:2.5,height:9,background:'#EF4444',borderRadius:1}}),
+            React.createElement('div',{style:{width:2.5,height:9,background:'#EF4444',borderRadius:1}}))
+        :React.createElement('div',{style:{width:0,height:0,borderTop:'5px solid transparent',borderBottom:'5px solid transparent',borderLeft:'8px solid #EF4444',marginLeft:1,flexShrink:0}}),
+      React.createElement('span',{style:{
+        fontSize:9,fontWeight:700,letterSpacing:0.5,
+        fontFamily:"'JetBrains Mono',monospace",
+        color:'#EF4444',
+        whiteSpace:'nowrap',
+      }},'ORIG')));
+}
+
 function parseSpotify(u){if(!u)return"";const m=u.match(/open\.spotify\.com\/track\/([a-zA-Z0-9]+)/);if(m)return m[1];const m2=u.match(/spotify:track:([a-zA-Z0-9]+)/);return m2?m2[1]:"";}
 function SpotifyEmbed({trackId,th}){const t=th||TH.classic;if(!trackId)return null;
   return React.createElement("div",{style:{marginTop:12}},
@@ -3947,6 +4053,8 @@ function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst,
         React.createElement("button",{onClick:e=>{e.stopPropagation();onSave(lick.id);},style:{background:"none",border:"none",cursor:"pointer",padding:"3px 2px",display:"flex",alignItems:"center",marginLeft:4,transition:"all 0.15s"}},
           isStudio?IC.target(18,saved?"#22D89E":"#55556A"):React.createElement("span",{style:{fontSize:18,color:saved?"#F59E0B":t.muted}},saved?"\u2605":"\u2606")),
         React.createElement("div",{style:{flex:1}}),
+        lick.youtubeId&&React.createElement(YTCardBtn,{videoId:lick.youtubeId,startTime:lick.youtubeStart,endTime:lick.youtubeEnd,th:t}),
+        lick.youtubeId&&React.createElement("div",{style:{width:1,height:16,background:t.border,margin:"0 4px",flexShrink:0}}),
         React.createElement("span",{style:{fontSize:10,fontWeight:600,fontFamily:"'JetBrains Mono',monospace",color:liked?(isStudio?"#F97316":"#EF4444"):t.muted}},lick.likes+(isStudio?(lick.likes===1?" flame":" flames"):(lick.likes===1?" like":" likes"))),
         isStudio?React.createElement("div",{style:{marginLeft:6}},IC.arrowR(12,catC)):React.createElement("span",{style:{fontSize:13,color:t.subtle,marginLeft:6}},"\u203A"))));}
 
