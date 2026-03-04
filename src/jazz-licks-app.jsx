@@ -3002,6 +3002,131 @@ function YTPEditor({videoId,startTime,endTime,speed,th,compact}){
     React.createElement('div',{ref:divRef,style:{position:'absolute',top:0,left:0,width:'100%',height:'100%'}}));
 }
 
+// YTPMini — invisible iframe player with custom app-style play button
+// The YT iframe is 1×1px off-screen so audio plays but video is hidden.
+// Controls are entirely app-native.
+function YTPMini({videoId,startTime,endTime,speed,th}){
+  var t=th||TH.studio;
+  var _pl=useState(false); var playing=_pl[0],setPlaying=_pl[1];
+  var _lo=useState(false); var loaded=_lo[0],setLoaded=_lo[1];
+  var divRef=useRef(null);
+  var playerRef=useRef(null);
+  var pollRef=useRef(null);
+  var speedRef=useRef(speed||1);
+  var start=startTime||0;
+  var end=(endTime&&endTime>start)?endTime:null;
+
+  useEffect(function(){speedRef.current=speed||1;},[speed]);
+
+  // Load YT IFrame API once
+  useEffect(function(){
+    if(window.YT&&window.YT.Player)return;
+    if(document.querySelector('script[src*="youtube.com/iframe_api"]'))return;
+    var tag=document.createElement('script');
+    tag.src='https://www.youtube.com/iframe_api';
+    document.head.appendChild(tag);
+  },[]);
+
+  // Create player immediately (audio-only, invisible)
+  useEffect(function(){
+    if(!videoId||!divRef.current)return;
+    var destroyed=false;
+    function startPoll(){
+      if(pollRef.current)clearInterval(pollRef.current);
+      pollRef.current=setInterval(function(){
+        try{
+          var p=playerRef.current;
+          if(!p||!p.getCurrentTime)return;
+          var state=p.getPlayerState();
+          setPlaying(state===1);
+          if(end&&state===1&&p.getCurrentTime()>=end)p.seekTo(start,true);
+        }catch(e){}
+      },200);
+    }
+    function create(){
+      if(destroyed||!divRef.current)return;
+      try{
+        playerRef.current=new window.YT.Player(divRef.current,{
+          videoId:videoId,
+          playerVars:{start:start,autoplay:0,rel:0,controls:0,disablekb:1,modestbranding:1,mute:0},
+          events:{
+            onReady:function(e){
+              setLoaded(true);
+              try{e.target.setPlaybackRate(speedRef.current);}catch(ex){}
+              startPoll();
+            },
+            onStateChange:function(e){
+              setPlaying(e.data===1);
+              if(e.data===1)startPoll();
+            }
+          }
+        });
+      }catch(err){}
+    }
+    if(window.YT&&window.YT.Player){create();}
+    else{
+      var prev=window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady=function(){if(prev)prev();if(!destroyed)create();};
+    }
+    return function(){
+      destroyed=true;
+      if(pollRef.current){clearInterval(pollRef.current);pollRef.current=null;}
+      try{if(playerRef.current){playerRef.current.destroy();playerRef.current=null;setLoaded(false);setPlaying(false);}}catch(e){}
+    };
+  },[videoId,start,end]);
+
+  // Apply speed live
+  useEffect(function(){
+    try{if(playerRef.current&&playerRef.current.setPlaybackRate)playerRef.current.setPlaybackRate(speed||1);}catch(e){}
+  },[speed]);
+
+  function toggle(){
+    if(!playerRef.current)return;
+    try{
+      if(playing){playerRef.current.pauseVideo();}
+      else{playerRef.current.seekTo(start,true);playerRef.current.playVideo();}
+    }catch(e){}
+  }
+
+  if(!videoId)return null;
+  return React.createElement('div',{style:{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:12,background:isStudio?'rgba(255,255,255,0.04)':'rgba(0,0,0,0.03)',border:'1px solid '+t.border}},
+    // Invisible 1×1 iframe container — keeps YT player in DOM
+    React.createElement('div',{style:{position:'absolute',width:1,height:1,overflow:'hidden',opacity:0,pointerEvents:'none',left:'-9999px'}},
+      React.createElement('div',{ref:divRef})),
+    // Play / Pause button
+    React.createElement('button',{onClick:toggle,disabled:!loaded,style:{
+      width:44,height:44,borderRadius:13,flexShrink:0,border:'none',cursor:loaded?'pointer':'default',
+      display:'flex',alignItems:'center',justifyContent:'center',
+      background:playing?(t===TH.studio?'linear-gradient(135deg,#22D89E,#1AB87A)':t.accent):(loaded?t.playBg:t.filterBg),
+      boxShadow:playing?('0 4px 20px '+t.accentGlow):'none',
+      transition:'all 0.2s',opacity:loaded?1:0.5}},
+      !loaded
+        ?React.createElement('div',{style:{width:12,height:12,border:'2px solid '+t.accentBg,borderTopColor:t.accent,borderRadius:'50%',animation:'spin 0.8s linear infinite'}})
+        :playing
+          ?React.createElement('div',{style:{display:'flex',gap:3}},
+              React.createElement('div',{style:{width:3,height:13,background:t===TH.studio?'#08080F':'#fff',borderRadius:1}}),
+              React.createElement('div',{style:{width:3,height:13,background:t===TH.studio?'#08080F':'#fff',borderRadius:1}}))
+          :React.createElement('div',{style:{width:0,height:0,borderTop:'7px solid transparent',borderBottom:'7px solid transparent',borderLeft:'12px solid #fff',marginLeft:2}})),
+    // Label + timestamp
+    React.createElement('div',{style:{flex:1,minWidth:0}},
+      React.createElement('div',{style:{fontSize:10,fontWeight:600,color:t.muted,fontFamily:"'JetBrains Mono',monospace",letterSpacing:0.5,marginBottom:2}},'REFERENCE'),
+      React.createElement('div',{style:{fontSize:11,color:t.subtle,fontFamily:"'JetBrains Mono',monospace"}},
+        fT(start)+(end?' \u2014 '+fT(end)+' \uD83D\uDD01':''))),
+    // Speed buttons
+    React.createElement('div',{style:{display:'flex',gap:3}},
+      [0.5,0.75,1].map(function(s){
+        return React.createElement('button',{key:s,onClick:function(){
+          speedRef.current=s;
+          try{if(playerRef.current&&playerRef.current.setPlaybackRate)playerRef.current.setPlaybackRate(s);}catch(e){}
+        },style:{
+          padding:'4px 7px',borderRadius:6,fontSize:10,fontWeight:speed===s?700:400,
+          fontFamily:"'JetBrains Mono',monospace",cursor:'pointer',
+          border:'1.5px solid '+(speed===s?t.accent:t.border),
+          background:speed===s?t.accentBg:'transparent',
+          color:speed===s?t.accent:t.muted,transition:'all 0.15s'}},s+'x');
+      })));
+}
+
 function parseSpotify(u){if(!u)return"";const m=u.match(/open\.spotify\.com\/track\/([a-zA-Z0-9]+)/);if(m)return m[1];const m2=u.match(/spotify:track:([a-zA-Z0-9]+)/);return m2?m2[1]:"";}
 function SpotifyEmbed({trackId,th}){const t=th||TH.classic;if(!trackId)return null;
   return React.createElement("div",{style:{marginTop:12}},
@@ -5958,14 +6083,8 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
                   React.createElement("div",null,React.createElement("label",{style:{...lb,fontSize:9,opacity:0.7}},"END SEC"),React.createElement("input",{style:{...ip,fontSize:13},type:"number",min:0,max:59,value:tsEnd,onChange:e=>setTsEnd(e.target.value),placeholder:"0"}))),
                 tESecEnd&&tESecEnd>tSec&&React.createElement("div",{style:{fontSize:10,color:t.accent,fontFamily:"'JetBrains Mono',monospace",padding:"4px 8px",background:t.accentBg,borderRadius:6}},
                   "Loop: "+fT(tSec)+" \u2014 "+fT(tESecEnd)),
-                // Speed control
-                React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
-                  React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'JetBrains Mono',monospace",letterSpacing:0.5}},"SPEED"),
-                  [0.5,0.75,1,1.25].map(function(s){
-                    return React.createElement("button",{key:s,onClick:function(){setYtSpeed(s);},style:{padding:"4px 10px",borderRadius:8,fontSize:11,fontWeight:ytSpeed===s?700:400,fontFamily:"'JetBrains Mono',monospace",cursor:"pointer",border:"1.5px solid "+(ytSpeed===s?t.accent:t.border),background:ytSpeed===s?t.accentBg:"transparent",color:ytSpeed===s?t.accent:t.muted,transition:"all 0.15s"}},s+"x");
-                  })),
-                // Preview player
-                React.createElement(YTPEditor,{videoId:yt.videoId,startTime:tSec,endTime:tESecEnd,speed:ytSpeed,th:t})
+                // Preview player (no speed control here — speed is in Notes step)
+                React.createElement(YTPEditor,{videoId:yt.videoId,startTime:tSec,endTime:tESecEnd,speed:1,th:t})
               ))),
           // Spotify
           React.createElement("div",{style:{background:t.card,borderRadius:14,padding:"16px",border:"1px solid "+t.border}},
@@ -5985,15 +6104,8 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
 
         // ═══ STEP 2: Notes ═══
         React.createElement("div",{style:{display:edStep===2?"flex":"none",flexDirection:"column",gap:12}},
-          // Compact YT reference player if video set
-          yt.videoId&&React.createElement("div",{style:{background:t.card,borderRadius:14,padding:"12px",border:"1px solid "+t.border}},
-            React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}},
-              React.createElement("span",{style:{fontSize:10,fontWeight:600,color:t.muted,fontFamily:"'JetBrains Mono',monospace",letterSpacing:0.5}},"REFERENCE"),
-              React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4}},
-                [0.5,0.75,1].map(function(s){
-                  return React.createElement("button",{key:s,onClick:function(){setYtSpeed(s);},style:{padding:"3px 8px",borderRadius:6,fontSize:10,fontWeight:ytSpeed===s?700:400,fontFamily:"'JetBrains Mono',monospace",cursor:"pointer",border:"1.5px solid "+(ytSpeed===s?t.accent:t.border),background:ytSpeed===s?t.accentBg:"transparent",color:ytSpeed===s?t.accent:t.muted,transition:"all 0.15s"}},s+"x");
-                }))),
-            React.createElement(YTPEditor,{videoId:yt.videoId,startTime:tSec,endTime:tESecEnd,speed:ytSpeed,th:t,compact:true})),
+          // Compact invisible YT reference player
+          yt.videoId&&React.createElement(YTPMini,{videoId:yt.videoId,startTime:tSec,endTime:tESecEnd,speed:ytSpeed,th:t}),
           edInstOff!==0&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",background:isStudio?"rgba(34,216,158,0.06)":"rgba(99,102,241,0.04)",borderRadius:8,border:"1px solid "+(isStudio?"rgba(34,216,158,0.15)":"rgba(99,102,241,0.1)")}},
             React.createElement("span",{style:{fontSize:10,color:isStudio?"#22D89E":t.accent,fontFamily:"'Inter',sans-serif"}},"Entering for "+userInst+" \u2014 will be saved in concert pitch")),
           React.createElement("div",{style:{borderRadius:12,padding:14,border:"1px solid "+t.border,background:t.card}},
