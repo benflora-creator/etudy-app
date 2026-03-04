@@ -2269,9 +2269,9 @@ function ChordTimeline(props){
         canFwd?React.createElement("button",{onClick:function(){setPStep(pStep+1);},
           style:{padding:"3px 10px",borderRadius:7,border:"1px solid "+(isStudio?"#ffffff12":t.border),
             background:isStudio?"#ffffff06":"#F5F4F0",color:t.muted,fontSize:12,cursor:"pointer",fontWeight:600}},"\u2192"):null,
-        React.createElement("button",{onClick:confirmChord,
+        (pStep>=1||!editIsNew)?React.createElement("button",{onClick:confirmChord,
           style:{padding:"3px 12px",borderRadius:8,border:"none",background:ac,
-            color:isStudio?"#08080F":"#fff",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},"Set"),
+            color:isStudio?"#08080F":"#fff",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"'Inter',sans-serif"}},"Set"):null,
         !editIsNew?React.createElement("button",{onClick:deleteChord,
           style:{padding:"3px 8px",borderRadius:8,border:"1px solid "+(isStudio?"#EF444430":"#E0DFD8"),
             background:isStudio?"#EF444408":"#FFF5F5",color:"#EF4444",fontSize:11,fontWeight:600,cursor:"pointer"}},"\u2715"):null,
@@ -5300,18 +5300,16 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
   const buildData=()=>({title,artist,tune,instrument:inst,category:cat,key:concertKey,tempo:parseInt(tempo),feel,abc:concertAbc,chords:chordsRef.current||{},youtubeId:yt.videoId,youtubeStart:tSec,spotifyId:parseSpotify(sp),description:desc,tags:tags.split(",").map(tg2=>tg2.trim()).filter(Boolean)});
 
   return React.createElement("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:1000,background:t.bg,display:"flex",flexDirection:"column"}},
+    // Header — full width, outside scroll
+    React.createElement("div",{style:{position:"relative",zIndex:10,background:t.headerBg,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",padding:"14px 16px 12px",paddingTop:"calc(env(safe-area-inset-top, 0px) + 14px)",borderBottom:"1px solid "+t.border}},
+      React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",maxWidth:520,margin:"0 auto"}},
+        React.createElement("div",null,
+          React.createElement("h2",{style:{color:t.text,fontSize:20,margin:0,fontFamily:t.titleFont,fontWeight:isStudio?700:600}},"Share a Lick"),
+          React.createElement("p",{style:{margin:"3px 0 0",fontSize:11,color:t.muted,fontFamily:"'Inter',sans-serif"}},"Add notation, preview it, publish.")),
+        React.createElement("button",{onClick:onClose,style:{background:t.filterBg,border:"1px solid "+t.border,color:t.muted,width:32,height:32,borderRadius:10,fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"\u00D7"))),
     // Scrollable content
     React.createElement("div",{style:{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch"}},
-      React.createElement("div",{style:{maxWidth:520,margin:"0 auto",padding:"0 16px"}},
-        // Header
-        React.createElement("div",{style:{position:"sticky",top:0,zIndex:10,background:t.headerBg,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",padding:"14px 0 12px",paddingTop:"calc(env(safe-area-inset-top, 0px) + 14px)",borderBottom:"1px solid "+t.border,marginBottom:18}},
-          React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
-            React.createElement("div",null,
-              React.createElement("h2",{style:{color:t.text,fontSize:20,margin:0,fontFamily:t.titleFont,fontWeight:isStudio?700:600}},"Share a Lick"),
-              React.createElement("p",{style:{margin:"3px 0 0",fontSize:11,color:t.muted,fontFamily:"'Inter',sans-serif"}},"Add notation, preview it, publish.")),
-            React.createElement("button",{onClick:onClose,style:{background:t.filterBg,border:"1px solid "+t.border,color:t.muted,width:32,height:32,borderRadius:10,fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"\u00D7"))),
-
-        // STEP 1 — Quick Setup (compact bar)
+      React.createElement("div",{style:{maxWidth:520,margin:"0 auto",padding:"0 16px",paddingTop:18}},
         sec("1","Setup",true,
           React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:10}},
             // Row: Key, Time, BPM
