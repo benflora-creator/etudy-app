@@ -3396,6 +3396,8 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
   const hRef=useRef(DRAWER_PEEK);
   const snapPtsRef=useRef([DRAWER_PEEK]);
   const drawerContentRef=useRef(null);
+  const halfContentRef=useRef(null);
+  const fullContentRef=useRef(null);
   useEffect(function(){hRef.current=drawerH;},[drawerH]);
   const winH=typeof window!=="undefined"?window.innerHeight:800;
 
