@@ -2071,10 +2071,9 @@ function chordBlockColor(name){
 function flatToBlocks(chords,totalBeats,tsN){
   var beats=Object.keys(chords).map(Number).sort(function(a,b){return a-b;});
   if(beats.length===0)return[];
-  var totalBars=Math.max(1,Math.ceil(totalBeats/tsN));var endBeat=totalBars*tsN;
-  return beats.map(function(b,i){
-    var next=i<beats.length-1?beats[i+1]:Math.min(b+1,endBeat);
-    return{beat:b,dur:Math.max(1,next-b),name:chords[b]};
+  return beats.map(function(b){
+    var ch=chords[b];
+    return{beat:b,dur:ch.d||1,name:ch.n||""};
   });
 }
 function ChordTimeline({chords,onChordsChange,totalBeats,tsN,th}){
@@ -2108,7 +2107,7 @@ function ChordTimeline({chords,onChordsChange,totalBeats,tsN,th}){
 
   // Add chord at a specific beat (1 beat duration)
   var addChordAt=function(beat){
-    var nc=Object.assign({},chords);nc[beat]="C7";
+    var nc=Object.assign({},chords);nc[beat]={n:"C7",d:1};
     onChordsChange(nc);
     setPickerRoot("C");setPickerCat("dom");setPickerQual("7");
     setPendingBeat(beat);
@@ -2126,7 +2125,7 @@ function ChordTimeline({chords,onChordsChange,totalBeats,tsN,th}){
 
   var confirmChord=function(name){
     if(editBeat<0)return;
-    var nc=Object.assign({},chords);nc[editBeat]=name;
+    var nc=Object.assign({},chords);var oldD=(nc[editBeat]&&nc[editBeat].d)||1;nc[editBeat]={n:name,d:oldD};
     onChordsChange(nc);setPendingBeat(-1);setEditBeat(-1);
   };
 
@@ -2145,47 +2144,41 @@ function ChordTimeline({chords,onChordsChange,totalBeats,tsN,th}){
     setPendingBeat(-1);setEditBeat(-1);
   };
 
-  // Drag resize: move next chord boundary
+  // Keep a ref to latest chords to avoid stale closures in drag
+  var chordsLatest=useRef(chords);
+  chordsLatest.current=chords;
+
+  // Drag resize: change chord duration directly
   var onDragStart=function(e,blockBeat,blockDur,blockEl){
     e.stopPropagation();e.preventDefault();
     var clientX=e.touches?e.touches[0].clientX:e.clientX;
     var containerW=rowRef.current?rowRef.current.offsetWidth:300;
     var beatW=containerW/beatsPerRow;
-    var origEnd=blockBeat+blockDur;
-    dragRef.current={beat:blockBeat,startX:clientX,origEnd:origEnd,beatW:beatW,_el:blockEl,newEnd:origEnd};
+    dragRef.current={beat:blockBeat,startX:clientX,origDur:blockDur,beatW:beatW,_el:blockEl,newDur:blockDur};
     var onMove=function(ev){
       if(!dragRef.current)return;
       var cx=ev.touches?ev.touches[0].clientX:ev.clientX;
       var dx=cx-dragRef.current.startX;
       var dBeats=Math.round(dx/dragRef.current.beatW);
-      var newEnd=Math.max(dragRef.current.beat+1,dragRef.current.origEnd+dBeats);
-      // Find next chord after this one — can't drag past it
-      var nextBeat=Infinity;
-      var cBeats=Object.keys(chords).map(Number).sort(function(a,b2){return a-b2;});
-      for(var k=0;k<cBeats.length;k++){if(cBeats[k]>dragRef.current.beat){nextBeat=cBeats[k];break;}}
-      if(newEnd>nextBeat)newEnd=nextBeat;
-      dragRef.current.newEnd=newEnd;
-      // Visual feedback
-      if(dragRef.current._el){dragRef.current._el.style.width=((newEnd-dragRef.current.beat)/beatsPerRow*100)+"%";}
+      var newDur=Math.max(1,dragRef.current.origDur+dBeats);
+      // Can't extend into another chord's start beat
+      var cur=chordsLatest.current;
+      var cBeats=Object.keys(cur).map(Number).sort(function(a,b2){return a-b2;});
+      for(var k=0;k<cBeats.length;k++){if(cBeats[k]>dragRef.current.beat){newDur=Math.min(newDur,cBeats[k]-dragRef.current.beat);break;}}
+      dragRef.current.newDur=newDur;
+      if(dragRef.current._el){dragRef.current._el.style.width=((newDur/beatsPerRow)*100)+"%";}
     };
     var onEnd=function(){
       if(dragRef.current){
         var d=dragRef.current;
-        if(d._el)d._el.style.width="";
-        // Persist: if end changed, move the next chord
-        if(d.newEnd!==d.origEnd){
-          var nc=Object.assign({},chords);
-          var cBeats2=Object.keys(nc).map(Number).sort(function(a,b2){return a-b2;});
-          var nextIdx=-1;
-          for(var k2=0;k2<cBeats2.length;k2++){if(cBeats2[k2]>d.beat){nextIdx=k2;break;}}
-          if(nextIdx>=0){
-            // Move the next chord to the new end position
-            var nextName=nc[cBeats2[nextIdx]];
-            delete nc[cBeats2[nextIdx]];
-            nc[d.newEnd]=nextName;
-            onChordsChange(nc);
-          }
-          // Last block: no next chord, drag is visual-only (duration is implicit)
+        if(d.newDur!==d.origDur){
+          var nc=Object.assign({},chordsLatest.current);
+          if(nc[d.beat]){nc[d.beat]={n:nc[d.beat].n,d:d.newDur};}
+          onChordsChange(nc);
+          // Don't clear width — React re-render will set the correct value
+        } else {
+          // No change, revert manual width
+          if(d._el)d._el.style.width="";
         }
       }
       dragRef.current=null;
@@ -2199,9 +2192,12 @@ function ChordTimeline({chords,onChordsChange,totalBeats,tsN,th}){
   var ROOTS=["C","Db","D","Eb","E","F","F#","G","Ab","A","Bb","B"];
   var pickerOpen=editBeat>=0;
 
-  // Build set of beats that have chord starts
-  var chordStartBeats={};
-  for(var ci2=0;ci2<blocks.length;ci2++)chordStartBeats[blocks[ci2].beat]=true;
+  // Build set of beats covered by any chord block
+  var coveredBeats={};
+  for(var ci2=0;ci2<blocks.length;ci2++){
+    var blk=blocks[ci2];
+    for(var cb2=blk.beat;cb2<blk.beat+blk.dur;cb2++)coveredBeats[cb2]=true;
+  }
 
   // Render rows
   var rows=[];
@@ -2219,7 +2215,7 @@ function ChordTimeline({chords,onChordsChange,totalBeats,tsN,th}){
     for(var gi=0;gi<beatsPerRow;gi++){
       var beatIdx=rowStart+gi;
       var isBarLine=gi%tsN===0;
-      var hasChord=chordStartBeats[beatIdx];
+      var hasChord=coveredBeats[beatIdx];
       if(!hasChord){
         (function(bIdx){
           beatCells.push(React.createElement("div",{key:"bc"+gi,onClick:function(){addChordAt(bIdx);},
@@ -2326,6 +2322,7 @@ function ChordTimeline({chords,onChordsChange,totalBeats,tsN,th}){
 }
 function e2s(e){if(e===1)return"";if(e===0.5)return"/2";if(e===0.75)return"3/4";if(e===1.5)return"3/2";if(e===3)return"3";if(e===6)return"6";if(e===12)return"12";if(Number.isInteger(e))return String(e);return String(Math.round(e*2))+"/2";}
 var KEY_SIG_ACC={"C":{},"G":{F:1},"D":{F:1,C:1},"A":{F:1,C:1,G:1},"E":{F:1,C:1,G:1,D:1},"B":{F:1,C:1,G:1,D:1,A:1},"F#":{F:1,C:1,G:1,D:1,A:1,E:1},"Gb":{B:-1,E:-1,A:-1,D:-1,G:-1,C:-1},"F":{B:-1},"Bb":{B:-1,E:-1},"Eb":{B:-1,E:-1,A:-1},"Ab":{B:-1,E:-1,A:-1,D:-1},"Db":{B:-1,E:-1,A:-1,D:-1,G:-1}};
+function chN(ch){return ch&&typeof ch==="object"?ch.n:ch||"";}
 function buildAbc(items,keySig,timeSig,tempo,chords,minBars){const[tsN,tsD]=timeSig.split("/").map(Number);const bE=tsN*(8/tsD);const beatE=8/tsD;
   // Beam break positions within a bar (in eighths)
   // 4/4: break at half-bar (beat 3) = position 4
@@ -2373,7 +2370,7 @@ function buildAbc(items,keySig,timeSig,tempo,chords,minBars){const[tsN,tsD]=time
         continue;}
       var sPC=((N2M[sIt.note]||0)+(sIt.acc||0)+120)%12;
       var sBeat=Math.floor(spPos/beatE+0.01);
-      var sCh=null;for(var ci2=chordBeats.length-1;ci2>=0;ci2--)if(chordBeats[ci2]<=sBeat){sCh=chObj[chordBeats[ci2]];break;}
+      var sCh=null;for(var ci2=chordBeats.length-1;ci2>=0;ci2--)if(chordBeats[ci2]<=sBeat){sCh=chN(chObj[chordBeats[ci2]]);break;}
       if(sCh){
         var sCI=getChordRootInfo(sCh);
         var sPrev=null,sNext=null;
@@ -2407,7 +2404,7 @@ function buildAbc(items,keySig,timeSig,tempo,chords,minBars){const[tsN,tsD]=time
       // Emit first part
       // Beam break check
       if(nc>0){var ns=false;if(firstEi>=2)ns=true;else{var brks=firstEi<1?beamBreaks16:beamBreaks;for(var bb=0;bb<brks.length;bb++)if(Math.abs(posInBar-brks[bb])<0.05){ns=true;break;}}if(ns)abc+=" ";}
-      var beatIdx=Math.floor(pos/beatE+0.01);if(chObj[beatIdx]&&!emittedCh[beatIdx]){abc+='"'+chObj[beatIdx]+'"';emittedCh[beatIdx]=true;}
+      var beatIdx=Math.floor(pos/beatE+0.01);if(chObj[beatIdx]&&!emittedCh[beatIdx]){abc+='"'+chN(chObj[beatIdx])+'"';emittedCh[beatIdx]=true;}
       if(item.tri&&triCount%3===0)abc+="(3";if(item.tri)triCount++;else triCount=0;
       abc+=emitNote(item,firstEi,barAlts,true);nc++;pos+=firstEi;
 
@@ -2416,7 +2413,7 @@ function buildAbc(items,keySig,timeSig,tempo,chords,minBars){const[tsN,tsD]=time
 
       // Beam break for second part (start of bar = no break needed)
       // Chord on beat 1 of new bar?
-      var newBarStart=pos;var beatIdx2=Math.floor(newBarStart/beatE+0.01);if(chObj[beatIdx2]&&!emittedCh[beatIdx2]){abc+='"'+chObj[beatIdx2]+'"';emittedCh[beatIdx2]=true;}
+      var newBarStart=pos;var beatIdx2=Math.floor(newBarStart/beatE+0.01);if(chObj[beatIdx2]&&!emittedCh[beatIdx2]){abc+='"'+chN(chObj[beatIdx2])+'"';emittedCh[beatIdx2]=true;}
       abc+=emitNote(item,secondEi,barAlts,hasTie);nc++;pos+=secondEi;
       continue;
     }
@@ -2433,7 +2430,7 @@ function buildAbc(items,keySig,timeSig,tempo,chords,minBars){const[tsN,tsD]=time
       if(needSpace)abc+=" ";
     }
     // Chord
-    var beatIdx3=Math.floor(pos/beatE+0.01);if(chObj[beatIdx3]&&!emittedCh[beatIdx3]){abc+='"'+chObj[beatIdx3]+'"';emittedCh[beatIdx3]=true;}
+    var beatIdx3=Math.floor(pos/beatE+0.01);if(chObj[beatIdx3]&&!emittedCh[beatIdx3]){abc+='"'+chN(chObj[beatIdx3])+'"';emittedCh[beatIdx3]=true;}
     // Triplet
     if(item.tri&&triCount%3===0)abc+="(3";if(item.tri)triCount++;else triCount=0;
     // Note
@@ -2449,7 +2446,7 @@ function buildAbc(items,keySig,timeSig,tempo,chords,minBars){const[tsN,tsD]=time
     while(currentBars<minBars){
       var barStart=currentBars*tsN;
       var barChord="";
-      for(var cb=0;cb<tsN;cb++){if(chObj[barStart+cb]&&!emittedCh[barStart+cb]){barChord+='"'+chObj[barStart+cb]+'"';emittedCh[barStart+cb]=true;}}
+      for(var cb=0;cb<tsN;cb++){if(chObj[barStart+cb]&&!emittedCh[barStart+cb]){barChord+='"'+chN(chObj[barStart+cb])+'"';emittedCh[barStart+cb]=true;}}
       abc+=" "+barChord+restStr+" |";
       currentBars++;
     }
@@ -2523,7 +2520,8 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteCl
   // Min bars: consider both notes AND chord positions
   var maxChordBeat=0;
   var chordKeys=Object.keys(chords);
-  for(var ci=0;ci<chordKeys.length;ci++){var cb=Number(chordKeys[ci]);if(cb>=maxChordBeat)maxChordBeat=cb+tsN;}
+  for(var ci=0;ci<chordKeys.length;ci++){var cb=Number(chordKeys[ci]);var cd=(chords[cb]&&chords[cb].d)||1;var cEnd=cb+cd;if(cEnd>maxChordBeat)maxChordBeat=cEnd;}
+  maxChordBeat=Math.ceil(maxChordBeat/tsN)*tsN;// round up to bar boundary
   const totalBeats=Math.max(tsN,Math.ceil(tE/beatE),maxChordBeat);
   var barsFromNotes=Math.ceil(tE/bE)||0;
   var barsFromChords=Math.ceil(maxChordBeat/tsN)||0;
