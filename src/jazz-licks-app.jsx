@@ -3066,6 +3066,131 @@ function TempoPopup({bpm,onBpmChange,onClose,th,lickTempo,playerCtrlRef,ci,setCi
             React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
               [1,2,4].map(function(n){return React.createElement("button",{key:n,onClick:function(){doSetProgLoops(n);},style:{padding:"6px 12px",borderRadius:8,background:progLoops===n?"#3B82F618":t.card,border:"1.5px solid "+(progLoops===n?"#3B82F640":t.border),color:progLoops===n?"#3B82F6":t.muted,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"'JetBrains Mono',monospace"}},n===1?"1 loop":n+" loops");}))))))));}
 // ── DRAWER CONSTANTS ──
+// ============================================================
+// EDIT PROFILE VIEW — full-screen overlay
+// ============================================================
+function EditProfileView({authUser,authProfile,onClose,onSave,th}){
+  const t=th||TH.studio;const isStudio=t===TH.studio;
+  const[displayName,setDisplayName]=useState(authProfile?.display_name||"");
+  const[username,setUsername]=useState(authProfile?.username||"");
+  const[bio,setBio]=useState(authProfile?.bio||"");
+  const[instrument,setInstrument]=useState(authProfile?.instrument||"");
+  const[websiteUrl,setWebsiteUrl]=useState(authProfile?.website_url||"");
+  const[isPublic,setIsPublic]=useState(authProfile?.is_public!==false);
+  const[saving,setSaving]=useState(false);
+  const[saved,setSaved]=useState(false);
+  const[errors,setErrors]=useState({});
+
+  const ip={width:"100%",background:t.inputBg||t.filterBg,border:"1px solid "+(t.inputBorder||t.border),borderRadius:10,padding:"11px 14px",color:t.text,fontSize:14,fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",transition:"border-color 0.15s"};
+  const fieldLabel=(txt,sub)=>React.createElement("div",{style:{marginBottom:6}},
+    React.createElement("div",{style:{fontSize:10,fontWeight:600,color:t.muted,fontFamily:"'Inter',sans-serif",letterSpacing:0.5,textTransform:"uppercase"}},txt),
+    sub&&React.createElement("div",{style:{fontSize:10,color:t.subtle,fontFamily:"'Inter',sans-serif",marginTop:1}},sub));
+
+  const validate=()=>{
+    var e={};
+    if(!displayName.trim())e.displayName="Name darf nicht leer sein";
+    if(username.trim()&&!/^[a-zA-Z0-9_]{2,30}$/.test(username.trim()))e.username="Nur Buchstaben, Zahlen, _ \u00B7 2\u201330 Zeichen";
+    if(bio.length>160)e.bio="Max. 160 Zeichen";
+    if(websiteUrl.trim()&&!/^https?:\/\/.+/.test(websiteUrl.trim()))e.websiteUrl="URL muss mit http:// oder https:// beginnen";
+    return e;
+  };
+
+  const handleSave=async()=>{
+    var e=validate();if(Object.keys(e).length){setErrors(e);return;}
+    setSaving(true);setErrors({});
+    try{
+      await onSave({
+        display_name:displayName.trim(),
+        username:username.trim()||null,
+        bio:bio.trim(),
+        instrument:instrument||authProfile?.instrument||"",
+        website_url:websiteUrl.trim()||null,
+        is_public:isPublic,
+      });
+      setSaved(true);
+      setTimeout(function(){onClose();},700);
+    }catch(err){
+      setErrors({general:"Speichern fehlgeschlagen. Bitte nochmal versuchen."});
+      setSaving(false);
+    }
+  };
+
+  const instC=instrument?(INST_COL[instrument]||t.accent):t.accent;
+  const initials=(displayName||authUser?.email||"?").slice(0,2).toUpperCase();
+
+  return React.createElement("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:1200,background:t.bg,display:"flex",flexDirection:"column",animation:"fadeIn 0.18s ease"}},
+
+    // HEADER
+    React.createElement("div",{style:{position:"sticky",top:0,zIndex:10,background:t.headerBg,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",borderBottom:"1px solid "+t.border,paddingTop:"calc(env(safe-area-inset-top, 0px) + 12px)"}},
+      React.createElement("div",{style:{maxWidth:520,margin:"0 auto",padding:"12px 16px",display:"flex",alignItems:"center",gap:10}},
+        React.createElement("button",{onClick:onClose,style:{background:"none",border:"none",cursor:"pointer",color:isStudio?t.accent:t.muted,fontSize:22,padding:"4px 8px 4px 0",display:"flex",alignItems:"center"}},"\u2039"),
+        React.createElement("div",{style:{flex:1,fontSize:16,fontWeight:700,color:t.text,fontFamily:"'Inter',sans-serif"}},"Edit Profile"),
+        React.createElement("button",{onClick:handleSave,disabled:saving||saved,style:{padding:"8px 18px",borderRadius:10,border:"none",background:saved?t.accent+"80":t.accent,color:isStudio?"#08080F":"#fff",fontSize:13,fontWeight:700,fontFamily:"'Inter',sans-serif",cursor:saving||saved?"default":"pointer",opacity:saving?0.7:1,transition:"all 0.2s"}},saved?"\u2713 Saved":saving?"Saving\u2026":"Save"))),
+
+    // BODY
+    React.createElement("div",{style:{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch"}},
+      React.createElement("div",{style:{maxWidth:520,margin:"0 auto",padding:"20px 16px 120px"}},
+
+        // AVATAR PREVIEW
+        React.createElement("div",{style:{display:"flex",justifyContent:"center",marginBottom:28}},
+          React.createElement("div",{style:{width:80,height:80,borderRadius:24,background:isStudio?"linear-gradient(135deg,"+instC+"22,"+instC+"08)":t.accentBg,border:"2px solid "+instC+"50",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:isStudio?"0 0 30px "+instC+"20":"none"}},
+            React.createElement("span",{style:{fontSize:28,fontWeight:700,color:instC,fontFamily:"'Inter',sans-serif",letterSpacing:-0.5}},initials))),
+
+        // ERROR GENERAL
+        errors.general&&React.createElement("div",{style:{background:"#FF444420",border:"1px solid #FF444440",borderRadius:10,padding:"10px 14px",marginBottom:16,fontSize:12,color:"#FF6666",fontFamily:"'Inter',sans-serif"}},errors.general),
+
+        // DISPLAY NAME
+        React.createElement("div",{style:{marginBottom:18}},
+          fieldLabel("Name","Wird \u00f6ffentlich angezeigt"),
+          React.createElement("input",{value:displayName,onChange:function(e){setDisplayName(e.target.value);},placeholder:"Dein Name",style:{...ip,borderColor:errors.displayName?"#FF4444":(t.inputBorder||t.border)}}),
+          errors.displayName&&React.createElement("div",{style:{fontSize:11,color:"#FF6666",fontFamily:"'Inter',sans-serif",marginTop:4}},errors.displayName)),
+
+        // USERNAME
+        React.createElement("div",{style:{marginBottom:18}},
+          fieldLabel("Username","Dein @Handle im Feed \u00b7 Buchstaben, Zahlen, _"),
+          React.createElement("div",{style:{position:"relative"}},
+            React.createElement("span",{style:{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",color:t.subtle,fontSize:14,fontFamily:"'Inter',sans-serif",pointerEvents:"none"}},"@"),
+            React.createElement("input",{value:username,onChange:function(e){setUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g,""));},placeholder:"deinhandle",style:{...ip,paddingLeft:26,borderColor:errors.username?"#FF4444":(t.inputBorder||t.border)}})),
+          errors.username&&React.createElement("div",{style:{fontSize:11,color:"#FF6666",fontFamily:"'Inter',sans-serif",marginTop:4}},errors.username)),
+
+        // BIO
+        React.createElement("div",{style:{marginBottom:18}},
+          fieldLabel("Bio","Max. 160 Zeichen"),
+          React.createElement("textarea",{value:bio,onChange:function(e){setBio(e.target.value);},placeholder:"Ich spiele Tenor Sax und liebe Bebop seit 1987\u2026",rows:3,style:{...ip,resize:"none",lineHeight:1.5,borderColor:errors.bio?"#FF4444":(t.inputBorder||t.border)}}),
+          React.createElement("div",{style:{display:"flex",justifyContent:"space-between",marginTop:4}},
+            errors.bio&&React.createElement("div",{style:{fontSize:11,color:"#FF6666",fontFamily:"'Inter',sans-serif"}},errors.bio),
+            React.createElement("div",{style:{fontSize:10,color:bio.length>140?bio.length>160?"#FF6666":"#F59E0B":t.subtle,fontFamily:"'JetBrains Mono',monospace",marginLeft:"auto"}},bio.length+"/160"))),
+
+        // INSTRUMENT
+        React.createElement("div",{style:{marginBottom:18}},
+          fieldLabel("Instrument"),
+          React.createElement("div",{style:{display:"flex",gap:6,flexWrap:"wrap"}},
+            ["Alto Sax","Tenor Sax","Trumpet","Piano","Guitar","Trombone","Flute","Clarinet"].map(function(name){
+              var sel=instrument===name;var ic=INST_COL[name]||t.accent;
+              return React.createElement("button",{key:name,onClick:function(){setInstrument(sel?"":name);},style:{padding:"7px 12px",borderRadius:10,border:sel?"1.5px solid "+ic:"1.5px solid "+t.border,background:sel?ic+"18":"transparent",color:sel?ic:t.muted,fontSize:11,fontFamily:"'Inter',sans-serif",fontWeight:sel?700:400,cursor:"pointer",transition:"all 0.15s"}},name);}))),
+
+        // WEBSITE
+        React.createElement("div",{style:{marginBottom:18}},
+          fieldLabel("Website / Link","Bandcamp, Instagram, eigene Site \u2014 alles erlaubt"),
+          React.createElement("input",{value:websiteUrl,onChange:function(e){setWebsiteUrl(e.target.value);},placeholder:"https://",style:{...ip,borderColor:errors.websiteUrl?"#FF4444":(t.inputBorder||t.border)}}),
+          errors.websiteUrl&&React.createElement("div",{style:{fontSize:11,color:"#FF6666",fontFamily:"'Inter',sans-serif",marginTop:4}},errors.websiteUrl)),
+
+        // PUBLIC TOGGLE
+        React.createElement("div",{style:{background:t.card,borderRadius:14,border:"1px solid "+t.border,padding:"16px",display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:24}},
+          React.createElement("div",null,
+            React.createElement("div",{style:{fontSize:13,fontWeight:600,color:t.text,fontFamily:"'Inter',sans-serif",marginBottom:2}},"Profil \u00f6ffentlich"),
+            React.createElement("div",{style:{fontSize:11,color:t.muted,fontFamily:"'Inter',sans-serif"}},"Andere Musiker k\u00f6nnen dein Profil sehen")),
+          React.createElement("button",{onClick:function(){setIsPublic(!isPublic);},style:{width:44,height:26,borderRadius:13,background:isPublic?t.accent:t.filterBg,border:"none",cursor:"pointer",position:"relative",transition:"background 0.2s",flexShrink:0}},
+            React.createElement("div",{style:{position:"absolute",top:3,left:isPublic?21:3,width:20,height:20,borderRadius:"50%",background:"#fff",transition:"left 0.2s",boxShadow:"0 1px 4px rgba(0,0,0,0.3)"}}))),
+
+        // EMAIL (read-only)
+        React.createElement("div",{style:{marginBottom:8}},
+          fieldLabel("E-Mail","Kann nicht ge\u00e4ndert werden"),
+          React.createElement("div",{style:{...ip,color:t.subtle,cursor:"default",userSelect:"none",opacity:0.6}},authUser?.email||"\u2014"))
+      ))
+  );
+}
+
 var DRAWER_PEEK=200,DRAWER_HALF=340,DRAWER_FULL_OFF=80;
 
 // ============================================================
@@ -7183,13 +7308,23 @@ export default function Etudy(){
     updateProfile(authUser.id,{...data, onboarding_done:true}).then(function(p){
       setAuthProfile(p);
       setShowOnboarding(false);
-      // Auto-set transposition instrument if applicable
       var transMap={"Alto Sax":"Alto Sax","Tenor Sax":"Tenor Sax","Trumpet":"Bb Trumpet","Clarinet":"Clarinet","Trombone":"Trombone","Flute":"Flute"};
       if(transMap[data.instrument]){setUserInst(transMap[data.instrument]);var g=getStg();if(g)g.set("etudy:userInst",transMap[data.instrument]).catch(function(){});}
     }).catch(function(e){
       console.error("Profile update failed:",e);
       setShowOnboarding(false);
     });
+  };
+  var handleProfileSave=async function(data){
+    if(!authUser)throw new Error("Not logged in");
+    var p=await updateProfile(authUser.id,data);
+    setAuthProfile(p);
+    // If instrument changed, sync transposition
+    if(data.instrument){
+      var transMap={"Alto Sax":"Alto Sax","Tenor Sax":"Tenor Sax","Trumpet":"Bb Trumpet","Clarinet":"Clarinet","Trombone":"Trombone","Flute":"Flute"};
+      var mapped=transMap[data.instrument];
+      if(mapped){setUserInst(mapped);var g=getStg();if(g)g.set("etudy:userInst",mapped).catch(function(){});}
+    }
   };
   var handleLogout=function(){
     signOut().then(function(){
@@ -7246,6 +7381,7 @@ export default function Etudy(){
   const[runningPlan,setRunningPlan]=useState(null);
   const[historyRefresh,setHistoryRefresh]=useState(0);
   const[publicProfileUser,setPublicProfileUser]=useState(null);
+  const[showEditProfile,setShowEditProfile]=useState(false);
   const openPublicProfile=useCallback(function(username){
     if(!username||username==="Anonymous")return;
     previewStop();
@@ -7599,15 +7735,29 @@ export default function Etudy(){
                 React.createElement("div",{style:{fontSize:9,color:cc,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,marginTop:4}},lick.category));}))),
 
         // Auth info + Logout
-        React.createElement("div",{style:{textAlign:"center",padding:"24px 0",marginTop:16,borderTop:"1px solid "+t.border}},
+        React.createElement("div",{style:{marginTop:16,paddingTop:16,borderTop:"1px solid "+t.border}},
           authUser
             ?React.createElement("div",null,
-              React.createElement("div",{style:{fontSize:12,color:t.muted,fontFamily:"'Inter',sans-serif",marginBottom:4}},
-                authProfile&&authProfile.display_name?authProfile.display_name:authUser.email),
-              React.createElement("div",{style:{fontSize:10,color:t.subtle,fontFamily:"'JetBrains Mono',monospace",marginBottom:12}},authUser.email),
-              React.createElement("button",{onClick:handleLogout,style:{padding:"8px 20px",borderRadius:10,border:"1px solid "+t.border,background:"transparent",color:t.muted,fontSize:12,fontFamily:"'Inter',sans-serif",cursor:"pointer"}},"Sign out"))
-            :React.createElement("button",{onClick:function(){setShowLogin(true);},style:{padding:"10px 24px",borderRadius:12,border:"none",background:t.accent,color:isStudio?"#08080F":"#fff",fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer"}},"Sign in"),
-          React.createElement("div",{style:{marginTop:12}},
+              // Profile card
+              React.createElement("div",{style:{background:t.card,borderRadius:16,border:"1px solid "+t.border,padding:"16px",marginBottom:12,display:"flex",alignItems:"center",gap:14}},
+                // Avatar
+                React.createElement("div",{style:{width:52,height:52,borderRadius:16,background:isStudio?"linear-gradient(135deg,"+(authProfile?.instrument?INST_COL[authProfile.instrument]||t.accent:t.accent)+"22,"+(authProfile?.instrument?INST_COL[authProfile.instrument]||t.accent:t.accent)+"08)":t.accentBg,border:"2px solid "+(authProfile?.instrument?INST_COL[authProfile.instrument]||t.accent:t.accent)+"40",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},
+                  React.createElement("span",{style:{fontSize:18,fontWeight:700,color:authProfile?.instrument?INST_COL[authProfile.instrument]||t.accent:t.accent,fontFamily:"'Inter',sans-serif"}},
+                    (authProfile?.display_name||authUser.email||"?").slice(0,2).toUpperCase())),
+                // Info
+                React.createElement("div",{style:{flex:1,minWidth:0}},
+                  React.createElement("div",{style:{fontSize:14,fontWeight:700,color:t.text,fontFamily:"'Inter',sans-serif",marginBottom:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}},authProfile?.display_name||authUser.email),
+                  authProfile?.username&&React.createElement("div",{style:{fontSize:11,color:t.accent,fontFamily:"'Inter',sans-serif",fontWeight:600,marginBottom:1}},"@"+authProfile.username),
+                  React.createElement("div",{style:{fontSize:10,color:t.subtle,fontFamily:"'JetBrains Mono',monospace",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}},authUser.email)),
+                // Edit button
+                React.createElement("button",{onClick:function(){setShowEditProfile(true);},style:{padding:"7px 14px",borderRadius:10,border:"1px solid "+t.border,background:t.filterBg,color:t.muted,fontSize:11,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer",flexShrink:0,transition:"all 0.15s"}},"Edit")),
+              // Bio if set
+              authProfile?.bio&&React.createElement("div",{style:{fontSize:12,color:t.muted,fontFamily:"'Inter',sans-serif",lineHeight:1.5,marginBottom:12,padding:"0 2px"}},authProfile.bio),
+              // Website if set
+              authProfile?.website_url&&React.createElement("a",{href:authProfile.website_url,target:"_blank",rel:"noopener noreferrer",style:{display:"inline-flex",alignItems:"center",gap:4,fontSize:11,color:t.accent,fontFamily:"'Inter',sans-serif",textDecoration:"none",marginBottom:12}},"\uD83D\uDD17 "+authProfile.website_url.replace(/^https?:\/\//,"")),
+              React.createElement("button",{onClick:handleLogout,style:{width:"100%",padding:"10px",borderRadius:10,border:"1px solid "+t.border,background:"transparent",color:t.muted,fontSize:12,fontFamily:"'Inter',sans-serif",cursor:"pointer"}},"Sign out"))
+            :React.createElement("button",{onClick:function(){setShowLogin(true);},style:{width:"100%",padding:"12px 24px",borderRadius:12,border:"none",background:t.accent,color:isStudio?"#08080F":"#fff",fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer"}},"Sign in"),
+          React.createElement("div",{style:{marginTop:16,textAlign:"center"}},
             React.createElement("span",{style:{fontSize:10,color:t.subtle,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1}},"\u00C9tudy \u00B7 Beta")))),
 
     // BOTTOM TAB BAR
@@ -7625,6 +7775,7 @@ export default function Etudy(){
     rhythmShowTips&&view==="train"&&trainSub==="rhythm"&&React.createElement(CoachMarks,{tips:RHYTHM_TIPS,onDone:markRhythmTipped,th:t}),
     selectedLick&&React.createElement(LickDetail,{key:selectedLick.id,lick:selectedLick,onBack:closeLick,th:t,liked:likedSet.has(selectedLick.id),saved:savedSet.has(selectedLick.id),onLike:toggleLike,onSave:toggleSave,showTips:detailShowTips,onTipsDone:markDetailTipped,onReShowTips:detailTipped?function(){setDetailShowTips(true);}:null,defaultInst:userInst,onDeletePrivate:deletePrivateLick,onReport:handleReport,onUserClick:openPublicProfile}),
     publicProfileUser&&React.createElement(PublicProfileView,{key:publicProfileUser,username:publicProfileUser,onClose:closePublicProfile,onLickSelect:function(lick){closePublicProfile();openLick(lick);},th:t,likedSet:likedSet,savedSet:savedSet,onLike:toggleLike,onSave:toggleSave,userInst:userInst}),
+    showEditProfile&&authUser&&React.createElement(EditProfileView,{authUser:authUser,authProfile:authProfile,onClose:function(){setShowEditProfile(false);},onSave:handleProfileSave,th:t}),
     showEd&&React.createElement(Editor,{onClose:()=>sSE(false),onSubmit:addLick,onSubmitPrivate:addPrivateLick,th:t,userInst:userInst}),
     runningPlan&&React.createElement(PlanRunner,{plan:runningPlan,onClose:function(){setRunningPlan(null);},th:t,licks:allLicks,userInst:userInst,keyProgress:keyProgress,onUpdateKeyProgress:onUpdateKeyProgress,onSessionSaved:function(){setHistoryRefresh(function(k){return k+1;});var s=getStg();if(s)s.get("practice-log").then(function(r){if(r&&r.value){try{var sess=JSON.parse(r.value);calcStreak(sess);calcHours(sess);}catch(e){}}}).catch(function(){});}}),
     // Settings sheet
