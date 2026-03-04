@@ -284,6 +284,7 @@ function dbToLick(row) {
     abc: row.abc || '',
     youtubeId: row.youtube_id || null,
     youtubeStart: row.youtube_start || 0,
+    youtubeEnd: row.youtube_end || null,
     spotifyId: row.spotify_id || null,
     likes: row.likes || 0,
     user: displayName,
@@ -309,6 +310,7 @@ function lickToDb(d) {
     abc: d.abc || '',
     youtube_id: d.youtubeId || null,
     youtube_start: d.youtubeStart || 0,
+    youtube_end: d.youtubeEnd || null,
     spotify_id: d.spotifyId || null,
     likes: 0,
     reports: 0,
@@ -2843,19 +2845,35 @@ function SheetFocus({abc,onClose,abRange,curNoteRef,th,playerCtrlRef,theoryMode,
 // ============================================================
 function parseYT(u){if(!u)return{videoId:"",startTime:0};let v="",s=0;const m=u.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);if(m)v=m[1];const t1=u.match(/[?&]t=(\d+)m(\d+)s/);if(t1)s=parseInt(t1[1])*60+parseInt(t1[2]);else{const t2=u.match(/[?&]t=(\d+)/);if(t2)s=parseInt(t2[1]);}const t3=u.match(/[?&]start=(\d+)/);if(t3)s=parseInt(t3[1]);return{videoId:v,startTime:s};}
 function fT(s){return Math.floor(s/60)+":"+String(s%60).padStart(2,"0");}
-function YTP({videoId,startTime,isActive,th}){const t=th||TH.classic;const[on,sO]=useState(false);if(!isActive||!videoId)return null;
+function YTP({videoId,startTime,endTime,isActive,th}){
+  const t=th||TH.classic;
+  const[on,sO]=useState(false);
+  const iframeRef=useRef(null);
+  const loopRef=useRef(null);
+  const start=startTime||0;
+  const end=(endTime&&endTime>start)?endTime:null;
+  useEffect(function(){
+    if(!on||!end)return;
+    var duration=(end-start)*1000;
+    loopRef.current=setInterval(function(){
+      if(iframeRef.current){var src=iframeRef.current.src;iframeRef.current.src="";setTimeout(function(){if(iframeRef.current)iframeRef.current.src=src;},80);}
+    },duration);
+    return function(){if(loopRef.current)clearInterval(loopRef.current);};
+  },[on,start,end]);
+  if(!isActive||!videoId)return null;
+  var embedSrc="https://www.youtube.com/embed/"+videoId+"?start="+start+(end?"&end="+end:"")+"&autoplay=1&rel=0";
   return React.createElement("div",{style:{marginTop:12}},
     React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:6}},
       React.createElement("span",{style:{fontSize:10,color:t.subtle,fontFamily:"monospace",letterSpacing:1}},"ORIGINAL"),
-      startTime>0&&React.createElement("span",{style:{fontSize:10,fontFamily:"monospace",color:t.accent,background:t.accentBg,padding:"2px 8px",borderRadius:8}},"\u23F1 "+fT(startTime))),
+      start>0&&React.createElement("span",{style:{fontSize:10,fontFamily:"monospace",color:t.accent,background:t.accentBg,padding:"2px 8px",borderRadius:8}},"\u23F1 "+fT(start)+(end?" \u2014 "+fT(end)+" \uD83D\uDD01":""))),
     React.createElement("div",{style:{position:"relative",paddingBottom:"56.25%",borderRadius:12,overflow:"hidden",background:"#1A1A1A"}},
-      on?React.createElement("iframe",{src:"https://www.youtube.com/embed/"+videoId+"?start="+(startTime||0)+"&autoplay=1&rel=0",style:{position:"absolute",top:0,left:0,width:"100%",height:"100%",border:"none"},allow:"autoplay; encrypted-media",allowFullScreen:true}):
-      React.createElement("button",{onClick:e=>{e.stopPropagation();sO(true);},style:{position:"absolute",top:0,left:0,width:"100%",height:"100%",background:"linear-gradient(135deg,#2a2a3e,#1a1a2e)",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:10}},
+      on?React.createElement("iframe",{ref:iframeRef,src:embedSrc,style:{position:"absolute",top:0,left:0,width:"100%",height:"100%",border:"none"},allow:"autoplay; encrypted-media",allowFullScreen:true}):
+      React.createElement("button",{onClick:function(e){e.stopPropagation();sO(true);},style:{position:"absolute",top:0,left:0,width:"100%",height:"100%",background:"linear-gradient(135deg,#2a2a3e,#1a1a2e)",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:10}},
         React.createElement("div",{style:{width:52,height:52,borderRadius:"50%",background:t.accent,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 20px "+t.accentGlow}},
           React.createElement("div",{style:{width:0,height:0,borderTop:"10px solid transparent",borderBottom:"10px solid transparent",borderLeft:"16px solid #fff",marginLeft:3}})),
-        React.createElement("span",{style:{color:"rgba(255,255,255,0.4)",fontSize:11,fontFamily:"monospace"}},startTime>0?"\u25B6 "+fT(startTime):"\u25B6 PLAY"))));}
+        React.createElement("span",{style:{color:"rgba(255,255,255,0.4)",fontSize:11,fontFamily:"monospace"}},start>0?"\u25B6 "+fT(start)+(end?" \u2014 "+fT(end):""):"\u25B6 PLAY"))))
+}
 
-// Spotify URL parser & embed
 function parseSpotify(u){if(!u)return"";const m=u.match(/open\.spotify\.com\/track\/([a-zA-Z0-9]+)/);if(m)return m[1];const m2=u.match(/spotify:track:([a-zA-Z0-9]+)/);return m2?m2[1]:"";}
 function SpotifyEmbed({trackId,th}){const t=th||TH.classic;if(!trackId)return null;
   return React.createElement("div",{style:{marginTop:12}},
@@ -3214,10 +3232,13 @@ function PublicProfileView({username,onClose,onLickSelect,th,likedSet,savedSet,o
   useEffect(function(){
     if(!username)return;
     setLoading(true);
-    fetchPublicLicksByUser(username).then(function(userLicks){
+    supabase.from('profiles').select('id, display_name, username, instrument, bio, website_url, streak').or('username.eq.'+username+',display_name.eq.'+username).single().then(function(res){
+      if(res.data)setProfile(res.data);
+      return fetchPublicLicksByUser(username);
+    }).then(function(userLicks){
       setLicks(userLicks||[]);
       setLoading(false);
-    });
+    }).catch(function(){setLoading(false);});
   },[username]);
 
   const initials=username?username.slice(0,2).toUpperCase():"??";
@@ -3247,7 +3268,8 @@ function PublicProfileView({username,onClose,onLickSelect,th,likedSet,savedSet,o
           React.createElement("div",{style:{flex:1,minWidth:0}},
             React.createElement("div",{style:{fontSize:18,fontWeight:700,color:t.text,fontFamily:"'Inter',sans-serif",marginBottom:4}},username),
             profile&&profile.instrument&&React.createElement("div",{style:{display:"inline-flex",alignItems:"center",gap:4,fontSize:10,fontWeight:600,color:instC,background:instC+"15",padding:"3px 10px",borderRadius:8,border:"1px solid "+instC+"25",fontFamily:"'JetBrains Mono',monospace",marginBottom:8}},profile.instrument),
-            profile&&profile.bio&&React.createElement("div",{style:{fontSize:12,color:t.muted,fontFamily:"'Inter',sans-serif",lineHeight:1.5}},profile.bio))),
+            profile&&profile.bio&&React.createElement("div",{style:{fontSize:12,color:t.muted,fontFamily:"'Inter',sans-serif",lineHeight:1.5,marginBottom:profile&&profile.website_url?6:0}},profile.bio),
+            profile&&profile.website_url&&React.createElement("a",{href:profile.website_url,target:"_blank",rel:"noopener noreferrer",onClick:function(e){e.stopPropagation();},style:{display:"inline-flex",alignItems:"center",gap:4,fontSize:11,color:t.accent,fontFamily:"'Inter',sans-serif",textDecoration:"none",fontWeight:500}},"🔗 "+profile.website_url.replace(/^https?:\/\//,"")))),
 
         // STATS ROW
         React.createElement("div",{style:{display:"flex",gap:8,marginBottom:20}},
@@ -3326,10 +3348,11 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
   var FULL_SHOW=DRAWER_HALF-20;// start fading in full content
   // Check if half/full sections have actual content to show
   var hasHalfContent=!!(lick.description||(lick.tags&&lick.tags.length>0)||lick.youtubeId||lick.spotifyId);
-  var hasFullContent=true;// theory+report always available
-  // Compute snap heights based on available content
-  var halfH=hasHalfContent?DRAWER_HALF:DRAWER_PEEK;
-  var fullMax=winH-140;// keep handle well below header (safe-area + header ≈ 120px)
+  // Full section = theory + delete/report. Fixed height — never nearly full-screen.
+  // Add extra for YouTube embed if present (~220px), otherwise compact (~200px)
+  var fullExtra=lick.youtubeId?220:0;
+  var fullMax=Math.min((hasHalfContent?DRAWER_HALF:DRAWER_PEEK)+200+fullExtra, winH-100);
+  var hasFullContent=fullMax>(hasHalfContent?DRAWER_HALF:DRAWER_PEEK)+60;
   // Build snap points — only include snaps that have content
   var snapPts=[DRAWER_PEEK];
   if(hasHalfContent)snapPts.push(DRAWER_HALF);
@@ -3492,7 +3515,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
             lick.tags.map(function(tag,i){var cols=Object.values(CAT_COL);var c=isStudio?cols[i%cols.length]:t.accent;
               return React.createElement("span",{key:i,style:{fontSize:11,color:c,fontFamily:"'JetBrains Mono',monospace",background:isStudio?c+"15":t.accentBg,padding:"5px 12px",borderRadius:10,border:"1px solid "+(isStudio?c+"30":t.accentBorder),display:"flex",alignItems:"center",gap:5}},isStudio&&IC.pip(5,c),tag);})),
           // YouTube
-          React.createElement(YTP,{videoId:lick.youtubeId,startTime:lick.youtubeStart,isActive:true,th:t}),
+          React.createElement(YTP,{videoId:lick.youtubeId,startTime:lick.youtubeStart,endTime:lick.youtubeEnd,isActive:true,th:t}),
           // Spotify
           React.createElement(SpotifyEmbed,{trackId:lick.spotifyId,th:t})),
 
@@ -5585,7 +5608,7 @@ function PolyrhythmTrainer({th,sharedInput,sharedMicSilent}){
 // EDITOR — themed
 // ============================================================
 function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.classic;const isStudio=t===TH.studio;
-  const[artist,sA]=useState("");const[tune,sTune]=useState("");const[inst,sI]=useState("Alto Sax");const[cat,sC]=useState("ii-V-I");const[keySig,sK]=useState("C");const[timeSig,sTS]=useState("4/4");const[tempo,sTm]=useState("120");const[abc,sAbc]=useState("X:1\nT:My Lick\nM:4/4\nL:1/8\nQ:1/4=120\nK:C\n");const[feel,setFeel]=useState("straight");const[yu,sYu]=useState("");const[tm,sTmn]=useState("");const[ts,sTs]=useState("");const[sp,sSp]=useState("");const[desc,sD]=useState("");const[tags,sTg]=useState("");
+  const[artist,sA]=useState("");const[tune,sTune]=useState("");const[inst,sI]=useState("Alto Sax");const[cat,sC]=useState("ii-V-I");const[keySig,sK]=useState("C");const[timeSig,sTS]=useState("4/4");const[tempo,sTm]=useState("120");const[abc,sAbc]=useState("X:1\nT:My Lick\nM:4/4\nL:1/8\nQ:1/4=120\nK:C\n");const[feel,setFeel]=useState("straight");const[yu,sYu]=useState("");const[tm,sTmn]=useState("");const[ts,sTs]=useState("");const[tmEnd,setTmEnd]=useState("");const[tsEnd,setTsEnd]=useState("");const[sp,sSp]=useState("");const[desc,sD]=useState("");const[tags,sTg]=useState("");
   const edCurNoteRef=useRef(-1);
   const noteClickRef=useRef(null);
   const deselectRef=useRef(null);
@@ -5637,7 +5660,7 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
           }));
       })));
 
-  const KEYS=["C","Db","D","Eb","E","F","F#","G","Ab","A","Bb","B"];const TS=["4/4","3/4","6/8","5/4","7/8"];const yt=parseYT(yu);const tSec=(parseInt(tm)||0)*60+(parseInt(ts)||0);
+  const KEYS=["C","Db","D","Eb","E","F","F#","G","Ab","A","Bb","B"];const TS=["4/4","3/4","6/8","5/4","7/8"];const yt=parseYT(yu);const tSec=(parseInt(tm)||0)*60+(parseInt(ts)||0);const tESecEnd=(parseInt(tmEnd)||0)*60+(parseInt(tsEnd)||0)||null;
   const lb={fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5,display:"block",marginBottom:4};
   const ip={width:"100%",background:t.inputBg,border:"1px solid "+t.inputBorder,borderRadius:10,padding:"10px 14px",color:t.text,fontSize:14,fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"};
   const noteCount=useMemo(()=>countAbcNotes(abc),[abc]);
@@ -5656,7 +5679,7 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
   // Feel buttons inline
 
   // Submit data builder
-  const buildData=()=>({title:autoTitle,artist,tune,label:label.trim(),instrument:inst,category:cat,key:concertKey,tempo:parseInt(tempo),feel,abc:concertAbc,chords:chordsRef.current||{},youtubeId:yt.videoId,youtubeStart:tSec,spotifyId:parseSpotify(sp),description:desc,tags:tags.split(",").map(tg2=>tg2.trim()).filter(Boolean)});
+  const buildData=()=>({title:autoTitle,artist,tune,label:label.trim(),instrument:inst,category:cat,key:concertKey,tempo:parseInt(tempo),feel,abc:concertAbc,chords:chordsRef.current||{},youtubeId:yt.videoId,youtubeStart:tSec,youtubeEnd:tESecEnd||null,spotifyId:parseSpotify(sp),description:desc,tags:tags.split(",").map(tg2=>tg2.trim()).filter(Boolean)});
 
   // Check bar completeness before publishing
   var tryPublish=function(mode){
@@ -5801,13 +5824,22 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
                   React.createElement("span",{style:{fontSize:9,color:t.accent,fontFamily:"monospace"}},"\u2713 "+yt.videoId),
                   React.createElement("span",{style:{fontSize:9,color:t.subtle,fontFamily:"monospace"}},yt.startTime>0?" @ "+fT(yt.startTime):"")),
                 yu&&!yt.videoId&&React.createElement("span",{style:{fontSize:9,color:"#EF4444",fontFamily:"monospace",display:"block",marginTop:4}},"Invalid YouTube URL")),
-              yu&&yt.videoId&&React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}},
-                React.createElement("div",null,
-                  React.createElement("label",{style:{...lb,fontSize:9,opacity:0.7}},"START MIN"),
-                  React.createElement("input",{style:{...ip,fontSize:13},type:"number",min:0,value:tm,onChange:e=>sTmn(e.target.value),placeholder:"0"})),
-                React.createElement("div",null,
-                  React.createElement("label",{style:{...lb,fontSize:9,opacity:0.7}},"START SEC"),
-                  React.createElement("input",{style:{...ip,fontSize:13},type:"number",min:0,max:59,value:ts,onChange:e=>sTs(e.target.value),placeholder:"0"}))),
+              yu&&yt.videoId&&React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:8}},
+                React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}},
+                  React.createElement("div",null,
+                    React.createElement("label",{style:{...lb,fontSize:9,opacity:0.7}},"START MIN"),
+                    React.createElement("input",{style:{...ip,fontSize:13},type:"number",min:0,value:tm,onChange:e=>sTmn(e.target.value),placeholder:"0"})),
+                  React.createElement("div",null,
+                    React.createElement("label",{style:{...lb,fontSize:9,opacity:0.7}},"START SEC"),
+                    React.createElement("input",{style:{...ip,fontSize:13},type:"number",min:0,max:59,value:ts,onChange:e=>sTs(e.target.value),placeholder:"0"}))),
+                React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}},
+                  React.createElement("div",null,
+                    React.createElement("label",{style:{...lb,fontSize:9,opacity:0.7}},"END MIN"),
+                    React.createElement("input",{style:{...ip,fontSize:13},type:"number",min:0,value:tmEnd,onChange:e=>setTmEnd(e.target.value),placeholder:"0"})),
+                  React.createElement("div",null,
+                    React.createElement("label",{style:{...lb,fontSize:9,opacity:0.7}},"END SEC"),
+                    React.createElement("input",{style:{...ip,fontSize:13},type:"number",min:0,max:59,value:tsEnd,onChange:e=>setTsEnd(e.target.value),placeholder:"0"}))),
+                tESecEnd&&tESecEnd>tSec&&React.createElement("div",{style:{fontSize:10,color:t.accent,fontFamily:"'JetBrains Mono',monospace",padding:"4px 8px",background:t.accentBg,borderRadius:6}},"Loop: "+fT(tSec)+" — "+fT(tESecEnd))),
               React.createElement("div",null,
                 React.createElement("label",{style:{...lb,fontSize:9,opacity:0.7}},"SPOTIFY TRACK URL"),
                 React.createElement("input",{style:{...ip,fontSize:13},value:sp,onChange:e=>sSp(e.target.value),placeholder:"https://open.spotify.com/track/..."}),
@@ -7791,11 +7823,7 @@ export default function Etudy(){
                   React.createElement("div",{style:{fontSize:10,color:t.subtle,fontFamily:"'JetBrains Mono',monospace",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}},authUser.email)),
                 // Edit button
                 React.createElement("button",{onClick:function(){setShowEditProfile(true);},style:{padding:"7px 14px",borderRadius:10,border:"1px solid "+t.border,background:t.filterBg,color:t.muted,fontSize:11,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer",flexShrink:0,transition:"all 0.15s"}},"Edit")),
-              // Bio if set
-              authProfile?.bio&&React.createElement("div",{style:{fontSize:12,color:t.muted,fontFamily:"'Inter',sans-serif",lineHeight:1.5,marginBottom:12,padding:"0 2px"}},authProfile.bio),
-              // Website if set
-              authProfile?.website_url&&React.createElement("a",{href:authProfile.website_url,target:"_blank",rel:"noopener noreferrer",style:{display:"inline-flex",alignItems:"center",gap:4,fontSize:11,color:t.accent,fontFamily:"'Inter',sans-serif",textDecoration:"none",marginBottom:12}},"\uD83D\uDD17 "+authProfile.website_url.replace(/^https?:\/\//,"")),
-              React.createElement("button",{onClick:handleLogout,style:{width:"100%",padding:"10px",borderRadius:10,border:"1px solid "+t.border,background:"transparent",color:t.muted,fontSize:12,fontFamily:"'Inter',sans-serif",cursor:"pointer"}},"Sign out"))
+                            React.createElement("button",{onClick:handleLogout,style:{width:"100%",padding:"10px",borderRadius:10,border:"1px solid "+t.border,background:"transparent",color:t.muted,fontSize:12,fontFamily:"'Inter',sans-serif",cursor:"pointer"}},"Sign out"))
             :React.createElement("button",{onClick:function(){setShowLogin(true);},style:{width:"100%",padding:"12px 24px",borderRadius:12,border:"none",background:t.accent,color:isStudio?"#08080F":"#fff",fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer"}},"Sign in"),
           React.createElement("div",{style:{marginTop:16,textAlign:"center"}},
             React.createElement("span",{style:{fontSize:10,color:t.subtle,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1}},"\u00C9tudy \u00B7 Beta")))),
