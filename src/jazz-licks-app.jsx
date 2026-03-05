@@ -3157,12 +3157,10 @@ function YTCardBtn({videoId,startTime,endTime,th}){
       pollRef.current=setInterval(function(){
         try{
           var p=playerRef.current;
-          if(!p||!p.getCurrentTime)return;
-          var state=p.getPlayerState();
-          setPlaying(state===1);
-          if(end&&state===1&&p.getCurrentTime()>=end)p.seekTo(start,true);
+          if(!p||!p.getPlayerState)return;
+          setPlaying(p.getPlayerState()===1);
         }catch(e){}
-      },200);
+      },300);
     }
     function create(){
       if(destroyed||!divRef.current)return;
@@ -3187,7 +3185,7 @@ function YTCardBtn({videoId,startTime,endTime,th}){
       if(pollRef.current){clearInterval(pollRef.current);pollRef.current=null;}
       try{if(playerRef.current){playerRef.current.destroy();playerRef.current=null;setLoaded(false);setPlaying(false);}}catch(e){}
     };
-  },[videoId,start,end]);
+  },[videoId,start]);
 
   if(!videoId)return null;
 
