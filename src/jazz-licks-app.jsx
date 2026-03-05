@@ -3675,7 +3675,7 @@ function PublicProfileView({username,onClose,onLickSelect,th,likedSet,savedSet,o
   useEffect(function(){
     if(!username)return;
     setLoading(true);
-    supabase.from('profiles').select('id, display_name, username, instrument, bio, website_url, streak').or('username.eq.'+username+',display_name.eq.'+username).single().then(function(res){
+    supabase.from('profiles').select('id, display_name, username, instrument, bio, website_url, streak, avatar_url').or('username.eq.'+username+',display_name.eq.'+username).single().then(function(res){
       if(res.data)setProfile(res.data);
       return fetchPublicLicksByUser(username);
     }).then(function(userLicks){
@@ -3684,7 +3684,8 @@ function PublicProfileView({username,onClose,onLickSelect,th,likedSet,savedSet,o
     }).catch(function(){setLoading(false);});
   },[username]);
 
-  const initials=username?username.slice(0,2).toUpperCase():"??";
+  const displayName=profile?.display_name||username;
+  const initials=displayName.slice(0,2).toUpperCase();
   const instC=profile&&profile.instrument?(INST_COL[profile.instrument]||t.accent):t.accent;
   const totalLikes=licks.reduce(function(s,l){return s+(l.likes||0);},0);
 
@@ -3696,7 +3697,8 @@ function PublicProfileView({username,onClose,onLickSelect,th,likedSet,savedSet,o
         React.createElement("button",{onClick:onClose,style:{background:"none",border:"none",cursor:"pointer",color:isStudio?t.accent:t.muted,fontSize:22,padding:"4px 8px 4px 0",display:"flex",alignItems:"center"}},"\u2039"),
         React.createElement("div",{style:{flex:1}},
           React.createElement("div",{style:{fontSize:11,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5,textTransform:"uppercase"}},"Musician"),
-          React.createElement("div",{style:{fontSize:16,fontWeight:700,color:t.text,fontFamily:"'Inter',sans-serif"}},username)))),
+          React.createElement("div",{style:{fontSize:16,fontWeight:700,color:t.text,fontFamily:"'Inter',sans-serif"}},displayName),
+          profile?.username&&profile.username!==displayName&&React.createElement("div",{style:{fontSize:10,color:t.accent,fontFamily:"'Inter',sans-serif",fontWeight:600}},"@"+profile.username)))),
 
     // SCROLLABLE BODY
     React.createElement("div",{style:{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch"}},
@@ -3705,11 +3707,14 @@ function PublicProfileView({username,onClose,onLickSelect,th,likedSet,savedSet,o
         // PROFILE HERO
         React.createElement("div",{style:{margin:"24px 0 20px",padding:"20px",background:t.card,borderRadius:18,border:"1px solid "+t.border,boxShadow:isStudio?"0 4px 24px rgba(0,0,0,0.3)":"0 2px 12px rgba(0,0,0,0.06)",display:"flex",alignItems:"flex-start",gap:16}},
           // Avatar
-          React.createElement("div",{style:{width:64,height:64,borderRadius:20,background:isStudio?"linear-gradient(135deg,"+instC+"22,"+instC+"08)":t.accentBg,border:"2px solid "+instC+"50",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:isStudio?"0 0 24px "+instC+"20":"none"}},
-            React.createElement("span",{style:{fontSize:22,fontWeight:700,color:instC,fontFamily:"'Inter',sans-serif",letterSpacing:-0.5}},initials)),
+          React.createElement("div",{style:{width:64,height:64,borderRadius:20,background:isStudio?"linear-gradient(135deg,"+instC+"22,"+instC+"08)":t.accentBg,border:"2px solid "+instC+"50",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:isStudio?"0 0 24px "+instC+"20":"none",overflow:"hidden"}},
+            profile?.avatar_url
+              ?React.createElement("img",{src:profile.avatar_url,alt:displayName,style:{width:"100%",height:"100%",objectFit:"cover"}})
+              :React.createElement("span",{style:{fontSize:22,fontWeight:700,color:instC,fontFamily:"'Inter',sans-serif",letterSpacing:-0.5}},initials)),
           // Info
           React.createElement("div",{style:{flex:1,minWidth:0}},
-            React.createElement("div",{style:{fontSize:18,fontWeight:700,color:t.text,fontFamily:"'Inter',sans-serif",marginBottom:4}},username),
+            React.createElement("div",{style:{fontSize:18,fontWeight:700,color:t.text,fontFamily:"'Inter',sans-serif",marginBottom:2}},displayName),
+            profile?.username&&React.createElement("div",{style:{fontSize:11,color:t.accent,fontFamily:"'Inter',sans-serif",fontWeight:600,marginBottom:6}},"@"+profile.username),
             profile&&profile.instrument&&React.createElement("div",{style:{display:"inline-flex",alignItems:"center",gap:4,fontSize:10,fontWeight:600,color:instC,background:instC+"15",padding:"3px 10px",borderRadius:8,border:"1px solid "+instC+"25",fontFamily:"'JetBrains Mono',monospace",marginBottom:8}},profile.instrument),
             profile&&profile.bio&&React.createElement("div",{style:{fontSize:12,color:t.muted,fontFamily:"'Inter',sans-serif",lineHeight:1.5,marginBottom:profile&&profile.website_url?6:0}},profile.bio),
             profile&&profile.website_url&&React.createElement("a",{href:profile.website_url,target:"_blank",rel:"noopener noreferrer",onClick:function(e){e.stopPropagation();},style:{display:"inline-flex",alignItems:"center",gap:4,fontSize:11,color:t.accent,fontFamily:"'Inter',sans-serif",textDecoration:"none",fontWeight:500}},"🔗 "+profile.website_url.replace(/^https?:\/\//,"")))),
