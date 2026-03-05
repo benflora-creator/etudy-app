@@ -4040,19 +4040,19 @@ function LikesPopup({lickId,lickTitle,likeCount,onClose,th,onUserClick}){
     if(!lickId)return;
     supabase
       .from('user_licks')
-      .select('user_id, profiles(display_name, username, instrument)')
+      .select('user_id')
       .eq('lick_id', lickId)
       .eq('type', 'like')
       .limit(50)
       .then(function(res){
         if(res.error){setErr(true);return;}
-        const list=(res.data||[])
-          .map(function(r){
-            var p=r.profiles||{};
-            return {username:p.username||null,display_name:p.display_name||null,instrument:p.instrument||null};
-          })
-          .filter(function(u){return u.username||u.display_name;});
-        setUsers(list);
+        var ids=(res.data||[]).map(function(r){return r.user_id;}).filter(Boolean);
+        if(ids.length===0){setUsers([]);return;}
+        supabase.from('profiles').select('display_name, username, instrument').in('id', ids)
+          .then(function(res2){
+            if(res2.error){setErr(true);return;}
+            setUsers((res2.data||[]).filter(function(p){return p.username||p.display_name;}));
+          }).catch(function(){setErr(true);});
       })
       .catch(function(){setErr(true);});
   },[lickId]);
