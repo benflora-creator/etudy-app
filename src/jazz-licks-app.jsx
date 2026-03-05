@@ -3158,9 +3158,11 @@ function YTCardBtn({videoId,startTime,endTime,th}){
         try{
           var p=playerRef.current;
           if(!p||!p.getPlayerState)return;
-          setPlaying(p.getPlayerState()===1);
+          var state=p.getPlayerState();
+          setPlaying(state===1);
+          if(end&&state===1&&p.getCurrentTime()>=end)p.pauseVideo();
         }catch(e){}
-      },300);
+      },200);
     }
     function create(){
       if(destroyed||!divRef.current)return;
