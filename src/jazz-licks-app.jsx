@@ -3191,14 +3191,22 @@ function YTCardBtn({videoId,startTime,endTime,th}){
 
   if(!videoId)return null;
 
+  // Stop notation preview when YT starts
   function toggle(e){
     e.stopPropagation();
     if(!playerRef.current)return;
     try{
       if(playing){playerRef.current.pauseVideo();}
-      else{playerRef.current.seekTo(start,true);playerRef.current.playVideo();}
+      else{previewStop();playerRef.current.seekTo(start,true);playerRef.current.playVideo();}
     }catch(ex){}
   }
+
+  // Pause YT when notation preview starts
+  useEffect(function(){
+    return previewSubscribe(function(id){
+      if(id!==null)try{if(playerRef.current&&playerRef.current.pauseVideo)playerRef.current.pauseVideo();}catch(e){}
+    });
+  },[]);
 
   var isActive=playing;
   return React.createElement(React.Fragment,null,
