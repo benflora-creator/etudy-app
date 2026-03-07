@@ -1563,16 +1563,27 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
           hit.setAttribute("fill","none");hit.setAttribute("stroke","none");
           hit.setAttribute("pointer-events","visible");
           hit.style.cursor="pointer";hit.style.opacity="0";
-          hit.addEventListener("click",function(theIdx,theNoteEl,theCol){return function(e){
+          hit.addEventListener("click",function(theIdx,theNoteEl,theCol,theBB){return function(e){
             e.stopPropagation();
             var tones=theIdx<noteTones.length?noteTones[theIdx]:null;
             var chordName=theIdx<tapChordAtNote.length?tapChordAtNote[theIdx]:null;
             if(tones)playTheoryTap(tones,chordName);
-            // Glow on the note group element
-            theNoteEl.style.filter="drop-shadow(0 0 6px "+theCol+") drop-shadow(0 0 12px "+theCol+"88)";
-            theNoteEl.style.transition="filter 0.05s";
-            setTimeout(function(){theNoteEl.style.filter="none";theNoteEl.style.transition="filter 0.4s";},400);
-          };}(idx,noteEl,ti.col));
+            // Glow circle behind notehead
+            var glow=document.createElementNS("http://www.w3.org/2000/svg","circle");
+            glow.setAttribute("cx",theBB.x+theBB.width/2);
+            glow.setAttribute("cy",theBB.y+theBB.height/2);
+            glow.setAttribute("r","10");
+            glow.setAttribute("fill",theCol);glow.setAttribute("fill-opacity","0.45");
+            glow.setAttribute("stroke","none");
+            glow.style.pointerEvents="none";
+            // Insert before the note so it appears behind
+            theNoteEl.parentNode.insertBefore(glow,theNoteEl);
+            // Fade out and remove
+            setTimeout(function(){glow.setAttribute("fill-opacity","0.2");},80);
+            setTimeout(function(){glow.setAttribute("fill-opacity","0.08");},200);
+            setTimeout(function(){try{glow.remove();}catch(e2){}},350);
+          };}(idx,noteEl,ti.col,ti.bb));
+          svg.appendChild(hit);
           svg.appendChild(hit);
         });
       }
