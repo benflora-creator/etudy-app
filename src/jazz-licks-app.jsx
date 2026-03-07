@@ -1404,7 +1404,7 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
     if(editorMode&&hasContent){
       renderAbc=abc.replace(/(K:[^\n]*)/,"%%barsperstaff 2\n$1");
     }
-    const opts={responsive:"resize",paddingtop:editorMode?28:(focus?14:theoryMode?14:2),paddingbottom:theoryMode?40:(focus?14:2),paddingleft:0,paddingright:0,add_classes:true};
+    const opts={responsive:"resize",paddingtop:editorMode?28:(focus?14:theoryMode?14:2),paddingbottom:theoryMode?34:(focus?14:2),paddingleft:0,paddingright:0,add_classes:true};
     if(compact){opts.staffwidth=400;opts.scale=0.85;}
     else if(editorMode&&hasContent){opts.staffwidth=460;opts.scale=1.1;opts.wrap={minSpacing:1.0,maxSpacing:2.8,preferredMeasuresPerLine:2};}
     else if(editorMode){opts.staffwidth=460;opts.scale=1.1;}
@@ -1424,120 +1424,67 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
     svg.querySelectorAll(".abcjs-title,.abcjs-meta-top").forEach(el=>el.style.display="none");
     const noteEls=svg.querySelectorAll(".abcjs-note");if(!noteEls.length)return;
     const fracs=getNoteTimeFracs(abc);
-    // ── THEORY MODE: Theory Lane badges below each staff line ──
+    // ── THEORY MODE: clean interval labels below each staff ──
     if(theoryMode&&theoryAnalysis&&theoryAnalysis.noteAnalysis&&theoryAnalysis.noteAnalysis.length>0){
       svg.querySelectorAll(".theory-label,.theory-pill,.theory-region,.theory-badge,.theory-lane").forEach(function(el){el.remove();});
       var na=theoryAnalysis.noteAnalysis;
-      // ── Robust staff detection: get Y centers of each staff ──
+      // Detect staves by Y center for robust nearest-match
       var staffEls=svg.querySelectorAll(".abcjs-staff");
       var staves=[];
-      staffEls.forEach(function(s,si){
-        try{
-          var sb=s.getBBox();
-          staves.push({idx:si,y:sb.y,y2:sb.y+sb.height,cy:sb.y+sb.height/2,bottom:sb.y+sb.height,lowestNote:sb.y+sb.height});
-        }catch(e){}
-      });
-      if(staves.length===0)staves.push({idx:0,y:0,y2:100,cy:50,bottom:100,lowestNote:100});
-      // ── Pass 1: color notes + assign each to NEAREST staff by Y center distance ──
-      var badgeData=[];
+      staffEls.forEach(function(s){try{var sb=s.getBBox();staves.push({cy:sb.y+sb.height/2,bottom:sb.y+sb.height,lowestY:sb.y+sb.height});}catch(e){}});
+      if(!staves.length)staves.push({cy:50,bottom:100,lowestY:100});
+      // Pass 1: color noteheads, assign to nearest staff, track lowest Y
+      var labelData=[];
       noteEls.forEach(function(noteEl,idx){
         if(idx>=na.length)return;
         var info=na[idx];if(!info||!info.entries||!info.entries.length)return;
-        var entry=info.entries[0];
-        if(!entry.label)return;
+        var entry=info.entries[0];if(!entry.label)return;
         try{
           var bb=noteEl.getBBox();
           var col=getTheoryColor(entry.type,isStudio);
-          var noteOpacity=entry.type==="chord-tone"?"1":(entry.type==="tension"?"0.8":"0.55");
+          var op=entry.type==="chord-tone"?"1":(entry.type==="tension"?"0.8":"0.5");
           noteEl.querySelectorAll("path,circle,ellipse").forEach(function(p){
             p.setAttribute("fill",col);p.setAttribute("stroke",col);
-            p.setAttribute("fill-opacity",noteOpacity);p.setAttribute("stroke-opacity",noteOpacity);
+            p.setAttribute("fill-opacity",op);p.setAttribute("stroke-opacity",op);
           });
           noteEl._theoryInfo={idx:idx,bb:bb,entry:entry,col:col};
-          // Nearest staff by Y center
-          var noteCy=bb.y+bb.height/2;
-          var bestSi=0;var bestDist=Infinity;
-          for(var si=0;si<staves.length;si++){
-            var d=Math.abs(noteCy-staves[si].cy);
-            if(d<bestDist){bestDist=d;bestSi=si;}
-          }
-          // Track lowest note bottom for this staff
+          // Nearest staff
+          var nCy=bb.y+bb.height/2;var si=0;var best=Infinity;
+          for(var j=0;j<staves.length;j++){var d=Math.abs(nCy-staves[j].cy);if(d<best){best=d;si=j;}}
           var noteBot=bb.y+bb.height;
-          if(noteBot>staves[bestSi].lowestNote)staves[bestSi].lowestNote=noteBot;
-          badgeData.push({cx:bb.x+bb.width/2,staffIdx:bestSi,entry:entry,col:col,noteIdx:idx});
+          if(noteBot>staves[si].lowestY)staves[si].lowestY=noteBot;
+          labelData.push({cx:bb.x+bb.width/2,si:si,entry:entry,col:col,op:op});
         }catch(e){}
       });
-      // ── Pass 2: render badge lane per staff ──
-      var BADGE_H=20;var BADGE_R=6;var LANE_GAP=12;
-      var FONT_CT=15;var FONT_OTHER=13.5;
+      // Pass 2: render plain text labels at consistent Y per staff
+      var LANE_GAP=10;
       for(var si2=0;si2<staves.length;si2++){
-        var st=staves[si2];
-        var staffBadges=badgeData.filter(function(b){return b.staffIdx===si2;});
-        if(staffBadges.length===0)continue;
-        var laneY=st.lowestNote+LANE_GAP;
-        var laneG=document.createElementNS("http://www.w3.org/2000/svg","g");
-        laneG.setAttribute("class","theory-lane");
-        staffBadges.forEach(function(bd){
-          var isCT=bd.entry.type==="chord-tone";
-          var isT=bd.entry.type==="tension";
-          var label=bd.entry.label;
-          var fontSize=isCT?FONT_CT:FONT_OTHER;
-          var charW=fontSize*0.62;
-          var textW=label.length*charW;
-          var bw=Math.max(textW+12,isCT?28:24);
-          var bx=bd.cx-bw/2;
-          // Background rect
-          var bg=document.createElementNS("http://www.w3.org/2000/svg","rect");
-          bg.setAttribute("class","theory-badge");
-          bg.setAttribute("x",bx);bg.setAttribute("y",laneY);
-          bg.setAttribute("width",bw);bg.setAttribute("height",BADGE_H);
-          bg.setAttribute("rx",BADGE_R);bg.setAttribute("ry",BADGE_R);
-          if(isCT){
-            bg.setAttribute("fill",bd.col);bg.setAttribute("fill-opacity","0.92");
-            bg.setAttribute("stroke","none");
-          }else if(isT){
-            bg.setAttribute("fill",bd.col);bg.setAttribute("fill-opacity","0.08");
-            bg.setAttribute("stroke",bd.col);bg.setAttribute("stroke-width","1");bg.setAttribute("stroke-opacity","0.4");
-          }else{
-            bg.setAttribute("fill",isStudio?"rgba(255,255,255,0.03)":"rgba(0,0,0,0.03)");
-            bg.setAttribute("stroke",bd.col);bg.setAttribute("stroke-width","0.7");bg.setAttribute("stroke-opacity","0.25");
-          }
-          laneG.appendChild(bg);
-          // Text
-          var txt=document.createElementNS("http://www.w3.org/2000/svg","text");
-          txt.setAttribute("class","theory-badge");
-          txt.setAttribute("x",bd.cx);
-          txt.setAttribute("y",laneY+BADGE_H/2+1);
-          txt.setAttribute("text-anchor","middle");
-          txt.setAttribute("dominant-baseline","central");
-          txt.style.fontSize=fontSize+"px";
-          txt.style.fontFamily="'JetBrains Mono','SF Mono',monospace";
-          txt.style.pointerEvents="none";
-          txt.style.letterSpacing="0.2px";
-          if(isCT){
-            txt.setAttribute("fill",isStudio?"#0D1117":"#FFFFFF");
-            txt.style.fontWeight="600";
-          }else if(isT){
-            txt.setAttribute("fill",bd.col);
-            txt.style.fontWeight="500";
-          }else{
-            txt.setAttribute("fill",bd.col);
-            txt.style.fontWeight="500";
-            txt.style.opacity="0.5";
-          }
-          txt.textContent=label;
-          laneG.appendChild(txt);
+        var laneY=staves[si2].lowestY+LANE_GAP;
+        var myLabels=labelData.filter(function(d){return d.si===si2;});
+        myLabels.forEach(function(ld){
+          var lbl=document.createElementNS("http://www.w3.org/2000/svg","text");
+          lbl.setAttribute("class","theory-label");
+          lbl.setAttribute("x",ld.cx);
+          lbl.setAttribute("y",laneY);
+          lbl.setAttribute("text-anchor","middle");
+          lbl.setAttribute("dominant-baseline","hanging");
+          lbl.setAttribute("fill",ld.col);
+          lbl.setAttribute("fill-opacity",ld.op);
+          lbl.style.fontSize="14px";
+          lbl.style.fontFamily="'Inter','Helvetica Neue',sans-serif";
+          lbl.style.fontWeight="300";
+          lbl.style.pointerEvents="none";
+          lbl.textContent=ld.entry.label;
+          svg.appendChild(lbl);
         });
-        svg.appendChild(laneG);
       }
-      // ── Expand viewBox to include all badge lanes ──
+      // Expand viewBox
       try{
         var vb=svg.viewBox.baseVal;
         if(vb&&vb.width>0){
-          var allBadges=svg.querySelectorAll("rect.theory-badge");
           var maxY=vb.y+vb.height;
-          allBadges.forEach(function(el){try{var eb=el.getBBox();var bot=eb.y+eb.height+8;if(bot>maxY)maxY=bot;}catch(e){}});
-          if(maxY>vb.y+vb.height){svg.setAttribute("viewBox",vb.x+" "+vb.y+" "+vb.width+" "+(maxY-vb.y));}
+          svg.querySelectorAll(".theory-label").forEach(function(l){try{var lb=l.getBBox();var bot=lb.y+lb.height+6;if(bot>maxY)maxY=bot;}catch(e){}});
+          if(maxY>vb.y+vb.height)svg.setAttribute("viewBox",vb.x+" "+vb.y+" "+vb.width+" "+(maxY-vb.y));
         }
       }catch(e){}
     }
@@ -1591,7 +1538,7 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
             const el=noteEls[prevNoteRef.current];
             // Restore theory color if available, else default noteStroke
             var restoreCol=t.noteStroke;var restoreOp="1";
-            if(el._theoryInfo){restoreCol=el._theoryInfo.col;restoreOp=el._theoryInfo.entry.type==="chord-tone"?"1":(el._theoryInfo.entry.type==="tension"?"0.8":"0.55");}
+            if(el._theoryInfo){restoreCol=el._theoryInfo.col;restoreOp=el._theoryInfo.entry.type==="chord-tone"?"1":(el._theoryInfo.entry.type==="tension"?"0.8":"0.5");}
             el.querySelectorAll("path,circle,ellipse").forEach(p=>{
               p.style.fill=restoreCol;p.style.stroke=restoreCol;
               if(hasRange&&prevNoteRef.current<fracs.length){const f=fracs[prevNoteRef.current];const inR=f.frac>=abRange[0]-0.001&&f.endFrac<=abRange[1]+0.001;
