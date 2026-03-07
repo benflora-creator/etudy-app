@@ -2920,7 +2920,7 @@ function YTP({videoId,startTime,endTime,isActive,th}){
         '\u23F1 '+fT(start)+(end?' \u2014 '+fT(end)+' \uD83D\uDD01':''))),
     on
       ?React.createElement('div',{style:{position:'relative',paddingBottom:'56.25%',borderRadius:12,overflow:'hidden',background:'#1A1A1A'}},
-          React.createElement('div',{ref:setDivRef,style:{position:'absolute',top:0,left:0,width:'100%',height:'100%'}}))
+          React.createElement('div',{ref:divRef,style:{position:'absolute',top:0,left:0,width:'100%',height:'100%'}}))
       :React.createElement('div',{style:{position:'relative',paddingBottom:'56.25%',borderRadius:12,overflow:'hidden',background:'linear-gradient(135deg,#2a2a3e,#1a1a2e)'}},
           React.createElement('button',{onClick:function(e){e.stopPropagation();sO(true);},style:{position:'absolute',top:0,left:0,width:'100%',height:'100%',background:'transparent',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:10}},
             React.createElement('div',{style:{width:52,height:52,borderRadius:'50%',background:t.accent,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 4px 20px '+t.accentGlow}},
@@ -3152,49 +3152,51 @@ function YTCardBtn({videoId,startTime,endTime,th}){
     document.head.appendChild(tag);
   },[]);
 
-  // Callback ref — fires after the div is actually in the DOM
-  var setDivRef=function(node){
-    divRef.current=node;
-    if(!node||playerRef.current)return; // already created or unmounted
-    function startPoll(){
-      if(pollRef.current)clearInterval(pollRef.current);
-      pollRef.current=setInterval(function(){
-        try{
-          var p=playerRef.current;
-          if(!p||!p.getPlayerState)return;
-          var state=p.getPlayerState();
-          setPlaying(state===1);
-          if(end&&state===1&&p.getCurrentTime()>=end)p.pauseVideo();
-        }catch(e){}
-      },200);
-    }
-    function create(){
-      if(!divRef.current)return;
-      try{
-        playerRef.current=new window.YT.Player(divRef.current,{
-          videoId:videoId,
-          playerVars:{start:start,autoplay:1,rel:0,modestbranding:1,playsinline:1},
-          events:{
-            onReady:function(e){try{e.target.seekTo(start,true);e.target.playVideo();}catch(ex){}startPoll();},
-            onStateChange:function(e){setPlaying(e.data===1);if(e.data===1)startPoll();}
-          }
-        });
-      }catch(err){}
-    }
-    if(window.YT&&window.YT.Player){create();}
-    else{
-      var prev=window.onYouTubeIframeAPIReady;
-      window.onYouTubeIframeAPIReady=function(){if(prev)prev();create();};
-    }
-  };
-
-  // Cleanup on collapse
+  // Create player after DOM paints (setTimeout 0 lets React finish rendering the div)
   useEffect(function(){
-    if(expanded)return;
-    if(pollRef.current){clearInterval(pollRef.current);pollRef.current=null;}
-    try{if(playerRef.current){playerRef.current.destroy();playerRef.current=null;}}catch(e){}
-    setPlaying(false);
-  },[expanded]);
+    if(!expanded||!videoId)return;
+    var destroyed=false;
+    var tid=setTimeout(function(){
+      if(destroyed||!divRef.current)return;
+      function startPoll(){
+        if(pollRef.current)clearInterval(pollRef.current);
+        pollRef.current=setInterval(function(){
+          try{
+            var p=playerRef.current;
+            if(!p||!p.getPlayerState)return;
+            var state=p.getPlayerState();
+            setPlaying(state===1);
+            if(end&&state===1&&p.getCurrentTime()>=end)p.pauseVideo();
+          }catch(e){}
+        },200);
+      }
+      function create(){
+        if(destroyed||!divRef.current)return;
+        try{
+          playerRef.current=new window.YT.Player(divRef.current,{
+            videoId:videoId,
+            playerVars:{start:start,autoplay:1,rel:0,modestbranding:1,playsinline:1},
+            events:{
+              onReady:function(e){try{e.target.seekTo(start,true);e.target.playVideo();}catch(ex){}startPoll();},
+              onStateChange:function(e){setPlaying(e.data===1);if(e.data===1)startPoll();}
+            }
+          });
+        }catch(err){}
+      }
+      if(window.YT&&window.YT.Player){create();}
+      else{
+        var prev=window.onYouTubeIframeAPIReady;
+        window.onYouTubeIframeAPIReady=function(){if(prev)prev();if(!destroyed)create();};
+      }
+    },0);
+    return function(){
+      destroyed=true;
+      clearTimeout(tid);
+      if(pollRef.current){clearInterval(pollRef.current);pollRef.current=null;}
+      try{if(playerRef.current){playerRef.current.destroy();playerRef.current=null;}}catch(e){}
+      setPlaying(false);
+    };
+  },[expanded,videoId,start,end]);
 
   // Collapse (and thus destroy player) when notation preview starts
   useEffect(function(){
