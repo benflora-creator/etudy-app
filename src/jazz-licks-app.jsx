@@ -7229,7 +7229,7 @@ function AllKeysTrainer({lick,th,userInst,keyProgress,onUpdateProgress}){
           else if(!drilling){setDrillKeyIdx(i);}
         },style:{cursor:"pointer"}},
           React.createElement("circle",{cx:x,cy:y,r:dotR,fill:col,stroke:isActive?"#fff":"none",strokeWidth:isActive?2:0,opacity:isActive?1:(ks>0?1:0.5)}),
-          React.createElement("text",{x:x,y:y+0.5,textAnchor:"middle",dominantBaseline:"central",style:{fontSize:isActive?8:7,fontWeight:isActive?700:500,fill:isActive?"#fff":(ks>=1?"#fff":t.muted),fontFamily:"'Inter',sans-serif",pointerEvents:"none"}},labels?labels[i]:trKeyName(lickRootName,st+uOff)+keySuffix)));
+          React.createElement("text",{x:x,y:y+0.5,textAnchor:"middle",dominantBaseline:"central",style:{fontSize:isActive?8:7,fontWeight:isActive?700:500,fill:isActive?"#fff":(ks>=1?"#fff":t.muted),fontFamily:"'Inter',sans-serif",pointerEvents:"none"}},labels?labels[i]:trKeyName(lickRootName,st+uOff)+keySuffix));
       }),
       React.createElement("text",{x:cx,y:cy-6,textAnchor:"middle",style:{fontSize:22,fontWeight:700,fill:t.text,fontFamily:"'JetBrains Mono',monospace"}},mode==="learn"?learnKeyName:drillKeyName),
       mode==="learn"?React.createElement("text",{x:cx,y:cy+12,textAnchor:"middle",style:{fontSize:9,fontWeight:600,fill:accentCol,fontFamily:"'Inter',sans-serif",letterSpacing:0.5}},stageLabel):
