@@ -1293,6 +1293,10 @@ function prevNote(n,o,a,semi){
 // CARD PREVIEW PLAYER — lightweight, global singleton
 // ============================================================
 var _preview={id:null,stop:null,subs:new Set(),gen:0,curNote:-1,noteTimers:[]};
+// Global coordinator for YTCardBtn instances — ensures only one plays at a time
+var _ytCard={subs:new Set()};
+function ytCardSubscribe(fn){_ytCard.subs.add(fn);return function(){_ytCard.subs.delete(fn);};}
+function ytCardCollapseAll(){_ytCard.subs.forEach(function(fn){fn();});}
 function previewSubscribe(fn){_preview.subs.add(fn);return function(){_preview.subs.delete(fn);};}
 function previewNotify(){_preview.subs.forEach(function(fn){fn(_preview.id);});}
 function previewStop(){if(_preview.stop){try{_preview.stop();}catch(e){}_preview.stop=null;}_preview.id=null;_preview.gen++;for(var i=0;i<_preview.noteTimers.length;i++)clearTimeout(_preview.noteTimers[i]);_preview.noteTimers=[];_preview.curNote=-1;previewNotify();}
@@ -3137,6 +3141,7 @@ function YTCardBtn({videoId,startTime,endTime,th}){
   var t=th||TH.studio;
   var _ex=useState(false); var expanded=_ex[0],setExpanded=_ex[1];
   var _pl=useState(false); var playing=_pl[0],setPlaying=_pl[1];
+  var _rdy=useState(false); var ready=_rdy[0],setReady=_rdy[1];
   var divRef=useRef(null);
   var playerRef=useRef(null);
   var pollRef=useRef(null);
@@ -3152,82 +3157,88 @@ function YTCardBtn({videoId,startTime,endTime,th}){
     document.head.appendChild(tag);
   },[]);
 
-  // Create player after DOM paints (setTimeout 0 lets React finish rendering the div)
+  // Create player ONCE on mount (div is always in DOM, just hidden)
   useEffect(function(){
-    if(!expanded||!videoId)return;
+    if(!videoId||!divRef.current)return;
     var destroyed=false;
-    var tid=setTimeout(function(){
-      if(destroyed||!divRef.current)return;
-      function startPoll(){
-        if(pollRef.current)clearInterval(pollRef.current);
-        pollRef.current=setInterval(function(){
-          try{
-            var p=playerRef.current;
-            if(!p||!p.getPlayerState)return;
-            var state=p.getPlayerState();
-            setPlaying(state===1);
-            if(end&&state===1&&p.getCurrentTime()>=end)p.pauseVideo();
-          }catch(e){}
-        },200);
-      }
-      function create(){
-        if(destroyed||!divRef.current)return;
+    function startPoll(){
+      if(pollRef.current)clearInterval(pollRef.current);
+      pollRef.current=setInterval(function(){
         try{
-          playerRef.current=new window.YT.Player(divRef.current,{
-            videoId:videoId,
-            playerVars:{start:start,autoplay:1,rel:0,modestbranding:1,playsinline:1},
-            events:{
-              onReady:function(e){try{e.target.seekTo(start,true);e.target.playVideo();}catch(ex){}startPoll();},
-              onStateChange:function(e){setPlaying(e.data===1);if(e.data===1)startPoll();}
-            }
-          });
-        }catch(err){}
-      }
-      if(window.YT&&window.YT.Player){create();}
-      else{
-        var prev=window.onYouTubeIframeAPIReady;
-        window.onYouTubeIframeAPIReady=function(){if(prev)prev();if(!destroyed)create();};
-      }
-    },0);
+          var p=playerRef.current;
+          if(!p||!p.getPlayerState)return;
+          var state=p.getPlayerState();
+          setPlaying(state===1);
+          if(end&&state===1&&p.getCurrentTime()>=end)p.pauseVideo();
+        }catch(e){}
+      },200);
+    }
+    function create(){
+      if(destroyed||!divRef.current)return;
+      try{
+        playerRef.current=new window.YT.Player(divRef.current,{
+          videoId:videoId,
+          playerVars:{start:start,autoplay:0,rel:0,modestbranding:1,playsinline:1},
+          events:{
+            onReady:function(){setReady(true);startPoll();},
+            onStateChange:function(e){setPlaying(e.data===1);if(e.data===1)startPoll();}
+          }
+        });
+      }catch(err){}
+    }
+    if(window.YT&&window.YT.Player){create();}
+    else{
+      var prev=window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady=function(){if(prev)prev();if(!destroyed)create();};
+    }
     return function(){
       destroyed=true;
-      clearTimeout(tid);
       if(pollRef.current){clearInterval(pollRef.current);pollRef.current=null;}
       try{if(playerRef.current){playerRef.current.destroy();playerRef.current=null;}}catch(e){}
-      setPlaying(false);
     };
-  },[expanded,videoId,start,end]);
+  },[videoId]);
 
-  // Collapse (and thus destroy player) when notation preview starts
+  // When expanded: seek to start and play. When collapsed: pause.
+  useEffect(function(){
+    var p=playerRef.current;
+    if(!p||!ready)return;
+    try{
+      if(expanded){p.seekTo(start,true);p.playVideo();}
+      else{p.pauseVideo();}
+    }catch(e){}
+  },[expanded,ready]);
+
+  // Collapse when notation preview starts
   useEffect(function(){
     return previewSubscribe(function(id){
       if(id!==null)setExpanded(false);
     });
+  },[]);
+  // Collapse when another YTCardBtn opens or navigation happens
+  useEffect(function(){
+    return ytCardSubscribe(function(){setExpanded(false);});
   },[]);
 
   if(!videoId)return null;
 
   function toggleExpand(e){
     e.stopPropagation();
-    if(expanded){
-      // Collapsing: destroy handled by effect cleanup above
-      setExpanded(false);
-    } else {
-      previewStop(); // stop notation playback first
-      setExpanded(true);
-    }
+    if(!expanded){previewStop();ytCardCollapseAll();}
+    setExpanded(function(v){return !v;});
   }
 
-  var isStudio=t===TH.studio;
   return React.createElement('div',{
     onClick:function(e){e.stopPropagation();},
     style:{marginTop:expanded?10:0,transition:'margin 0.2s'}},
-    // Expandable player — visible and ToS-compliant
-    expanded&&React.createElement('div',{style:{
+    // Player container — always in DOM so YT player persists, hidden when collapsed
+    React.createElement('div',{style:{
       borderRadius:10,overflow:'hidden',
       border:'1px solid rgba(239,68,68,0.3)',
-      marginBottom:8,
-      position:'relative',paddingBottom:'42%'}},
+      marginBottom:expanded?8:0,
+      position:'relative',
+      paddingBottom:expanded?'42%':'0',
+      height:expanded?undefined:0,
+      transition:'padding-bottom 0.2s, margin-bottom 0.2s'}},
       React.createElement('div',{ref:divRef,style:{position:'absolute',top:0,left:0,width:'100%',height:'100%'}})),
     // Pill button
     React.createElement('button',{
@@ -3238,9 +3249,7 @@ function YTCardBtn({videoId,startTime,endTime,th}){
         padding:'4px 9px',borderRadius:8,
         border:'1.5px solid '+(expanded||playing?'#EF444480':'rgba(239,68,68,0.25)'),
         background:expanded||playing?'rgba(239,68,68,0.12)':'transparent',
-        cursor:'pointer',
-        transition:'all 0.15s',
-        flexShrink:0,
+        cursor:'pointer',transition:'all 0.15s',flexShrink:0,
       }},
       expanded
         ?React.createElement('div',{style:{display:'flex',gap:2,flexShrink:0}},
@@ -7863,13 +7872,13 @@ export default function Etudy(){
     else window.scrollTo(0,0);
   },[]);
   const openLick=useCallback((lick)=>{
-    previewStop();
+    previewStop();ytCardCollapseAll();
     if(!selectedLick)exploreScrollRef.current=window.scrollY||0;
     setSelected(lick);window.scrollTo(0,0);
     if(!visitedRef.current.detail){visitedRef.current.detail=true;setDetailShowTips(true);}
   },[selectedLick]);
   const closeLick=useCallback(()=>{
-    setSelected(null);
+    ytCardCollapseAll();setSelected(null);
     if(viewRef.current==="explore")setTimeout(()=>window.scrollTo(0,exploreScrollRef.current),0);
   },[]);
   const[feedTipped,setFeedTipped]=useState(false);const[detailTipped,setDetailTipped]=useState(false);
