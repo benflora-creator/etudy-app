@@ -4,7 +4,7 @@ import { supabase, signInWithGoogle, signInWithMagicLink, verifyOtp, signOut, ge
 
 
 const ABCJS_CDN = "https://cdnjs.cloudflare.com/ajax/libs/abcjs/6.4.1/abcjs-basic-min.js";
-const INST_LIST = ["All","Alto Sax","Tenor Sax","Trumpet","Piano","Guitar","Trombone","Flute","Clarinet"];
+const INST_LIST = ["All","Alto Sax","Soprano Sax","Tenor Sax","Baritone Sax","Trumpet","Piano","Guitar","Bass","Trombone","Flute","Clarinet","Vibes","Violin","Vocals"];
 const CAT_LIST = ["All","ii-V-I","Minor ii-V-I","Blues","Bebop","Modal","Pentatonic","Chromatic","Enclosure","Turnaround"];
 
 // ============================================================
@@ -37,7 +37,7 @@ const TH={
 
 // Category & instrument colors for Studio theme
 const CAT_COL={"ii-V-I":"#22D89E","Minor ii-V-I":"#818CF8","Blues":"#A78BFA","Bebop":"#F59E0B","Modal":"#3B82F6","Pentatonic":"#EC4899","Chromatic":"#EF4444","Enclosure":"#F97316","Turnaround":"#06B6D4"};
-const INST_COL={"Alto Sax":"#A78BFA","Tenor Sax":"#8B5CF6","Trumpet":"#F59E0B","Piano":"#3B82F6","Guitar":"#EF4444","Trombone":"#F97316","Flute":"#EC4899","Clarinet":"#06B6D4"};
+const INST_COL={"Alto Sax":"#A78BFA","Soprano Sax":"#10B981","Tenor Sax":"#8B5CF6","Baritone Sax":"#7C3AED","Trumpet":"#F59E0B","Piano":"#3B82F6","Guitar":"#EF4444","Bass":"#0EA5E9","Trombone":"#F97316","Flute":"#EC4899","Clarinet":"#06B6D4","Vibes":"#84CC16","Violin":"#D97706","Vocals":"#F43F5E"};
 function getCatColor(cat,th){return th===TH.studio?(CAT_COL[cat]||th.accent):th.accent;}
 function getInstColor(inst,th){return th===TH.studio?(INST_COL[inst]||th.accent):th.accent;}
 
@@ -471,8 +471,8 @@ const SOUND_PRESETS = [
   { id:"vibes", label:"Vibes" },
 ];
 
-const INST_TRANS = {"Concert":0,"Alto Sax":9,"Tenor Sax":2,"Bb Trumpet":2,"Clarinet":2,"Trombone":0,"Piano":0,"Guitar":0,"Flute":0};
-const TRANS_INSTRUMENTS = ["Concert","Alto Sax","Tenor Sax","Bb Trumpet","Clarinet"];
+const INST_TRANS = {"Concert":0,"Alto Sax":9,"Soprano Sax":2,"Tenor Sax":2,"Baritone Sax":9,"Bb Trumpet":2,"Clarinet":2,"Trombone":0,"Piano":0,"Guitar":0,"Bass":0,"Flute":0,"Vibes":0,"Violin":0,"Vocals":0};
+const TRANS_INSTRUMENTS = ["Concert","Alto Sax","Soprano Sax","Tenor Sax","Baritone Sax","Bb Trumpet","Clarinet"];
 
 // ============================================================
 // MUSIC THEORY
@@ -3793,7 +3793,7 @@ function EditProfileView({authUser,authProfile,onClose,onSave,th}){
         React.createElement("div",{style:{marginBottom:18}},
           fl("Instrument"),
           React.createElement("div",{style:{display:"flex",gap:6,flexWrap:"wrap"}},
-            ["Alto Sax","Tenor Sax","Trumpet","Piano","Guitar","Trombone","Flute","Clarinet"].map(function(name){
+            ["Alto Sax","Soprano Sax","Tenor Sax","Baritone Sax","Trumpet","Piano","Guitar","Bass","Trombone","Flute","Clarinet","Vibes","Violin","Vocals"].map(function(name){
               var sel=instrument===name;var ic=INST_COL[name]||t.accent;
               return React.createElement("button",{key:name,onClick:function(){setInstrument(sel?"":name);},style:{padding:"7px 12px",borderRadius:10,border:sel?"1.5px solid "+ic:"1.5px solid "+t.border,background:sel?ic+"18":"transparent",color:sel?ic:t.muted,fontSize:11,fontFamily:"'Inter',sans-serif",fontWeight:sel?700:400,cursor:"pointer",transition:"all 0.15s"}},name);}))),
 
@@ -7676,7 +7676,7 @@ function Filters({instrument,setInstrument,category,setCategory,sq,setSq,th}){
 // ============================================================
 // ONBOARDING — 3 screens after first login
 // ============================================================
-const ONBOARD_INSTRUMENTS = ["Alto Sax","Tenor Sax","Trumpet","Piano","Guitar","Trombone","Flute","Clarinet","Bass","Vibes","Drums","Vocals","Other"];
+const ONBOARD_INSTRUMENTS = ["Alto Sax","Soprano Sax","Tenor Sax","Baritone Sax","Trumpet","Piano","Guitar","Bass","Trombone","Flute","Clarinet","Vibes","Violin","Vocals","Drums","Other"];
 const ONBOARD_LEVELS = [
   {id:"beginner",label:"Beginner",sub:"Less than 2 years"},
   {id:"intermediate",label:"Intermediate",sub:"2\u20135 years"},
@@ -8154,7 +8154,7 @@ export default function Etudy(){
     updateProfile(authUser.id,{...data, username: data.username||null, onboarding_done:true}).then(function(p){
       setAuthProfile(p);
       setShowOnboarding(false);
-      var transMap={"Alto Sax":"Alto Sax","Tenor Sax":"Tenor Sax","Trumpet":"Bb Trumpet","Clarinet":"Clarinet","Trombone":"Trombone","Flute":"Flute"};
+      var transMap={"Alto Sax":"Alto Sax","Soprano Sax":"Soprano Sax","Tenor Sax":"Tenor Sax","Baritone Sax":"Baritone Sax","Trumpet":"Bb Trumpet","Clarinet":"Clarinet","Trombone":"Trombone","Flute":"Flute"};
       if(transMap[data.instrument]){setUserInst(transMap[data.instrument]);var g=getStg();if(g)g.set("etudy:userInst",transMap[data.instrument]).catch(function(){});}
     }).catch(function(e){
       console.error("Profile update failed:",e);
@@ -8166,7 +8166,7 @@ export default function Etudy(){
     var p=await updateProfile(authUser.id,data);
     setAuthProfile(p);
     if(data.instrument){
-      var transMap={"Alto Sax":"Alto Sax","Tenor Sax":"Tenor Sax","Trumpet":"Bb Trumpet","Clarinet":"Clarinet","Trombone":"Trombone","Flute":"Flute"};
+      var transMap={"Alto Sax":"Alto Sax","Soprano Sax":"Soprano Sax","Tenor Sax":"Tenor Sax","Baritone Sax":"Baritone Sax","Trumpet":"Bb Trumpet","Clarinet":"Clarinet","Trombone":"Trombone","Flute":"Flute"};
       var mapped=transMap[data.instrument];
       if(mapped){setUserInst(mapped);var g=getStg();if(g)g.set("etudy:userInst",mapped).catch(function(){});}
     }
@@ -8638,7 +8638,7 @@ export default function Etudy(){
         React.createElement("div",{style:{marginBottom:24}},
           React.createElement("div",{style:{fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5,marginBottom:10}},"INSTRUMENT"),
           React.createElement("div",{style:{display:"flex",gap:6,flexWrap:"wrap"}},
-            ["Concert","Alto Sax","Tenor Sax","Bb Trumpet","Clarinet","Trombone","Flute"].map(function(name){
+            ["Concert","Alto Sax","Soprano Sax","Tenor Sax","Baritone Sax","Bb Trumpet","Clarinet","Trombone","Flute"].map(function(name){
               return React.createElement("button",{key:name,onClick:function(){changeUserInst(name);},style:{padding:"8px 14px",borderRadius:10,border:userInst===name?"1.5px solid "+t.accent:"1.5px solid "+t.border,background:userInst===name?(isStudio?t.accent+"15":t.accent+"08"):"transparent",color:userInst===name?t.text:t.muted,fontSize:12,fontFamily:"'Inter',sans-serif",fontWeight:userInst===name?600:400,cursor:"pointer",transition:"all 0.15s"}},name);})),
           userInst!=="Concert"&&React.createElement("p",{style:{fontSize:11,color:t.accent,fontFamily:"'Inter',sans-serif",marginTop:8,fontStyle:"italic"}},"All notation auto-transposed for "+userInst)),
         // Theme
