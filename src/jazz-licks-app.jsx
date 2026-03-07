@@ -3169,7 +3169,7 @@ function YTCardBtn({videoId,startTime,endTime,th}){
           if(!p||!p.getPlayerState)return;
           var state=p.getPlayerState();
           setPlaying(state===1);
-          if(end&&state===1&&p.getCurrentTime()>=end)p.pauseVideo();
+          if(end&&state===1&&p.getCurrentTime()>=end){p.pauseVideo();setExpanded(false);}
         }catch(e){}
       },200);
     }
@@ -3260,7 +3260,30 @@ function YTCardBtn({videoId,startTime,endTime,th}){
         fontSize:9,fontWeight:700,letterSpacing:0.5,
         fontFamily:"'JetBrains Mono',monospace",
         color:'#EF4444',whiteSpace:'nowrap',
-      }},expanded?'CLOSE':'ORIG')));
+      }},expanded?'CLOSE':'ORIG')),
+    // Watch on YouTube — required by YouTube ToS, only shown when player is open
+    expanded&&React.createElement('a',{
+      href:'https://www.youtube.com/watch?v='+videoId+(start?'&t='+Math.floor(start):''),
+      target:'_blank',
+      rel:'noopener noreferrer',
+      onClick:function(e){e.stopPropagation();},
+      style:{
+        display:'flex',alignItems:'center',gap:5,
+        marginTop:6,padding:'5px 8px',borderRadius:7,
+        background:'rgba(255,255,255,0.04)',
+        border:'1px solid rgba(255,255,255,0.07)',
+        textDecoration:'none',
+        color:'rgba(255,255,255,0.45)',
+        fontSize:10,fontFamily:"'Inter',sans-serif",
+        transition:'color 0.15s',
+        flexShrink:0,
+      }},
+      // YouTube wordmark SVG (official red logo)
+      React.createElement('svg',{width:14,height:10,viewBox:'0 0 90 63',fill:'none'},
+        React.createElement('path',{d:'M88.07 9.86A11.3 11.3 0 0 0 80.15 1.9C73.12 0 45 0 45 0S16.88 0 9.85 1.9A11.3 11.3 0 0 0 1.93 9.86C0 16.9 0 31.5 0 31.5s0 14.6 1.93 21.64a11.3 11.3 0 0 0 7.92 7.96C16.88 63 45 63 45 63s28.12 0 35.15-1.9a11.3 11.3 0 0 0 7.92-7.96C90 46.1 90 31.5 90 31.5s0-14.6-1.93-21.64z',fill:'#FF0000'}),
+        React.createElement('path',{d:'M36 45L59.4 31.5 36 18v27z',fill:'#ffffff'})),
+      React.createElement('span',null,'Watch on YouTube'),
+      React.createElement('span',{style:{fontSize:11,opacity:0.6}},'↗')));
 }
 
 function parseSpotify(u){if(!u)return"";const m=u.match(/open\.spotify\.com\/track\/([a-zA-Z0-9]+)/);if(m)return m[1];const m2=u.match(/spotify:track:([a-zA-Z0-9]+)/);return m2?m2[1]:"";}
