@@ -471,7 +471,7 @@ const SOUND_PRESETS = [
   { id:"vibes", label:"Vibes" },
 ];
 
-const INST_TRANS = {"Concert":0,"Alto Sax":9,"Soprano Sax":2,"Tenor Sax":2,"Baritone Sax":9,"Bb Trumpet":2,"Clarinet":2,"Trombone":0,"Piano":0,"Guitar":0,"Bass":0,"Flute":0,"Vibes":0,"Violin":0,"Vocals":0};
+const INST_TRANS = {"Concert":0,"Alto Sax":9,"Soprano Sax":2,"Tenor Sax":14,"Baritone Sax":21,"Bb Trumpet":2,"Clarinet":2,"Trombone":0,"Piano":0,"Guitar":0,"Bass":0,"Flute":0,"Vibes":0,"Violin":0,"Vocals":0};
 const TRANS_INSTRUMENTS = ["Concert","Alto Sax","Soprano Sax","Tenor Sax","Baritone Sax","Bb Trumpet","Clarinet","Trombone","Flute","Bass"];
 // Maps profile instrument names → INST_TRANS keys (for offset lookup)
 const INST_TO_TRANS={"Alto Sax":"Alto Sax","Soprano Sax":"Soprano Sax","Tenor Sax":"Tenor Sax","Baritone Sax":"Baritone Sax","Trumpet":"Bb Trumpet","Bb Trumpet":"Bb Trumpet","Clarinet":"Clarinet","Trombone":"Trombone","Flute":"Flute","Bass":"Bass","Piano":"Concert","Guitar":"Concert","Vibes":"Concert","Violin":"Concert","Vocals":"Concert","Concert":"Concert"};
@@ -1651,7 +1651,7 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
           if(!bestInR){p.setAttribute("fill-opacity","0.12");p.setAttribute("stroke-opacity","0.12");}
         }catch(e){}});}
     }
-  },[abc,ok,compact,abRange,focus,th,theoryMode,theoryAnalysis,soundAbc]);
+  },[abc,ok,compact,abRange,focus,th,theoryMode,theoryAnalysis,soundAbc,bassClef]);
   // Cursor: poll curNoteRef via rAF — zero React re-renders
   useEffect(()=>{if(!curNoteRef)return;
     const tick=()=>{const cn=curNoteRef.current;
@@ -7105,14 +7105,14 @@ function AllKeysTrainer({lick,th,userInst,keyProgress,onUpdateProgress}){
 
   // Learn mode uses COF order
   var learnOrder=useMemo(function(){return buildKeySeq(7,0);},[]);
-  var learnLabels=learnOrder.map(function(st){return ALL_KEY_NAMES[st];});
+  var learnLabels=learnOrder.map(function(st){return trKeyName(ALL_KEY_NAMES[st],uOff);});
 
   // Current key for learn mode
   var learnOffset=learnOrder[activeIdx];
   var learnTotalOff=learnOffset+uOff;
   var learnAbc=transposeAbc(lick.abc,learnTotalOff);
   var learnSoundAbc=transposeAbc(lick.abc,learnOffset);
-  var learnKeyName=trKeyName(lick.key.split(" ")[0],learnOffset);
+  var learnKeyName=trKeyName(lick.key.split(" ")[0],learnTotalOff);
   var slowTempo=Math.max(60,Math.round(lick.tempo*0.65));
   var learnTempo=stage===3?lick.tempo:slowTempo;
 
@@ -7121,7 +7121,7 @@ function AllKeysTrainer({lick,th,userInst,keyProgress,onUpdateProgress}){
   var drillTotalOff=drillOffset+uOff;
   var drillAbc=transposeAbc(lick.abc,drillTotalOff);
   var drillSoundAbc=transposeAbc(lick.abc,drillOffset);
-  var drillKeyName=trKeyName(lick.key.split(" ")[0],drillOffset);
+  var drillKeyName=trKeyName(lick.key.split(" ")[0],drillTotalOff);
 
   var getStage=function(st){return prog[st]||0;};
   var completedKeys=learnOrder.filter(function(st){return getStage(st)>=3;}).length;
@@ -7193,7 +7193,7 @@ function AllKeysTrainer({lick,th,userInst,keyProgress,onUpdateProgress}){
           else if(!drilling){setDrillKeyIdx(i);}
         },style:{cursor:"pointer"}},
           React.createElement("circle",{cx:x,cy:y,r:dotR,fill:col,stroke:isActive?"#fff":"none",strokeWidth:isActive?2:0,opacity:isActive?1:(ks>0?1:0.5)}),
-          React.createElement("text",{x:x,y:y+0.5,textAnchor:"middle",dominantBaseline:"central",style:{fontSize:isActive?8:7,fontWeight:isActive?700:500,fill:isActive?"#fff":(ks>=1?"#fff":t.muted),fontFamily:"'Inter',sans-serif",pointerEvents:"none"}},labels?labels[i]:ALL_KEY_NAMES[st]));
+          React.createElement("text",{x:x,y:y+0.5,textAnchor:"middle",dominantBaseline:"central",style:{fontSize:isActive?8:7,fontWeight:isActive?700:500,fill:isActive?"#fff":(ks>=1?"#fff":t.muted),fontFamily:"'Inter',sans-serif",pointerEvents:"none"}},labels?labels[i]:trKeyName(ALL_KEY_NAMES[st],uOff)));
       }),
       React.createElement("text",{x:cx,y:cy-6,textAnchor:"middle",style:{fontSize:22,fontWeight:700,fill:t.text,fontFamily:"'JetBrains Mono',monospace"}},mode==="learn"?learnKeyName:drillKeyName),
       mode==="learn"?React.createElement("text",{x:cx,y:cy+12,textAnchor:"middle",style:{fontSize:9,fontWeight:600,fill:accentCol,fontFamily:"'Inter',sans-serif",letterSpacing:0.5}},stageLabel):
@@ -7281,7 +7281,7 @@ function AllKeysTrainer({lick,th,userInst,keyProgress,onUpdateProgress}){
             var isCycleBoundary=keysPerCycle<12&&i>0&&i%keysPerCycle===0;
             return React.createElement(React.Fragment,{key:i},
               isCycleBoundary&&React.createElement("span",{style:{fontSize:9,color:t.border,lineHeight:"20px"}},"\u00B7"),
-              React.createElement("span",{style:{fontSize:10,fontWeight:600,color:t.muted,fontFamily:"'JetBrains Mono',monospace",padding:"2px 6px",borderRadius:5,background:isStudio?t.card+"60":t.card,border:"1px solid "+t.border}},ALL_KEY_NAMES[st]));
+              React.createElement("span",{style:{fontSize:10,fontWeight:600,color:t.muted,fontFamily:"'JetBrains Mono',monospace",padding:"2px 6px",borderRadius:5,background:isStudio?t.card+"60":t.card,border:"1px solid "+t.border}},trKeyName(ALL_KEY_NAMES[st],uOff)));
           })),
 
         // Start button
@@ -7304,7 +7304,7 @@ function AllKeysTrainer({lick,th,userInst,keyProgress,onUpdateProgress}){
               border:cur||done?"none":"1px solid "+t.border,
               boxShadow:cur?"0 2px 12px "+drillColor+"50":"none"
             }},
-              React.createElement("span",{style:{fontSize:cur?11:7,fontWeight:cur?800:done?600:500,color:cur||done?"#fff":t.muted,fontFamily:"'JetBrains Mono',monospace"}},ALL_KEY_NAMES[st]));
+              React.createElement("span",{style:{fontSize:cur?11:7,fontWeight:cur?800:done?600:500,color:cur||done?"#fff":t.muted,fontFamily:"'JetBrains Mono',monospace"}},trKeyName(ALL_KEY_NAMES[st],uOff)));
           })),
 
         // Current key — large display
@@ -7352,7 +7352,7 @@ function PlanRunner({plan,onClose,th,licks,userInst,keyProgress,onUpdateKeyProgr
   var[paused,setPaused]=useState(false);
   var[finished,setFinished]=useState(false);
   var[lickSpeed,setLickSpeed]=useState(1.0);
-  var[trInst,setTrInst]=useState("Concert");
+  var[trInst,setTrInst]=useState(function(){return instToTransKey(userInst)||"Concert";});
   var[trMan,setTrMan]=useState(0);
   var timerRef=useRef(null);var pausedRef=useRef(false);
   var warningPlayedRef=useRef(false);var transitionRef=useRef(false);
