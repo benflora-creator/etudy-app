@@ -4085,9 +4085,18 @@ function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst,
             isStudio?IC.target(18,saved?"#22D89E":"#55556A"):React.createElement("span",{style:{fontSize:18,color:saved?"#F59E0B":t.muted}},saved?"\u2605":"\u2606")),
           React.createElement("div",{style:{flex:1}}),
           lick.youtubeId&&React.createElement(YTCardBtn,{videoId:lick.youtubeId,startTime:lick.youtubeStart,endTime:lick.youtubeEnd,th:t}),
-          lick.youtubeId&&React.createElement("div",{style:{width:1,height:16,background:t.border,margin:"0 4px",flexShrink:0}}),
-          React.createElement("span",{style:{fontSize:10,fontWeight:600,fontFamily:"'JetBrains Mono',monospace",color:liked?(isStudio?"#F97316":"#EF4444"):t.muted}},lick.likes+(isStudio?(lick.likes===1?" flame":" flames"):(lick.likes===1?" like":" likes"))),
-          isStudio?React.createElement("div",{style:{marginLeft:6}},IC.arrowR(12,catC)):React.createElement("span",{style:{fontSize:13,color:t.subtle,marginLeft:6}},"\u203A")))));}
+          // flames pill — visually tappable, hints at likes overview
+          React.createElement("button",{onClick:e=>{e.stopPropagation();},style:{
+            display:"flex",alignItems:"center",gap:4,
+            padding:"4px 9px",borderRadius:8,
+            border:"1px solid "+(liked?(isStudio?"rgba(249,115,22,0.3)":"rgba(239,68,68,0.3)"):(isStudio?"rgba(85,85,106,0.25)":t.border)),
+            background:liked?(isStudio?"rgba(249,115,22,0.08)":"rgba(239,68,68,0.06)"):"transparent",
+            cursor:"pointer",transition:"all 0.15s",marginLeft:lick.youtubeId?6:0,flexShrink:0}},
+            isStudio?IC.flame(11,liked?"#F97316":t.muted,liked):React.createElement("span",{style:{fontSize:11,color:liked?(isStudio?"#F97316":"#EF4444"):t.muted}},liked?"\u2665":"\u2661"),
+            React.createElement("span",{style:{fontSize:10,fontWeight:600,fontFamily:"'JetBrains Mono',monospace",color:liked?(isStudio?"#F97316":"#EF4444"):t.muted}},lick.likes)),
+          // divider + detail arrow clearly separated
+          React.createElement("div",{style:{width:1,height:20,background:t.border,margin:"0 8px",flexShrink:0}}),
+          isStudio?React.createElement("div",{style:{cursor:"pointer"}},IC.arrowR(14,catC)):React.createElement("span",{style:{fontSize:15,color:t.subtle,cursor:"pointer"}},"\u203A")))));}
 
 
 // ============================================================
