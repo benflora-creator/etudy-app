@@ -4073,65 +4073,95 @@ function DailyLickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:user
 // ============================================================
 // LICK CARD — compact, themed
 // ============================================================
-// ── FlamesPopup — bottom sheet showing who liked a lick ──
+// ── FlamesPopup — blurred overlay modal showing who liked a lick ──
 function FlamesPopup({lickId,lickTitle,th,onClose,onUserClick}){
   var t=th||TH.studio;
   var _u=useState(null); var users=_u[0],setUsers=_u[1];
   var _l=useState(true); var loading=_l[0],setLoading=_l[1];
   useEffect(function(){
     setLoading(true);setUsers(null);
+    // Step 1: fetch user_ids who liked this lick
     supabase.from('user_licks')
-      .select('user_id, profiles:user_id(username,display_name)')
+      .select('user_id')
       .eq('lick_id',lickId).eq('type','like').limit(50)
       .then(function(r){
-        if(r.data){setUsers(r.data.map(function(row){
-          var p=row.profiles||{};
-          return p.display_name||p.username||'Anonymous';
-        }));}
-        setLoading(false);
+        if(!r.data||r.data.length===0){setUsers([]);setLoading(false);return;}
+        var ids=r.data.map(function(row){return row.user_id;});
+        // Step 2: fetch profiles for those user_ids
+        supabase.from('profiles')
+          .select('user_id,username,display_name')
+          .in('user_id',ids)
+          .then(function(r2){
+            var profileMap={};
+            (r2.data||[]).forEach(function(p){profileMap[p.user_id]=p.display_name||p.username||null;});
+            setUsers(ids.map(function(id){return profileMap[id]||'Anonymous';}));
+            setLoading(false);
+          }).catch(function(){setUsers(ids.map(function(){return'Anonymous';}));setLoading(false);});
       }).catch(function(){setLoading(false);setUsers([]);});
   },[lickId]);
+
   return React.createElement('div',{
     onClick:onClose,
-    style:{position:'fixed',inset:0,zIndex:9999,background:'rgba(0,0,0,0.55)',display:'flex',alignItems:'flex-end',justifyContent:'center'}},
+    style:{
+      position:'fixed',inset:0,zIndex:9999,
+      background:'rgba(0,0,0,0.6)',
+      backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)',
+      display:'flex',alignItems:'center',justifyContent:'center',
+      padding:'20px',
+    }},
     React.createElement('div',{
       onClick:function(e){e.stopPropagation();},
       style:{
-        width:'100%',maxWidth:480,
-        background:t.card,borderRadius:'20px 20px 0 0',
-        padding:'20px 20px 32px',
-        boxShadow:'0 -8px 40px rgba(0,0,0,0.4)',
-        maxHeight:'60vh',display:'flex',flexDirection:'column'}},
-      // handle bar
-      React.createElement('div',{style:{width:36,height:4,borderRadius:2,background:t.border,margin:'0 auto 16px'}}),
-      // header
-      React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}},
+        width:'100%',maxWidth:340,
+        background:t.card,
+        borderRadius:20,
+        border:'1px solid '+t.border,
+        boxShadow:'0 24px 60px rgba(0,0,0,0.5)',
+        overflow:'hidden',
+      }},
+      // Header
+      React.createElement('div',{style:{
+        padding:'18px 18px 14px',
+        borderBottom:'1px solid '+t.border,
+        display:'flex',alignItems:'center',justifyContent:'space-between'}},
         React.createElement('div',{style:{display:'flex',alignItems:'center',gap:8}},
           IC.flame(16,'#F97316',true),
-          React.createElement('span',{style:{fontSize:13,fontWeight:700,color:t.text,fontFamily:t.titleFont}},'Flames')),
-        React.createElement('button',{onClick:onClose,style:{background:'none',border:'none',cursor:'pointer',color:t.muted,fontSize:18,lineHeight:1,padding:'2px 6px'}},'×')),
-      // list
-      React.createElement('div',{style:{overflowY:'auto',flex:1}},
-        loading&&React.createElement('div',{style:{textAlign:'center',padding:'24px 0',color:t.muted,fontSize:12,fontFamily:'monospace'}},'loading...'),
-        !loading&&(!users||users.length===0)&&React.createElement('div',{style:{textAlign:'center',padding:'24px 0',color:t.muted,fontSize:12,fontFamily:'monospace'}},'no flames yet'),
+          React.createElement('span',{style:{fontSize:14,fontWeight:700,color:t.text,fontFamily:t.titleFont}},
+            (users?users.length:0)+' Flame'+((!users||users.length!==1)?'s':''))),
+        React.createElement('button',{
+          onClick:onClose,
+          style:{background:t.filterBg,border:'1px solid '+t.border,color:t.muted,
+            width:28,height:28,borderRadius:8,fontSize:14,cursor:'pointer',
+            display:'flex',alignItems:'center',justifyContent:'center'}},'×')),
+      // List
+      React.createElement('div',{style:{maxHeight:280,overflowY:'auto',padding:'8px 0'}},
+        loading&&React.createElement('div',{style:{
+          textAlign:'center',padding:'28px 0',
+          color:t.muted,fontSize:12,fontFamily:'monospace'}},'loading...'),
+        !loading&&(!users||users.length===0)&&React.createElement('div',{style:{
+          textAlign:'center',padding:'28px 0',
+          color:t.muted,fontSize:12,fontFamily:'monospace'}},'no flames yet'),
         !loading&&users&&users.map(function(name,i){
+          var isAnon=name==='Anonymous';
           return React.createElement('div',{key:i,
-            onClick:function(){if(onUserClick&&name!=='Anonymous'){onUserClick(name);}onClose();},
+            onClick:function(){if(!isAnon&&onUserClick){onUserClick(name);onClose();}},
             style:{
-              display:'flex',alignItems:'center',gap:10,
-              padding:'10px 4px',
-              borderBottom:'1px solid '+t.border,
-              cursor:name!=='Anonymous'?'pointer':'default',
-              transition:'background 0.1s'}},
+              display:'flex',alignItems:'center',gap:12,
+              padding:'10px 18px',
+              cursor:isAnon?'default':'pointer',
+              transition:'background 0.1s',
+            }},
             React.createElement('div',{style:{
-              width:32,height:32,borderRadius:'50%',
+              width:34,height:34,borderRadius:'50%',flexShrink:0,
               background:'linear-gradient(135deg,#F97316,#EF4444)',
               display:'flex',alignItems:'center',justifyContent:'center',
-              fontSize:13,fontWeight:700,color:'#fff',flexShrink:0}},
+              fontSize:14,fontWeight:700,color:'#fff'}},
               (name[0]||'?').toUpperCase()),
-            React.createElement('span',{style:{fontSize:13,color:name!=='Anonymous'?t.text:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:500}},
-              name!=='Anonymous'?'@'+name:'Anonymous'));
-        }))));
+            React.createElement('span',{style:{
+              fontSize:13,color:isAnon?t.muted:t.text,
+              fontFamily:"'Inter',sans-serif",fontWeight:500}},
+              isAnon?'Anonymous':'@'+name));
+        }))))
 }
 
 function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst,onUserClick}){
