@@ -1555,22 +1555,23 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
           var hitTop=Math.min(staves[bestSi].cy-staffHalf-6,bb.y-8);
           var hitBot=(laneYPerStaff[bestSi]||bb.y+bb.height+20)+LABEL_H;
           var hitH=hitBot-hitTop;
-          // Invisible hit-area rect
+          // Invisible hit-area rect — must be truly invisible
           var hit=document.createElementNS("http://www.w3.org/2000/svg","rect");
           hit.setAttribute("class","theory-lane");
           hit.setAttribute("x",cx-HIT_W/2);hit.setAttribute("y",hitTop);
           hit.setAttribute("width",HIT_W);hit.setAttribute("height",hitH);
-          hit.setAttribute("fill","transparent");
-          hit.style.cursor="pointer";
+          hit.setAttribute("fill","none");hit.setAttribute("stroke","none");
+          hit.setAttribute("pointer-events","visible");
+          hit.style.cursor="pointer";hit.style.opacity="0";
           hit.addEventListener("click",function(theIdx,theNoteEl,theCol){return function(e){
             e.stopPropagation();
             var tones=theIdx<noteTones.length?noteTones[theIdx]:null;
             var chordName=theIdx<tapChordAtNote.length?tapChordAtNote[theIdx]:null;
             if(tones)playTheoryTap(tones,chordName);
-            // Note glow
-            var paths=theNoteEl.querySelectorAll("path,circle,ellipse");
-            paths.forEach(function(p){p.style.transition="filter 0.05s";p.style.filter="drop-shadow(0 0 8px "+theCol+"AA)";});
-            setTimeout(function(){paths.forEach(function(p){p.style.filter="none";p.style.transition="filter 0.35s";});},400);
+            // Glow on the note group element
+            theNoteEl.style.filter="drop-shadow(0 0 6px "+theCol+") drop-shadow(0 0 12px "+theCol+"88)";
+            theNoteEl.style.transition="filter 0.05s";
+            setTimeout(function(){theNoteEl.style.filter="none";theNoteEl.style.transition="filter 0.4s";},400);
           };}(idx,noteEl,ti.col));
           svg.appendChild(hit);
         });
