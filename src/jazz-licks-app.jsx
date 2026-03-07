@@ -474,7 +474,10 @@ const SOUND_PRESETS = [
 const INST_TRANS = {"Concert":0,"Alto Sax":9,"Soprano Sax":2,"Tenor Sax":2,"Baritone Sax":9,"Bb Trumpet":2,"Clarinet":2,"Trombone":0,"Piano":0,"Guitar":0,"Bass":0,"Flute":0,"Vibes":0,"Violin":0,"Vocals":0};
 const TRANS_INSTRUMENTS = ["Concert","Alto Sax","Soprano Sax","Tenor Sax","Baritone Sax","Bb Trumpet","Clarinet","Trombone","Flute","Piano","Guitar","Bass","Vibes","Violin","Vocals"];
 const BASS_CLEF_INSTS = new Set(["Bass","Trombone"]);
-function injectBassClef(abc){return abc.replace(/(K:[^\n]*)/,function(m){return m.includes("clef")?m:m+" clef=bass";});}
+function injectBassClef(abc){
+  var shifted=transposeAbc(abc,-12);
+  return shifted.replace(/(K:[^\n]*)/,function(m){return m.includes("clef")?m:m+" clef=bass";});
+}
 
 // ============================================================
 // MUSIC THEORY
