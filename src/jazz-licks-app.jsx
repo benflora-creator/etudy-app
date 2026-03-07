@@ -6898,8 +6898,13 @@ function PracticePlan({th,licks,savedSet,onStartSession,historyKey:externalHisto
             React.createElement("button",{onClick:function(e){e.stopPropagation();removeItem(item.id);},
               style:{fontSize:13,color:"#EF4444",background:"none",border:"none",cursor:"pointer",padding:"12px 14px 12px 6px",flexShrink:0}},"\u2715")),
 
-          // EXPANDED EDIT PANEL
-          expanded&&React.createElement("div",{style:{padding:"0 14px 14px 46px",display:"flex",flexDirection:"column",gap:10}},
+          // EXPANDED EDIT PANEL — animated
+          React.createElement("div",{style:{
+            maxHeight:expanded?"600px":"0",
+            overflow:"hidden",
+            transition:"max-height 0.28s cubic-bezier(0.4,0,0.2,1)",
+          }},
+            React.createElement("div",{style:{padding:"0 14px 14px 46px",display:"flex",flexDirection:"column",gap:10}},
             React.createElement("div",null,
               React.createElement("div",{style:{fontSize:9,color:t.subtle,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5,marginBottom:3}},"TITLE"),
               React.createElement("input",{value:item.title,onChange:function(e){updateItem(item.id,"title",e.target.value);},
@@ -6919,7 +6924,7 @@ function PracticePlan({th,licks,savedSet,onStartSession,historyKey:externalHisto
               React.createElement("div",{style:{fontSize:9,color:t.subtle,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5,marginBottom:3}},"BPM"),
               React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
                 React.createElement("input",{type:"range",min:40,max:240,value:item.bpm||120,onChange:function(e){updateItem(item.id,"bpm",parseInt(e.target.value));},style:{flex:1,accentColor:t.accent}}),
-                React.createElement("span",{style:{fontSize:16,fontWeight:700,color:tc,fontFamily:"'JetBrains Mono',monospace",minWidth:36}},item.bpm||120)))));
+                React.createElement("span",{style:{fontSize:16,fontWeight:700,color:tc,fontFamily:"'JetBrains Mono',monospace",minWidth:36}},item.bpm||120))))));
       }),
 
       React.createElement("div",{style:{borderTop:plan.items.length?"1px solid "+t.border:"none"}},
