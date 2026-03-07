@@ -4213,7 +4213,7 @@ function FlamesPopup({lickId,lickTitle,likeCount,th,onClose,onUserClick}){
         display:'flex',alignItems:'center',justifyContent:'space-between'
       }},
         React.createElement('div',{style:{display:'flex',alignItems:'center',gap:8}},
-          IC.flame(16,'#F97316',true),
+          isStudio?IC.flame(16,'#F97316',true):React.createElement('span',{style:{fontSize:16,color:'#EF4444',lineHeight:1}},'❤️'),
           React.createElement('span',{style:{
             fontSize:14,fontWeight:700,color:t.text,fontFamily:"'Inter',sans-serif"
           }},count+' '+(count===1?(isStudio?'Flame':'Like'):(isStudio?'Flames':'Likes')))),
