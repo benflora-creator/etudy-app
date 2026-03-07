@@ -3233,7 +3233,7 @@ function YTCardBtn({videoId,startTime,endTime,th}){
     // Player container — always in DOM so YT player persists, hidden when collapsed
     React.createElement('div',{style:{
       borderRadius:10,overflow:'hidden',
-      border:'1px solid rgba(239,68,68,0.3)',
+      border:expanded?'1px solid rgba(239,68,68,0.3)':'none',
       marginBottom:expanded?8:0,
       position:'relative',
       paddingBottom:expanded?'42%':'0',
