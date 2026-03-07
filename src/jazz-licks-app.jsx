@@ -3675,7 +3675,7 @@ function EditProfileView({authUser,authProfile,onClose,onSave,th}){
   const validate=()=>{
     var ev={};
     if(!displayName.trim())ev.displayName="Name cannot be empty";
-    if(username.trim()&&!/^[a-z0-9_]{3,30}$/.test(username.trim()))ev.username="Lowercase letters, numbers and _ only · 3–30 characters";
+    if(username.trim()&&!/^[a-z0-9_]{3,15}$/.test(username.trim()))ev.username="Lowercase letters, numbers and _ only · 3–15 characters";
     if(username.trim()&&username.trim().toLowerCase().includes("etudy"))ev.username="This handle is reserved";
     if(bio.length>160)ev.bio="Max. 160 characters";
     if(websiteUrl.trim()&&!/^https?:\/\/.+/.test(websiteUrl.trim()))ev.websiteUrl="URL must start with http:// or https://";
@@ -7702,12 +7702,12 @@ function Onboarding({onComplete, th}) {
   var _handleErr = useState("");
   var handleErr = _handleErr[0], setHandleErr = _handleErr[1];
 
-  var handleOk = /^[a-z0-9_]{3,30}$/.test(handle.trim()) && !handle.trim().includes("etudy");
+  var handleOk = /^[a-z0-9_]{3,15}$/.test(handle.trim()) && !handle.trim().includes("etudy");
   var canNext = step === 0 ? (name.trim().length > 0 && handleOk) : step === 1 ? inst !== null : level !== null;
 
   var handleNext = function() {
     if (step === 0) {
-      if (!handleOk) { setHandleErr(handle.trim().includes("etudy") ? "This handle is reserved" : "3–30 characters · lowercase letters, numbers, _"); return; }
+      if (!handleOk) { setHandleErr(handle.trim().includes("etudy") ? "This handle is reserved" : "3–15 characters · lowercase letters, numbers, _"); return; }
       setHandleErr(""); setStep(1); return;
     }
     if (step < 2) { setStep(step + 1); return; }
@@ -7793,7 +7793,7 @@ function Onboarding({onComplete, th}) {
                 }
               })),
             handleErr && React.createElement("div", { style: { fontSize: 11, color: "#EF4444", fontFamily: "'Inter',sans-serif", marginTop: 4 } }, handleErr),
-            !handleErr && React.createElement("div", { style: { fontSize: 10, color: t.subtle, fontFamily: "'Inter',sans-serif", marginTop: 4 } }, "3–30 characters · lowercase letters, numbers, _"))
+            !handleErr && React.createElement("div", { style: { fontSize: 10, color: t.subtle, fontFamily: "'Inter',sans-serif", marginTop: 4 } }, "3–15 characters · lowercase letters, numbers, _"))
         )),
 
       // ─── Screen 1: Instrument ───
