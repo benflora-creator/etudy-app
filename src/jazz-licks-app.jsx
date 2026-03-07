@@ -5,7 +5,7 @@ import { supabase, signInWithGoogle, signInWithMagicLink, verifyOtp, signOut, ge
 
 const ABCJS_CDN = "https://cdnjs.cloudflare.com/ajax/libs/abcjs/6.4.1/abcjs-basic-min.js";
 const INST_LIST = ["All","Alto Sax","Tenor Sax","Trumpet","Piano","Guitar","Trombone","Flute","Clarinet"];
-const CAT_LIST = ["All","ii-V-I","Blues","Bebop","Modal","Pentatonic","Chromatic","Enclosure","Turnaround"];
+const CAT_LIST = ["All","ii-V-I","Minor ii-V-I","Blues","Bebop","Modal","Pentatonic","Chromatic","Enclosure","Turnaround"];
 
 // ============================================================
 // THEMES
@@ -36,7 +36,7 @@ const TH={
 };
 
 // Category & instrument colors for Studio theme
-const CAT_COL={"ii-V-I":"#22D89E","Blues":"#A78BFA","Bebop":"#F59E0B","Modal":"#3B82F6","Pentatonic":"#EC4899","Chromatic":"#EF4444","Enclosure":"#F97316","Turnaround":"#06B6D4"};
+const CAT_COL={"ii-V-I":"#22D89E","Minor ii-V-I":"#818CF8","Blues":"#A78BFA","Bebop":"#F59E0B","Modal":"#3B82F6","Pentatonic":"#EC4899","Chromatic":"#EF4444","Enclosure":"#F97316","Turnaround":"#06B6D4"};
 const INST_COL={"Alto Sax":"#A78BFA","Tenor Sax":"#8B5CF6","Trumpet":"#F59E0B","Piano":"#3B82F6","Guitar":"#EF4444","Trombone":"#F97316","Flute":"#EC4899","Clarinet":"#06B6D4"};
 function getCatColor(cat,th){return th===TH.studio?(CAT_COL[cat]||th.accent):th.accent;}
 function getInstColor(inst,th){return th===TH.studio?(INST_COL[inst]||th.accent):th.accent;}
