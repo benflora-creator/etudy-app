@@ -4031,7 +4031,7 @@ function DailyLickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:user
           isStudio?IC.target(20,saved?"#22D89E":"#55556A"):React.createElement("span",{style:{fontSize:20,color:saved?"#F59E0B":t.muted}},saved?"\u2605":"\u2606")),
         React.createElement("div",{style:{flex:1}}),
         React.createElement("span",{style:{fontSize:11,fontWeight:600,fontFamily:"'JetBrains Mono',monospace",color:liked?(isStudio?"#F97316":"#EF4444"):t.muted}},lick.likes+(isStudio?(lick.likes===1?" flame":" flames"):(lick.likes===1?" like":" likes"))),
-        isStudio?IC.arrowR(14,catC):React.createElement("span",{style:{fontSize:14,color:t.subtle,marginLeft:6}},"\u203A")))));}
+        isStudio?IC.arrowR(14,catC):React.createElement("span",{style:{fontSize:14,color:t.subtle,marginLeft:6}},"\u203A"))));}
 
 
 // ============================================================
