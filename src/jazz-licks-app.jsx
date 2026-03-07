@@ -3236,7 +3236,7 @@ function YTCardBtn({videoId,startTime,endTime,th}){
       border:expanded?'1px solid rgba(239,68,68,0.3)':'none',
       marginBottom:expanded?8:0,
       position:'relative',
-      paddingBottom:expanded?'42%':'0',
+      paddingBottom:expanded?'30%':'0',
       height:expanded?undefined:0,
       transition:'padding-bottom 0.2s, margin-bottom 0.2s'}},
       React.createElement('div',{ref:divRef,style:{position:'absolute',top:0,left:0,width:'100%',height:'100%'}})),
@@ -4073,15 +4073,77 @@ function DailyLickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:user
 // ============================================================
 // LICK CARD — compact, themed
 // ============================================================
+// ── FlamesPopup — bottom sheet showing who liked a lick ──
+function FlamesPopup({lickId,lickTitle,th,onClose,onUserClick}){
+  var t=th||TH.studio;
+  var _u=useState(null); var users=_u[0],setUsers=_u[1];
+  var _l=useState(true); var loading=_l[0],setLoading=_l[1];
+  useEffect(function(){
+    setLoading(true);setUsers(null);
+    supabase.from('user_licks')
+      .select('user_id, profiles:user_id(username,display_name)')
+      .eq('lick_id',lickId).eq('type','like').limit(50)
+      .then(function(r){
+        if(r.data){setUsers(r.data.map(function(row){
+          var p=row.profiles||{};
+          return p.display_name||p.username||'Anonymous';
+        }));}
+        setLoading(false);
+      }).catch(function(){setLoading(false);setUsers([]);});
+  },[lickId]);
+  return React.createElement('div',{
+    onClick:onClose,
+    style:{position:'fixed',inset:0,zIndex:9999,background:'rgba(0,0,0,0.55)',display:'flex',alignItems:'flex-end',justifyContent:'center'}},
+    React.createElement('div',{
+      onClick:function(e){e.stopPropagation();},
+      style:{
+        width:'100%',maxWidth:480,
+        background:t.card,borderRadius:'20px 20px 0 0',
+        padding:'20px 20px 32px',
+        boxShadow:'0 -8px 40px rgba(0,0,0,0.4)',
+        maxHeight:'60vh',display:'flex',flexDirection:'column'}},
+      // handle bar
+      React.createElement('div',{style:{width:36,height:4,borderRadius:2,background:t.border,margin:'0 auto 16px'}}),
+      // header
+      React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}},
+        React.createElement('div',{style:{display:'flex',alignItems:'center',gap:8}},
+          IC.flame(16,'#F97316',true),
+          React.createElement('span',{style:{fontSize:13,fontWeight:700,color:t.text,fontFamily:t.titleFont}},'Flames')),
+        React.createElement('button',{onClick:onClose,style:{background:'none',border:'none',cursor:'pointer',color:t.muted,fontSize:18,lineHeight:1,padding:'2px 6px'}},'×')),
+      // list
+      React.createElement('div',{style:{overflowY:'auto',flex:1}},
+        loading&&React.createElement('div',{style:{textAlign:'center',padding:'24px 0',color:t.muted,fontSize:12,fontFamily:'monospace'}},'loading...'),
+        !loading&&(!users||users.length===0)&&React.createElement('div',{style:{textAlign:'center',padding:'24px 0',color:t.muted,fontSize:12,fontFamily:'monospace'}},'no flames yet'),
+        !loading&&users&&users.map(function(name,i){
+          return React.createElement('div',{key:i,
+            onClick:function(){if(onUserClick&&name!=='Anonymous'){onUserClick(name);}onClose();},
+            style:{
+              display:'flex',alignItems:'center',gap:10,
+              padding:'10px 4px',
+              borderBottom:'1px solid '+t.border,
+              cursor:name!=='Anonymous'?'pointer':'default',
+              transition:'background 0.1s'}},
+            React.createElement('div',{style:{
+              width:32,height:32,borderRadius:'50%',
+              background:'linear-gradient(135deg,#F97316,#EF4444)',
+              display:'flex',alignItems:'center',justifyContent:'center',
+              fontSize:13,fontWeight:700,color:'#fff',flexShrink:0}},
+              (name[0]||'?').toUpperCase()),
+            React.createElement('span',{style:{fontSize:13,color:name!=='Anonymous'?t.text:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:500}},
+              name!=='Anonymous'?'@'+name:'Anonymous'));
+        }))));
+}
+
 function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst,onUserClick}){
   const t=th||TH.classic;const isStudio=t===TH.studio;
   const uOff=INST_TRANS[userInst]||0;const cardAbc=uOff?transposeAbc(lick.abc,uOff):lick.abc;
   const keyDisp=uOff?trKeyName(lick.key.split(" ")[0],uOff):lick.key;
   const prevCurNote=usePreviewCurNote(lick.id);
-  
+  const[showFlames,setShowFlames]=useState(false);
   const catC=getCatColor(lick.category,t);
-  return React.createElement("div",{onClick:()=>onSelect(lick),style:{background:isStudio?(t.cardRaised||t.card):t.card,borderRadius:isStudio?16:14,padding:0,marginBottom:isStudio?12:8,border:"1px solid "+(isStudio?catC+"18":t.border),cursor:"pointer",transition:"all 0.15s",boxShadow:isStudio?"0 2px 16px "+catC+"15, 0 1px 6px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.03)":"0 2px 10px rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.03)",overflow:"hidden",display:"flex"}},
-    isStudio&&React.createElement("div",{style:{width:4,flexShrink:0,background:catC,boxShadow:"1px 0 8px "+catC+"25"}}),
+  return React.createElement(React.Fragment,null,
+    showFlames&&React.createElement(FlamesPopup,{lickId:lick.id,lickTitle:lick.title,th:t,onClose:function(e){setShowFlames(false);},onUserClick:onUserClick}),
+    React.createElement("div",{onClick:()=>onSelect(lick),style:{background:isStudio?(t.cardRaised||t.card):t.card,borderRadius:isStudio?16:14,padding:0,marginBottom:isStudio?12:8,border:"1px solid "+(isStudio?catC+"18":t.border),cursor:"pointer",transition:"all 0.15s",boxShadow:isStudio?"0 2px 16px "+catC+"15, 0 1px 6px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.03)":"0 2px 10px rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.03)",overflow:"hidden",display:"flex"}},
     React.createElement("div",{style:{flex:1,padding:isStudio?16:14}},
       // TITLE + META
       React.createElement("div",{style:{marginBottom:8}},
@@ -4109,7 +4171,7 @@ function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst,
           React.createElement("div",{style:{flex:1}}),
           lick.youtubeId&&React.createElement(YTCardBtn,{videoId:lick.youtubeId,startTime:lick.youtubeStart,endTime:lick.youtubeEnd,th:t}),
           // flames pill — visually tappable, hints at likes overview
-          React.createElement("button",{onClick:e=>{/* bubble to card = open detail */},style:{
+          React.createElement("button",{onClick:e=>{e.stopPropagation();setShowFlames(true);},style:{
             display:"flex",alignItems:"center",gap:4,
             padding:"4px 9px",borderRadius:8,
             border:"1px solid "+(liked?(isStudio?"rgba(249,115,22,0.3)":"rgba(239,68,68,0.3)"):(isStudio?"rgba(85,85,106,0.25)":t.border)),
@@ -4119,7 +4181,7 @@ function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst,
             React.createElement("span",{style:{fontSize:10,fontWeight:600,fontFamily:"'JetBrains Mono',monospace",color:liked?(isStudio?"#F97316":"#EF4444"):t.muted}},lick.likes)),
           // divider + detail arrow clearly separated
           React.createElement("div",{style:{width:1,height:20,background:t.border,margin:"0 8px",flexShrink:0}}),
-          isStudio?React.createElement("div",{style:{cursor:"pointer"}},IC.arrowR(14,catC)):React.createElement("span",{style:{fontSize:15,color:t.subtle,cursor:"pointer"}},"\u203A")))));}
+          isStudio?React.createElement("div",{style:{cursor:"pointer"}},IC.arrowR(14,catC)):React.createElement("span",{style:{fontSize:15,color:t.subtle,cursor:"pointer"}},"\u203A"))))));}
 
 
 // ============================================================
