@@ -1658,16 +1658,19 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
             el.style.filter="none";el.style.transition="";}
           if(cn>=0&&cn<noteEls.length){
             const el=noteEls[cn];
+            // In theory mode: use white/black to contrast all theory colors
+            var curCol=theoryMode?(t===TH.studio?"#FFFFFF":"#1A1A1A"):t.accent;
+            var curGlow=theoryMode?(t===TH.studio?"rgba(255,255,255,0.4)":"rgba(0,0,0,0.15)"):t.accentGlow;
             el.querySelectorAll("path,circle,ellipse").forEach(p=>{
-              p.style.fill=t.accent;p.style.stroke=t.accent;
+              p.style.fill=curCol;p.style.stroke=curCol;
               p.style.fillOpacity="1";p.style.strokeOpacity="1";});
-            el.style.filter="drop-shadow(0 0 8px "+t.accentGlow+")";
+            el.style.filter="drop-shadow(0 0 8px "+curGlow+")";
             el.style.transition="filter 0.05s";}
         }prevNoteRef.current=cn;}
       rafRef.current=requestAnimationFrame(tick);};
     rafRef.current=requestAnimationFrame(tick);
     return()=>{if(rafRef.current)cancelAnimationFrame(rafRef.current);};
-  },[abc,abRange,th,compact,curNoteRef]);
+  },[abc,abRange,th,compact,curNoteRef,theoryMode]);
   // Selection highlight (editor) — rounded box around selected note
   var prevSelRef=useRef(-1);var selBoxRef=useRef(null);
   useEffect(function(){
