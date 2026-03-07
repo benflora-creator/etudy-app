@@ -2546,9 +2546,11 @@ function e2s(e){if(e===1)return"";if(e===0.5)return"/2";if(e===0.75)return"3/4";
 // Map user-facing key to ABC-compatible key (ABC doesn't support C#, D#, G#, A#)
 var ABC_KEY_MAP={"D#":"Eb","G#":"Ab","A#":"Bb"};// C# is valid ABC (7 sharps)
 function abcKeySig(k){return ABC_KEY_MAP[k]||k;}
-var KEY_SIG_ACC={"C":{},"G":{F:1},"D":{F:1,C:1},"A":{F:1,C:1,G:1},"E":{F:1,C:1,G:1,D:1},"B":{F:1,C:1,G:1,D:1,A:1},"F#":{F:1,C:1,G:1,D:1,A:1,E:1},"C#":{F:1,C:1,G:1,D:1,A:1,E:1,B:1},"Gb":{B:-1,E:-1,A:-1,D:-1,G:-1,C:-1},"F":{B:-1},"Bb":{B:-1,E:-1},"Eb":{B:-1,E:-1,A:-1},"Ab":{B:-1,E:-1,A:-1,D:-1},"Db":{B:-1,E:-1,A:-1,D:-1,G:-1}};
+var KEY_SIG_ACC={"C":{},"G":{F:1},"D":{F:1,C:1},"A":{F:1,C:1,G:1},"E":{F:1,C:1,G:1,D:1},"B":{F:1,C:1,G:1,D:1,A:1},"F#":{F:1,C:1,G:1,D:1,A:1,E:1},"C#":{F:1,C:1,G:1,D:1,A:1,E:1,B:1},"Gb":{B:-1,E:-1,A:-1,D:-1,G:-1,C:-1},"F":{B:-1},"Bb":{B:-1,E:-1},"Eb":{B:-1,E:-1,A:-1},"Ab":{B:-1,E:-1,A:-1,D:-1},"Db":{B:-1,E:-1,A:-1,D:-1,G:-1},
+// Minor keys (same accidentals as relative major)
+"Am":{},"Em":{F:1},"Bm":{F:1,C:1},"F#m":{F:1,C:1,G:1},"C#m":{F:1,C:1,G:1,D:1},"G#m":{F:1,C:1,G:1,D:1,A:1},"Dm":{B:-1},"Gm":{B:-1,E:-1},"Cm":{B:-1,E:-1,A:-1},"Fm":{B:-1,E:-1,A:-1,D:-1},"Bbm":{B:-1,E:-1,A:-1,D:-1,G:-1},"Ebm":{B:-1,E:-1,A:-1,D:-1,G:-1,C:-1}};
 function chN(ch){return ch&&typeof ch==="object"?ch.n:ch||"";}
-function buildAbc(items,keySig,timeSig,tempo,chords,minBars){const[tsN,tsD]=timeSig.split("/").map(Number);const bE=tsN*(8/tsD);const beatE=8/tsD;
+function buildAbc(items,keySig,timeSig,tempo,chords,minBars,keyQual){const[tsN,tsD]=timeSig.split("/").map(Number);const bE=tsN*(8/tsD);const beatE=8/tsD;
   // Beam break positions within a bar (in eighths)
   // 4/4: break at half-bar (beat 3) = position 4
   // 3/4: break at each beat = 2, 4
@@ -2565,9 +2567,12 @@ function buildAbc(items,keySig,timeSig,tempo,chords,minBars){const[tsN,tsD]=time
   else{for(var g2=1;g2<tsN;g2++){beamBreaks.push(g2*beatE);beamBreaks16.push(g2*beatE);}}
 
   // Helper: emit note name in ABC
-  var ksMap=KEY_SIG_ACC[abcKeySig(keySig)]||{};
-  // Determine if ABC key uses flats (user might have picked a sharp key like C# that maps to Db)
-  var abcK2=abcKeySig(keySig);var abcUsesFlats=["F","Bb","Eb","Ab","Db","Gb"].indexOf(abcK2)>=0;
+  var isMinor=(keyQual==="Minor"||keyQual==="Blues");
+  var abcKBase=abcKeySig(keySig);
+  var abcKFull=isMinor?abcKBase+"m":abcKBase;
+  var ksMap=KEY_SIG_ACC[abcKFull]||KEY_SIG_ACC[abcKBase]||{};
+  // Determine if ABC key uses flats
+  var abcK2=abcKBase;var abcUsesFlats=["F","Bb","Eb","Ab","Db","Gb"].indexOf(abcK2)>=0;
   var NEXT_LET={C:"D",D:"E",E:"F",F:"G",G:"A",A:"B",B:"C"};
   var PREV_LET={D:"C",E:"D",F:"E",G:"F",A:"G",B:"A",C:"B"};
   var emitNote=function(item,ei,barAlts,addTie){
@@ -2592,7 +2597,7 @@ function buildAbc(items,keySig,timeSig,tempo,chords,minBars){const[tsN,tsD]=time
     return s;
   };
 
-  let abc="X:1\nT:My Lick\nM:"+timeSig+"\nL:1/8\nQ:1/4="+tempo+"\nK:"+abcKeySig(keySig)+"\n";
+  let abc="X:1\nT:My Lick\nM:"+timeSig+"\nL:1/8\nQ:1/4="+tempo+"\nK:"+abcKFull+"\n";
   let pos=0,nc=0;var barAlts={};var triCount=0;var chObj=chords||{};var emittedCh={};
 
   // ── Enharmonic respelling pre-pass ──
@@ -2688,7 +2693,7 @@ function buildAbc(items,keySig,timeSig,tempo,chords,minBars){const[tsN,tsD]=time
     }
   }
   return abc;}
-function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteClickRef,onSelChange,deselectRef,previewOffset,th,chordsRef,barInfoRef,fillBarRef,visible}){
+function NoteBuilder({onAbcChange,keySig,keyQual,timeSig,tempo,previewEl,playerEl,noteClickRef,onSelChange,deselectRef,previewOffset,th,chordsRef,barInfoRef,fillBarRef,visible}){
   const[items,sIt]=useState([]);const[cO,sCO]=useState(4);const[cD,sCD]=useState(2);const[dt,sDt]=useState(false);const[tri,sTri]=useState(false);
   const[chords,sChords]=useState({});
   useEffect(function(){if(chordsRef)chordsRef.current=chords;},[chords]);
@@ -2791,9 +2796,9 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteCl
     var newBarsN=Math.ceil(newTE/bE)||0;
     var newRaw=Math.max(newBarsN,barsFromChords);
     var newMinBars=Math.max(1,newRaw);
-    return buildAbc(newItems,keySig,timeSig,tempo,chords,newMinBars);
+    return buildAbc(newItems,keySig,timeSig,tempo,chords,newMinBars,keyQual);
   };
-  var currentAbc=useMemo(function(){return buildAbc(items,keySig,timeSig,tempo,chords,edMinBars);},[items,keySig,timeSig,tempo,chords,edMinBars]);
+  var currentAbc=useMemo(function(){return buildAbc(items,keySig,timeSig,tempo,chords,edMinBars,keyQual);},[items,keySig,timeSig,tempo,chords,edMinBars,keyQual]);
   useEffect(function(){onAbcChange(currentAbc);},[currentAbc]);
 
   // Add note (append or edit selected)
@@ -6419,7 +6424,7 @@ function PolyrhythmTrainer({th,sharedInput,sharedMicSilent}){
 // EDITOR — themed
 // ============================================================
 function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.classic;const isStudio=t===TH.studio;
-  const[artist,sA]=useState("");const[tune,sTune]=useState("");const[inst,sI]=useState("Alto Sax");const[cat,sC]=useState("ii-V-I");const[keySig,sK]=useState("C");const[timeSig,sTS]=useState("4/4");const[tempo,sTm]=useState("120");const[abc,sAbc]=useState("X:1\nT:My Lick\nM:4/4\nL:1/8\nQ:1/4=120\nK:C\n");const[feel,setFeel]=useState("straight");const[yu,sYu]=useState("");const[tm,sTmn]=useState("");const[ts,sTs]=useState("");const[tmEnd,setTmEnd]=useState("");const[tsEnd,setTsEnd]=useState("");const[sp,sSp]=useState("");const[desc,sD]=useState("");const[tags,sTg]=useState("");
+  const[artist,sA]=useState("");const[tune,sTune]=useState("");const[inst,sI]=useState("Alto Sax");const[cat,sC]=useState("ii-V-I");const[keySig,sK]=useState("C");const[keyQual,sKQ]=useState("Major");const[timeSig,sTS]=useState("4/4");const[tempo,sTm]=useState("120");const[abc,sAbc]=useState("X:1\nT:My Lick\nM:4/4\nL:1/8\nQ:1/4=120\nK:C\n");const[feel,setFeel]=useState("straight");const[yu,sYu]=useState("");const[tm,sTmn]=useState("");const[ts,sTs]=useState("");const[tmEnd,setTmEnd]=useState("");const[tsEnd,setTsEnd]=useState("");const[sp,sSp]=useState("");const[desc,sD]=useState("");const[tags,sTg]=useState("");
   const edCurNoteRef=useRef(-1);
   const noteClickRef=useRef(null);
   const deselectRef=useRef(null);
@@ -6432,9 +6437,9 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
   const[ytSpeed,setYtSpeed]=useState(1);
   const[showChordHint,setShowChordHint]=useState(false);
   var edInstOff=INST_TRANS[userInst]||0;
-  // Concert pitch abc for playback (transpose back from instrument transposition)
+  var concertKeyRoot=edInstOff?trKeyName(abcKeySig(keySig),-edInstOff):abcKeySig(keySig);
+  var concertKey=concertKeyRoot+" "+keyQual;
   var concertAbc=edInstOff?transposeAbc(abc,-edInstOff):abc;
-  var concertKey=edInstOff?trKeyName(abcKeySig(keySig),-edInstOff):abcKeySig(keySig);
   useEffect(function(){try{Tone.start();}catch(e){}preloadPiano();preloadChordPiano();_ensurePreviewSynth();},[]);
   var KEY_ROWS=[
     ["C"],["Db","C#"],["D"],["Eb"],["E"],["F"],
@@ -6454,10 +6459,23 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
     React.createElement("button",{onClick:()=>setKeyOpen(!keyOpen),
       style:{width:"100%",background:t.inputBg,border:"1px solid "+(keyOpen?t.accent:t.inputBorder),borderRadius:10,padding:"10px 14px",color:t.text,
         fontSize:14,fontFamily:"'Inter',sans-serif",fontWeight:500,cursor:"pointer",textAlign:"left",boxSizing:"border-box",
-        outline:"none"}},keySig+" \u25BE"),
+        outline:"none"}},keySig+" "+keyQual+" \u25BE"),
     keyOpen&&React.createElement("div",{style:{position:"absolute",top:"100%",left:0,marginTop:4,zIndex:100,
-      background:t.card,border:"1px solid "+t.border,borderRadius:10,padding:4,minWidth:110,
+      background:t.card,border:"1px solid "+t.border,borderRadius:10,padding:6,minWidth:160,
       boxShadow:"0 8px 24px rgba(0,0,0,"+(isStudio?"0.5":"0.12")+")"}},
+      // Quality toggle
+      React.createElement("div",{style:{display:"flex",gap:3,marginBottom:6}},
+        ["Major","Minor","Blues"].map(function(q){
+          var active=keyQual===q;
+          return React.createElement("button",{key:q,onClick:function(){sKQ(q);},
+            style:{flex:1,padding:"5px 3px",borderRadius:6,border:active?"1.5px solid "+t.accent:"1px solid "+t.border,
+              fontSize:9,fontFamily:"'Inter',sans-serif",fontWeight:active?700:500,letterSpacing:0.3,
+              background:active?t.accent+"18":(isStudio?"#ffffff06":"#F5F4F0"),
+              color:active?t.accent:(isStudio?"#ccc":"#666"),cursor:"pointer"}},q);
+        })),
+      // Divider
+      React.createElement("div",{style:{height:1,background:t.border,marginBottom:5}}),
+      // Root note rows
       KEY_ROWS.map(function(row,ri){
         return React.createElement("div",{key:ri,style:{display:"flex",gap:2,marginBottom:ri<KEY_ROWS.length-1?2:0}},
           row.map(function(k){
@@ -6470,7 +6488,7 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
                 outline:isSel?"1.5px solid "+t.accent+"40":"none",
                 transition:"all 0.1s"}},k);
           }));
-      })));
+      }))));
 
   const KEYS=["C","Db","D","Eb","E","F","F#","G","Ab","A","Bb","B"];const TS=["4/4","3/4","6/8","5/4","7/8"];const yt=parseYT(yu);const tSec=(parseInt(tm)||0)*60+(parseInt(ts)||0);const tESecEnd=(parseInt(tmEnd)||0)*60+(parseInt(tsEnd)||0)||null;
   const lb={fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5,display:"block",marginBottom:4};
@@ -6636,7 +6654,7 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
           edInstOff!==0&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",background:isStudio?"rgba(34,216,158,0.06)":"rgba(99,102,241,0.04)",borderRadius:8,border:"1px solid "+(isStudio?"rgba(34,216,158,0.15)":"rgba(99,102,241,0.1)")}},
             React.createElement("span",{style:{fontSize:10,color:isStudio?"#22D89E":t.accent,fontFamily:"'Inter',sans-serif"}},"Entering for "+userInst+" \u2014 will be saved in concert pitch")),
           React.createElement("div",{style:{borderRadius:12,padding:14,border:"1px solid "+t.border,background:t.card}},
-            React.createElement(NoteBuilder,{onAbcChange:sAbc,keySig,timeSig,tempo:parseInt(tempo)||120,noteClickRef:noteClickRef,onSelChange:setEdSelIdx,deselectRef:deselectRef,previewOffset:-edInstOff,th:t,chordsRef:chordsRef,barInfoRef:barInfoRef,fillBarRef:fillBarRef,visible:edStep===2,
+            React.createElement(NoteBuilder,{onAbcChange:sAbc,keySig,keyQual,timeSig,tempo:parseInt(tempo)||120,noteClickRef:noteClickRef,onSelChange:setEdSelIdx,deselectRef:deselectRef,previewOffset:-edInstOff,th:t,chordsRef:chordsRef,barInfoRef:barInfoRef,fillBarRef:fillBarRef,visible:edStep===2,
               previewEl:React.createElement("div",{style:{marginBottom:4}},
                 React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}},
                   React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,fontWeight:600}},"PREVIEW"),
@@ -7069,6 +7087,16 @@ function buildKeySeq(semi,startSt){
 function AllKeysTrainer({lick,th,userInst,keyProgress,onUpdateProgress}){
   var t=th||TH.classic;var isStudio=t===TH.studio;
   var uOff=INST_TRANS[userInst]||0;
+
+  // Semitone index of the lick's original key (0=C … 11=B)
+  var lickKeySt=useMemo(function(){
+    var root=lick.key.split(" ")[0]; // e.g. "Bb", "F#", "C"
+    var ri=1;if(ri<root.length&&(root[ri]==="b"||root[ri]==="#"))ri++;
+    var base=N2M[root[0].toUpperCase()]||0;
+    if(root.includes("#"))base++;
+    if(root.includes("b"))base--;
+    return((base%12)+12)%12;
+  },[lick.key]);
   var[mode,setMode]=useState("learn"); // learn | drill
   var[activeIdx,setActiveIdx]=useState(0);
   var[stage,setStage]=useState(1); // 1=sheet 2=memory 3=tempo
@@ -7092,9 +7120,9 @@ function AllKeysTrainer({lick,th,userInst,keyProgress,onUpdateProgress}){
   var intDef=INTERVALS.find(function(iv){return iv.id===interval;})||INTERVALS[0];
   var keysPerCycle=buildKeySeq(intDef.semi,0).length;
   var cyclesNeeded=Math.ceil(12/keysPerCycle);
-  // Build full 12-key drill sequence by chaining offset cycles
+  // Build full 12-key drill sequence — offsets relative to lick's original key
   var drillSeq=useMemo(function(){
-    if(intDef.semi===0)return buildKeySeq(0,0); // random already gives 12
+    if(intDef.semi===0)return buildKeySeq(0,0);
     var all=[];var used=new Set();
     for(var c=0;c<cyclesNeeded;c++){
       var cycle=buildKeySeq(intDef.semi,c);
@@ -7103,16 +7131,24 @@ function AllKeysTrainer({lick,th,userInst,keyProgress,onUpdateProgress}){
     return all;
   },[intDef.semi,cyclesNeeded]);
 
-  // Learn mode uses COF order
+  // Learn mode: COF offsets starting at 0 (= original key at top)
   var learnOrder=useMemo(function(){return buildKeySeq(7,0);},[]);
-  var learnLabels=learnOrder.map(function(st){return trKeyName(ALL_KEY_NAMES[st],uOff);});
+  var lickRootName=lick.key.split(" ")[0];
+  // Short quality suffix for circle labels: "Minor"→"m", "Blues"→" bl", "Major"→""
+  var keySuffix=useMemo(function(){
+    var parts=lick.key.split(" ");var qual=(parts[1]||"").toLowerCase();
+    if(qual==="minor")return "m";
+    if(qual==="blues")return " bl";
+    return "";
+  },[lick.key]);
+  var learnLabels=learnOrder.map(function(st){return trKeyName(lickRootName,st+uOff)+keySuffix;});
 
   // Current key for learn mode
   var learnOffset=learnOrder[activeIdx];
   var learnTotalOff=learnOffset+uOff;
   var learnAbc=transposeAbc(lick.abc,learnTotalOff);
   var learnSoundAbc=transposeAbc(lick.abc,learnOffset);
-  var learnKeyName=trKeyName(lick.key.split(" ")[0],learnTotalOff);
+  var learnKeyName=trKeyName(lick.key.split(" ")[0],learnTotalOff)+keySuffix;
   var slowTempo=Math.max(60,Math.round(lick.tempo*0.65));
   var learnTempo=stage===3?lick.tempo:slowTempo;
 
@@ -7121,7 +7157,7 @@ function AllKeysTrainer({lick,th,userInst,keyProgress,onUpdateProgress}){
   var drillTotalOff=drillOffset+uOff;
   var drillAbc=transposeAbc(lick.abc,drillTotalOff);
   var drillSoundAbc=transposeAbc(lick.abc,drillOffset);
-  var drillKeyName=trKeyName(lick.key.split(" ")[0],drillTotalOff);
+  var drillKeyName=trKeyName(lick.key.split(" ")[0],drillTotalOff)+keySuffix;
 
   var getStage=function(st){return prog[st]||0;};
   var completedKeys=learnOrder.filter(function(st){return getStage(st)>=3;}).length;
@@ -7193,7 +7229,7 @@ function AllKeysTrainer({lick,th,userInst,keyProgress,onUpdateProgress}){
           else if(!drilling){setDrillKeyIdx(i);}
         },style:{cursor:"pointer"}},
           React.createElement("circle",{cx:x,cy:y,r:dotR,fill:col,stroke:isActive?"#fff":"none",strokeWidth:isActive?2:0,opacity:isActive?1:(ks>0?1:0.5)}),
-          React.createElement("text",{x:x,y:y+0.5,textAnchor:"middle",dominantBaseline:"central",style:{fontSize:isActive?8:7,fontWeight:isActive?700:500,fill:isActive?"#fff":(ks>=1?"#fff":t.muted),fontFamily:"'Inter',sans-serif",pointerEvents:"none"}},labels?labels[i]:trKeyName(ALL_KEY_NAMES[st],uOff)));
+          React.createElement("text",{x:x,y:y+0.5,textAnchor:"middle",dominantBaseline:"central",style:{fontSize:isActive?8:7,fontWeight:isActive?700:500,fill:isActive?"#fff":(ks>=1?"#fff":t.muted),fontFamily:"'Inter',sans-serif",pointerEvents:"none"}},labels?labels[i]:trKeyName(lickRootName,st+uOff)+keySuffix)));
       }),
       React.createElement("text",{x:cx,y:cy-6,textAnchor:"middle",style:{fontSize:22,fontWeight:700,fill:t.text,fontFamily:"'JetBrains Mono',monospace"}},mode==="learn"?learnKeyName:drillKeyName),
       mode==="learn"?React.createElement("text",{x:cx,y:cy+12,textAnchor:"middle",style:{fontSize:9,fontWeight:600,fill:accentCol,fontFamily:"'Inter',sans-serif",letterSpacing:0.5}},stageLabel):
@@ -7281,7 +7317,7 @@ function AllKeysTrainer({lick,th,userInst,keyProgress,onUpdateProgress}){
             var isCycleBoundary=keysPerCycle<12&&i>0&&i%keysPerCycle===0;
             return React.createElement(React.Fragment,{key:i},
               isCycleBoundary&&React.createElement("span",{style:{fontSize:9,color:t.border,lineHeight:"20px"}},"\u00B7"),
-              React.createElement("span",{style:{fontSize:10,fontWeight:600,color:t.muted,fontFamily:"'JetBrains Mono',monospace",padding:"2px 6px",borderRadius:5,background:isStudio?t.card+"60":t.card,border:"1px solid "+t.border}},trKeyName(ALL_KEY_NAMES[st],uOff)));
+              React.createElement("span",{style:{fontSize:10,fontWeight:600,color:t.muted,fontFamily:"'JetBrains Mono',monospace",padding:"2px 6px",borderRadius:5,background:isStudio?t.card+"60":t.card,border:"1px solid "+t.border}},trKeyName(lickRootName,st+uOff)+keySuffix));
           })),
 
         // Start button
@@ -7304,7 +7340,7 @@ function AllKeysTrainer({lick,th,userInst,keyProgress,onUpdateProgress}){
               border:cur||done?"none":"1px solid "+t.border,
               boxShadow:cur?"0 2px 12px "+drillColor+"50":"none"
             }},
-              React.createElement("span",{style:{fontSize:cur?11:7,fontWeight:cur?800:done?600:500,color:cur||done?"#fff":t.muted,fontFamily:"'JetBrains Mono',monospace"}},trKeyName(ALL_KEY_NAMES[st],uOff)));
+              React.createElement("span",{style:{fontSize:cur?11:7,fontWeight:cur?800:done?600:500,color:cur||done?"#fff":t.muted,fontFamily:"'JetBrains Mono',monospace"}},trKeyName(lickRootName,st+uOff)+keySuffix));
           })),
 
         // Current key — large display
