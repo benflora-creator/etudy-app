@@ -4086,7 +4086,7 @@ function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst,
           React.createElement("div",{style:{flex:1}}),
           lick.youtubeId&&React.createElement(YTCardBtn,{videoId:lick.youtubeId,startTime:lick.youtubeStart,endTime:lick.youtubeEnd,th:t}),
           // flames pill — visually tappable, hints at likes overview
-          React.createElement("button",{onClick:e=>{e.stopPropagation();},style:{
+          React.createElement("button",{onClick:e=>{/* bubble to card = open detail */},style:{
             display:"flex",alignItems:"center",gap:4,
             padding:"4px 9px",borderRadius:8,
             border:"1px solid "+(liked?(isStudio?"rgba(249,115,22,0.3)":"rgba(239,68,68,0.3)"):(isStudio?"rgba(85,85,106,0.25)":t.border)),
