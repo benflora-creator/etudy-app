@@ -4286,8 +4286,6 @@ function FlamesPopup({lickId,lickTitle,likeCount,th,onClose,onUserClick}){
   );
 }
 
-}
-
 function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst,onUserClick}){
   const t=th||TH.classic;const isStudio=t===TH.studio;
   const uOff=INST_TRANS[userInst]||0;const cardAbc=uOff?transposeAbc(lick.abc,uOff):lick.abc;
