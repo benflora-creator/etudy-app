@@ -1289,6 +1289,38 @@ function prevNote(n,o,a,semi){
   }catch(e){}
 }
 
+// Theory mode: play a note together with its underlying chord
+function playTheoryTap(tones,chordName){
+  try{
+    Tone.start();
+    var now=Tone.now()+0.02;
+    // Play melody note(s)
+    if(_samplerReady&&_sampler){
+      try{_sampler.toDestination();}catch(e){}
+      for(var i=0;i<tones.length;i++){
+        try{_sampler.triggerAttackRelease(tones[i],"2n",now,0.85);}catch(e){}
+      }
+    }else{
+      _ensurePreviewSynth();
+      if(_pS){for(var i2=0;i2<tones.length;i2++){try{_pS.triggerAttackRelease(tones[i2],"2n",now);}catch(e){}}}
+    }
+    // Play chord in octave 3 (comping range, below melody)
+    if(chordName){
+      var chordNotes=chordToNotes(chordName,3);
+      if(chordNotes.length>0){
+        if(_samplerReady&&_sampler){
+          for(var ci=0;ci<chordNotes.length;ci++){
+            try{_sampler.triggerAttackRelease(chordNotes[ci],"2n",now,0.3);}catch(e){}
+          }
+        }else{
+          _ensurePreviewSynth();
+          if(_pS){for(var ci2=0;ci2<chordNotes.length;ci2++){try{_pS.triggerAttackRelease(chordNotes[ci2],"2n",now,0.25);}catch(e){}}}
+        }
+      }
+    }
+  }catch(e){}
+}
+
 // ============================================================
 // CARD PREVIEW PLAYER — lightweight, global singleton
 // ============================================================
@@ -1487,6 +1519,28 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
           if(maxY>vb.y+vb.height)svg.setAttribute("viewBox",vb.x+" "+vb.y+" "+vb.width+" "+(maxY-vb.y));
         }
       }catch(e){}
+      // ── Theory tap: click note to hear it with chord ──
+      var parsed=null;try{parsed=parseAbc(abc);}catch(e){}
+      if(parsed){
+        var noteTones=[];
+        for(var ei=0;ei<parsed.events.length;ei++){
+          if(parsed.events[ei].tn&&parsed.events[ei].tn.length>0)noteTones.push(parsed.events[ei].tn);
+        }
+        noteEls.forEach(function(noteEl,idx){
+          noteEl.style.cursor="pointer";
+          noteEl.addEventListener("click",function(e){
+            e.stopPropagation();
+            var tones=idx<noteTones.length?noteTones[idx]:null;
+            var chordName=null;
+            if(na[idx]&&na[idx].entries&&na[idx].entries[0])chordName=na[idx].entries[0].chord;
+            if(tones)playTheoryTap(tones,chordName);
+            // Visual pulse
+            var paths=noteEl.querySelectorAll("path,circle,ellipse");
+            paths.forEach(function(p){p.style.transition="filter 0.05s";p.style.filter="drop-shadow(0 0 10px "+t.accent+"90)";});
+            setTimeout(function(){paths.forEach(function(p){p.style.filter="none";p.style.transition="filter 0.3s";});},300);
+          });
+        });
+      }
     }
     // Clickable notes for editor
     if(onNoteClick){
