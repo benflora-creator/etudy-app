@@ -1555,35 +1555,23 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
           var hitTop=Math.min(staves[bestSi].cy-staffHalf-6,bb.y-8);
           var hitBot=(laneYPerStaff[bestSi]||bb.y+bb.height+20)+LABEL_H;
           var hitH=hitBot-hitTop;
-          // Highlight column (initially invisible)
-          var hlCol=document.createElementNS("http://www.w3.org/2000/svg","rect");
-          hlCol.setAttribute("class","theory-lane");
-          hlCol.setAttribute("x",cx-HIT_W/2);hlCol.setAttribute("y",hitTop);
-          hlCol.setAttribute("width",HIT_W);hlCol.setAttribute("height",hitH);
-          hlCol.setAttribute("rx","4");hlCol.setAttribute("ry","4");
-          hlCol.setAttribute("fill",ti.col);hlCol.setAttribute("fill-opacity","0");
-          hlCol.style.pointerEvents="none";hlCol.style.transition="fill-opacity 0.08s ease-out";
-          svg.appendChild(hlCol);
-          // Invisible hit-area rect on top
+          // Invisible hit-area rect
           var hit=document.createElementNS("http://www.w3.org/2000/svg","rect");
           hit.setAttribute("class","theory-lane");
           hit.setAttribute("x",cx-HIT_W/2);hit.setAttribute("y",hitTop);
           hit.setAttribute("width",HIT_W);hit.setAttribute("height",hitH);
           hit.setAttribute("fill","transparent");
           hit.style.cursor="pointer";
-          hit.addEventListener("click",function(theIdx,theNoteEl,theHlCol,theCol){return function(e){
+          hit.addEventListener("click",function(theIdx,theNoteEl,theCol){return function(e){
             e.stopPropagation();
             var tones=theIdx<noteTones.length?noteTones[theIdx]:null;
             var chordName=theIdx<tapChordAtNote.length?tapChordAtNote[theIdx]:null;
             if(tones)playTheoryTap(tones,chordName);
-            // Highlight column flash
-            theHlCol.setAttribute("fill-opacity","0.15");
-            setTimeout(function(){theHlCol.setAttribute("fill-opacity","0");},400);
             // Note glow
             var paths=theNoteEl.querySelectorAll("path,circle,ellipse");
             paths.forEach(function(p){p.style.transition="filter 0.05s";p.style.filter="drop-shadow(0 0 8px "+theCol+"AA)";});
             setTimeout(function(){paths.forEach(function(p){p.style.filter="none";p.style.transition="filter 0.35s";});},400);
-          };}(idx,noteEl,hlCol,ti.col));
+          };}(idx,noteEl,ti.col));
           svg.appendChild(hit);
         });
       }
