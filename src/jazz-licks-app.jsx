@@ -6488,7 +6488,7 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
                 outline:isSel?"1.5px solid "+t.accent+"40":"none",
                 transition:"all 0.1s"}},k);
           }));
-      }))));
+      })));
 
   const KEYS=["C","Db","D","Eb","E","F","F#","G","Ab","A","Bb","B"];const TS=["4/4","3/4","6/8","5/4","7/8"];const yt=parseYT(yu);const tSec=(parseInt(tm)||0)*60+(parseInt(ts)||0);const tESecEnd=(parseInt(tmEnd)||0)*60+(parseInt(tsEnd)||0)||null;
   const lb={fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5,display:"block",marginBottom:4};
