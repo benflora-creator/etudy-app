@@ -4304,7 +4304,7 @@ function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst,
     if(!cardRef.current)return;
     var obs=new IntersectionObserver(function(entries){
       if(entries[0].isIntersecting){setInView(true);obs.disconnect();}
-    },{threshold:0.05});
+    },{threshold:0.05,rootMargin:"0px 0px -18% 0px"});
     obs.observe(cardRef.current);
     return function(){obs.disconnect();};
   },[]);
