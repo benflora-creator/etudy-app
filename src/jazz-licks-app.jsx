@@ -3675,7 +3675,8 @@ function EditProfileView({authUser,authProfile,onClose,onSave,th}){
   const validate=()=>{
     var ev={};
     if(!displayName.trim())ev.displayName="Name cannot be empty";
-    if(username.trim()&&!/^[a-zA-Z0-9_]{2,30}$/.test(username.trim()))ev.username="Letters, numbers and _ only · 2–30 characters";
+    if(username.trim()&&!/^[a-z0-9_]{3,30}$/.test(username.trim()))ev.username="Lowercase letters, numbers and _ only · 3–30 characters";
+    if(username.trim()&&username.trim().toLowerCase().includes("etudy"))ev.username="This handle is reserved";
     if(bio.length>160)ev.bio="Max. 160 characters";
     if(websiteUrl.trim()&&!/^https?:\/\/.+/.test(websiteUrl.trim()))ev.websiteUrl="URL must start with http:// or https://";
     return ev;
@@ -3774,10 +3775,10 @@ function EditProfileView({authUser,authProfile,onClose,onSave,th}){
 
         // USERNAME
         React.createElement("div",{style:{marginBottom:18}},
-          fl("Username","Your @handle in the feed · letters, numbers, _"),
+          fl("Username","Your @handle in the feed · lowercase letters, numbers, _"),
           React.createElement("div",{style:{position:"relative"}},
             React.createElement("span",{style:{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",color:t.subtle,fontSize:14,fontFamily:"'Inter',sans-serif",pointerEvents:"none"}},"@"),
-            React.createElement("input",{type:"text",value:username,onChange:function(ev){setUsername(ev.target.value.replace(/[^a-zA-Z0-9_]/g,""));},placeholder:"yourhandle",style:{...inputStyle,paddingLeft:26,borderColor:errs.username?"#FF4444":(t.inputBorder||t.border)}})),
+            React.createElement("input",{type:"text",value:username,onChange:function(ev){setUsername(ev.target.value.toLowerCase().replace(/[^a-z0-9_]/g,""));},placeholder:"yourhandle",style:{...inputStyle,paddingLeft:26,borderColor:errs.username?"#FF4444":(t.inputBorder||t.border)}})),
           errMsg("username")),
 
         // BIO
@@ -7701,12 +7702,12 @@ function Onboarding({onComplete, th}) {
   var _handleErr = useState("");
   var handleErr = _handleErr[0], setHandleErr = _handleErr[1];
 
-  var handleOk = /^[a-zA-Z0-9_]{2,30}$/.test(handle.trim());
+  var handleOk = /^[a-z0-9_]{3,30}$/.test(handle.trim()) && !handle.trim().includes("etudy");
   var canNext = step === 0 ? (name.trim().length > 0 && handleOk) : step === 1 ? inst !== null : level !== null;
 
   var handleNext = function() {
     if (step === 0) {
-      if (!handleOk) { setHandleErr("2-30 characters, letters/numbers/_ only"); return; }
+      if (!handleOk) { setHandleErr(handle.trim().includes("etudy") ? "This handle is reserved" : "3–30 characters · lowercase letters, numbers, _"); return; }
       setHandleErr(""); setStep(1); return;
     }
     if (step < 2) { setStep(step + 1); return; }
@@ -7792,7 +7793,7 @@ function Onboarding({onComplete, th}) {
                 }
               })),
             handleErr && React.createElement("div", { style: { fontSize: 11, color: "#EF4444", fontFamily: "'Inter',sans-serif", marginTop: 4 } }, handleErr),
-            !handleErr && React.createElement("div", { style: { fontSize: 10, color: t.subtle, fontFamily: "'Inter',sans-serif", marginTop: 4 } }, "2-30 characters · letters, numbers, _"))
+            !handleErr && React.createElement("div", { style: { fontSize: 10, color: t.subtle, fontFamily: "'Inter',sans-serif", marginTop: 4 } }, "3–30 characters · lowercase letters, numbers, _"))
         )),
 
       // ─── Screen 1: Instrument ───
