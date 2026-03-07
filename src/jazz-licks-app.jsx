@@ -1563,26 +1563,37 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
           hit.setAttribute("fill","none");hit.setAttribute("stroke","none");
           hit.setAttribute("pointer-events","visible");
           hit.style.cursor="pointer";hit.style.opacity="0";
-          hit.addEventListener("click",function(theIdx,theNoteEl,theCol,theBB){return function(e){
+          hit.addEventListener("click",function(theIdx,theNoteEl,theCol){return function(e){
             e.stopPropagation();
             var tones=theIdx<noteTones.length?noteTones[theIdx]:null;
             var chordName=theIdx<tapChordAtNote.length?tapChordAtNote[theIdx]:null;
             if(tones)playTheoryTap(tones,chordName);
-            // Glow circle behind notehead
+            // Find notehead: the most compact (width/height ratio) path in the group
+            var headCx,headCy;
+            var paths=theNoteEl.querySelectorAll("path");
+            var bestRatio=0;
+            paths.forEach(function(p){
+              try{
+                var pb=p.getBBox();
+                if(pb.width<1||pb.height<1)return;
+                var ratio=Math.min(pb.width,pb.height)/Math.max(pb.width,pb.height);
+                if(ratio>bestRatio){bestRatio=ratio;headCx=pb.x+pb.width/2;headCy=pb.y+pb.height/2;}
+              }catch(e2){}
+            });
+            if(!headCx){try{var fb=theNoteEl.getBBox();headCx=fb.x+fb.width/2;headCy=fb.y+fb.height/2;}catch(e2){return;}}
+            // Glow circle at notehead
             var glow=document.createElementNS("http://www.w3.org/2000/svg","circle");
-            glow.setAttribute("cx",theBB.x+theBB.width/2);
-            glow.setAttribute("cy",theBB.y+theBB.height/2);
+            glow.setAttribute("cx",headCx);
+            glow.setAttribute("cy",headCy);
             glow.setAttribute("r","10");
             glow.setAttribute("fill",theCol);glow.setAttribute("fill-opacity","0.45");
             glow.setAttribute("stroke","none");
             glow.style.pointerEvents="none";
-            // Insert before the note so it appears behind
             theNoteEl.parentNode.insertBefore(glow,theNoteEl);
-            // Fade out and remove
             setTimeout(function(){glow.setAttribute("fill-opacity","0.2");},80);
             setTimeout(function(){glow.setAttribute("fill-opacity","0.08");},200);
             setTimeout(function(){try{glow.remove();}catch(e2){}},350);
-          };}(idx,noteEl,ti.col,ti.bb));
+          };}(idx,noteEl,ti.col));
           svg.appendChild(hit);
           svg.appendChild(hit);
         });
