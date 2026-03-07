@@ -1388,8 +1388,9 @@ function getBarInfo(abc){
 // ============================================================
 // NOTATION — theme-aware
 // ============================================================
-function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteIdx,onDeselect,theoryMode,theoryAnalysis}){
+function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteIdx,onDeselect,theoryMode,theoryAnalysis,onReady}){
   const ref=useRef(null);const ok=useAbcjs();const prevNoteRef=useRef(-1);const rafRef=useRef(null);
+  const onReadyRef=useRef(onReady);useEffect(()=>{onReadyRef.current=onReady;},[onReady]);
   const t=th||TH.classic;
   useEffect(()=>{if(!ok||!ref.current||!window.ABCJS)return;
     prevNoteRef.current=-1;
@@ -1411,7 +1412,7 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
     else{opts.staffwidth=420;opts.scale=1.0;opts.wrap={minSpacing:1.0,maxSpacing:1.8,preferredMeasuresPerLine:mpl};}
     try{window.ABCJS.renderAbc(ref.current,renderAbc,opts);}catch(e){}
     // Release height lock after paint (double-rAF ensures browser has painted)
-    requestAnimationFrame(function(){requestAnimationFrame(function(){if(el)el.style.minHeight="";});});
+    requestAnimationFrame(function(){requestAnimationFrame(function(){if(el)el.style.minHeight="";if(onReadyRef.current)onReadyRef.current();});});
     if(!ref.current)return;const svg=ref.current.querySelector("svg");if(!svg)return;
     const isStudio=t===TH.studio;
     svg.querySelectorAll("path").forEach(p=>{p.setAttribute("stroke",t.noteStroke);p.setAttribute("fill",t.noteStroke);});
@@ -4294,11 +4295,23 @@ function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst,
   const[showFlames,setShowFlames]=useState(false);
   const[likeAnim,setLikeAnim]=useState(false);
   const[saveAnim,setSaveAnim]=useState(false);
+  const[notationReady,setNotationReady]=useState(false);
+  const[inView,setInView]=useState(false);
+  const cardRef=useRef(null);
   const catC=getCatColor(lick.category,t);
-  const cardDelay=Math.min((animIdx||0)*40,240);
+  // IntersectionObserver — fire once when card enters viewport
+  useEffect(()=>{
+    if(!cardRef.current)return;
+    var obs=new IntersectionObserver(function(entries){
+      if(entries[0].isIntersecting){setInView(true);obs.disconnect();}
+    },{threshold:0.05});
+    obs.observe(cardRef.current);
+    return function(){obs.disconnect();};
+  },[]);
+  const visible=notationReady&&inView;
   return React.createElement(React.Fragment,null,
     showFlames&&React.createElement(FlamesPopup,{lickId:lick.id,lickTitle:lick.title,likeCount:lick.likes,th:t,onClose:function(e){setShowFlames(false);},onUserClick:onUserClick}),
-    React.createElement("div",{onClick:()=>onSelect(lick),style:{background:isStudio?(t.cardRaised||t.card):t.card,borderRadius:isStudio?16:14,padding:0,marginBottom:isStudio?12:8,border:"1px solid "+(isStudio?catC+"18":t.border),cursor:"pointer",transition:"all 0.15s",animation:"cardIn 0.3s ease-out "+cardDelay+"ms both",boxShadow:isStudio?"0 2px 16px "+catC+"15, 0 1px 6px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.03)":"0 2px 10px rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.03)",overflow:"hidden",display:"flex"}},
+    React.createElement("div",{ref:cardRef,onClick:()=>onSelect(lick),style:{background:isStudio?(t.cardRaised||t.card):t.card,borderRadius:isStudio?16:14,padding:0,marginBottom:isStudio?12:8,border:"1px solid "+(isStudio?catC+"18":t.border),cursor:"pointer",transition:visible?"opacity 0.5s ease-out, transform 0.5s ease-out":"none",opacity:visible?1:0,transform:visible?"translateY(0)":"translateY(10px)",boxShadow:isStudio?"0 2px 16px "+catC+"15, 0 1px 6px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.03)":"0 2px 10px rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.03)",overflow:"hidden",display:"flex"}},
     React.createElement("div",{style:{flex:1,padding:isStudio?16:14}},
       // TITLE + META
       React.createElement("div",{style:{marginBottom:8}},
@@ -4314,7 +4327,7 @@ function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst,
           lick.private&&React.createElement("span",{style:{fontSize:8,color:isStudio?"#22D89E":"#2E7D32",fontFamily:"'Inter',sans-serif",fontWeight:600,background:isStudio?"rgba(34,216,158,0.15)":"#E8F5E9",padding:"2px 6px",borderRadius:4}},"\uD83D\uDD12 Private"))),
       // NOTATION
       React.createElement("div",{style:{marginTop:4,display:"flex",justifyContent:"center",overflow:"hidden"}},
-        React.createElement(Notation,{abc:cardAbc,compact:true,th:t,curNoteRef:prevCurNote})),
+        React.createElement(Notation,{abc:cardAbc,compact:true,th:t,curNoteRef:prevCurNote,onReady:function(){setNotationReady(true);}})),
       // ACTION ROW — Instagram style
       React.createElement("div",{style:{marginTop:isStudio?12:8,paddingTop:isStudio?10:6,borderTop:"1px solid "+t.border}},
         React.createElement("div",{style:{display:"flex",alignItems:"center",gap:2}},
