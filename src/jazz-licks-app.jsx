@@ -1490,8 +1490,10 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
       });
       // Pass 2: render plain text labels at consistent Y per staff
       var LANE_GAP=10;
+      var laneYPerStaff=[];
       for(var si2=0;si2<staves.length;si2++){
         var laneY=staves[si2].lowestY+LANE_GAP;
+        laneYPerStaff.push(laneY);
         var myLabels=labelData.filter(function(d){return d.si===si2;});
         myLabels.forEach(function(ld){
           var lbl=document.createElementNS("http://www.w3.org/2000/svg","text");
@@ -1519,7 +1521,7 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
           if(maxY>vb.y+vb.height)svg.setAttribute("viewBox",vb.x+" "+vb.y+" "+vb.width+" "+(maxY-vb.y));
         }
       }catch(e){}
-      // ── Theory tap: click note to hear it with chord (concert pitch) ──
+      // ── Theory tap: invisible hit-area columns from chord symbol to label ──
       var tapAbc=soundAbc||abc;
       var tapParsed=null;try{tapParsed=parseAbc(tapAbc);}catch(e){}
       if(tapParsed){
@@ -1527,10 +1529,9 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
         for(var ei=0;ei<tapParsed.events.length;ei++){
           if(tapParsed.events[ei].tn&&tapParsed.events[ei].tn.length>0)noteTones.push(tapParsed.events[ei].tn);
         }
-        // Build chord regions from concert-pitch ABC for playback
         var tapChords=tapParsed.chords||[];
         var tapChordAtNote=[];
-        var notePos=0;var tci=0;
+        var notePos=0;
         for(var tei=0;tei<tapParsed.events.length;tei++){
           if(tapParsed.events[tei].tn&&tapParsed.events[tei].tn.length>0){
             var activeChord=null;
@@ -1541,18 +1542,49 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
           }
           notePos+=tapParsed.events[tei].rL;
         }
+        // Build hit-area rects per note — full column from staff top to below label
+        var HIT_W=24;var LABEL_H=16;
         noteEls.forEach(function(noteEl,idx){
-          noteEl.style.cursor="pointer";
-          noteEl.addEventListener("click",function(e){
+          var ti=noteEl._theoryInfo;if(!ti)return;
+          var bb=ti.bb;var cx=bb.x+bb.width/2;
+          // Find this note's staff
+          var nCy=bb.y+bb.height/2;var bestSi=0;var bestD=Infinity;
+          for(var sj=0;sj<staves.length;sj++){var dd=Math.abs(nCy-staves[sj].cy);if(dd<bestD){bestD=dd;bestSi=sj;}}
+          // Hit area: from above staff to below label
+          var staffHalf=staves[bestSi].bottom-staves[bestSi].cy;
+          var hitTop=Math.min(staves[bestSi].cy-staffHalf-6,bb.y-8);
+          var hitBot=(laneYPerStaff[bestSi]||bb.y+bb.height+20)+LABEL_H;
+          var hitH=hitBot-hitTop;
+          // Highlight column (initially invisible)
+          var hlCol=document.createElementNS("http://www.w3.org/2000/svg","rect");
+          hlCol.setAttribute("class","theory-lane");
+          hlCol.setAttribute("x",cx-HIT_W/2);hlCol.setAttribute("y",hitTop);
+          hlCol.setAttribute("width",HIT_W);hlCol.setAttribute("height",hitH);
+          hlCol.setAttribute("rx","4");hlCol.setAttribute("ry","4");
+          hlCol.setAttribute("fill",ti.col);hlCol.setAttribute("fill-opacity","0");
+          hlCol.style.pointerEvents="none";hlCol.style.transition="fill-opacity 0.08s ease-out";
+          svg.appendChild(hlCol);
+          // Invisible hit-area rect on top
+          var hit=document.createElementNS("http://www.w3.org/2000/svg","rect");
+          hit.setAttribute("class","theory-lane");
+          hit.setAttribute("x",cx-HIT_W/2);hit.setAttribute("y",hitTop);
+          hit.setAttribute("width",HIT_W);hit.setAttribute("height",hitH);
+          hit.setAttribute("fill","transparent");
+          hit.style.cursor="pointer";
+          hit.addEventListener("click",function(theIdx,theNoteEl,theHlCol,theCol){return function(e){
             e.stopPropagation();
-            var tones=idx<noteTones.length?noteTones[idx]:null;
-            var chordName=idx<tapChordAtNote.length?tapChordAtNote[idx]:null;
+            var tones=theIdx<noteTones.length?noteTones[theIdx]:null;
+            var chordName=theIdx<tapChordAtNote.length?tapChordAtNote[theIdx]:null;
             if(tones)playTheoryTap(tones,chordName);
-            // Visual pulse
-            var paths=noteEl.querySelectorAll("path,circle,ellipse");
-            paths.forEach(function(p){p.style.transition="filter 0.05s";p.style.filter="drop-shadow(0 0 10px "+t.accent+"90)";});
-            setTimeout(function(){paths.forEach(function(p){p.style.filter="none";p.style.transition="filter 0.3s";});},300);
-          });
+            // Highlight column flash
+            theHlCol.setAttribute("fill-opacity","0.15");
+            setTimeout(function(){theHlCol.setAttribute("fill-opacity","0");},400);
+            // Note glow
+            var paths=theNoteEl.querySelectorAll("path,circle,ellipse");
+            paths.forEach(function(p){p.style.transition="filter 0.05s";p.style.filter="drop-shadow(0 0 8px "+theCol+"AA)";});
+            setTimeout(function(){paths.forEach(function(p){p.style.filter="none";p.style.transition="filter 0.35s";});},400);
+          };}(idx,noteEl,hlCol,ti.col));
+          svg.appendChild(hit);
         });
       }
     }
