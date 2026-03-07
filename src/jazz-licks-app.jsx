@@ -472,7 +472,7 @@ const SOUND_PRESETS = [
 ];
 
 const INST_TRANS = {"Concert":0,"Alto Sax":9,"Soprano Sax":2,"Tenor Sax":2,"Baritone Sax":9,"Bb Trumpet":2,"Clarinet":2,"Trombone":0,"Piano":0,"Guitar":0,"Bass":0,"Flute":0,"Vibes":0,"Violin":0,"Vocals":0};
-const TRANS_INSTRUMENTS = ["Concert","Alto Sax","Soprano Sax","Tenor Sax","Baritone Sax","Bb Trumpet","Clarinet"];
+const TRANS_INSTRUMENTS = ["Concert","Alto Sax","Soprano Sax","Tenor Sax","Baritone Sax","Bb Trumpet","Clarinet","Trombone","Flute","Piano","Guitar","Bass","Vibes","Violin","Vocals"];
 
 // ============================================================
 // MUSIC THEORY
@@ -8638,7 +8638,7 @@ export default function Etudy(){
         React.createElement("div",{style:{marginBottom:24}},
           React.createElement("div",{style:{fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5,marginBottom:10}},"INSTRUMENT"),
           React.createElement("div",{style:{display:"flex",gap:6,flexWrap:"wrap"}},
-            ["Concert","Alto Sax","Soprano Sax","Tenor Sax","Baritone Sax","Bb Trumpet","Clarinet","Trombone","Flute"].map(function(name){
+            ["Concert","Alto Sax","Soprano Sax","Tenor Sax","Baritone Sax","Bb Trumpet","Clarinet","Trombone","Flute","Piano","Guitar","Bass","Vibes","Violin","Vocals"].map(function(name){
               return React.createElement("button",{key:name,onClick:function(){changeUserInst(name);},style:{padding:"8px 14px",borderRadius:10,border:userInst===name?"1.5px solid "+t.accent:"1.5px solid "+t.border,background:userInst===name?(isStudio?t.accent+"15":t.accent+"08"):"transparent",color:userInst===name?t.text:t.muted,fontSize:12,fontFamily:"'Inter',sans-serif",fontWeight:userInst===name?600:400,cursor:"pointer",transition:"all 0.15s"}},name);})),
           userInst!=="Concert"&&React.createElement("p",{style:{fontSize:11,color:t.accent,fontFamily:"'Inter',sans-serif",marginTop:8,fontStyle:"italic"}},"All notation auto-transposed for "+userInst)),
         // Theme
