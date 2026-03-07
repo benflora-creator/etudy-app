@@ -473,6 +473,8 @@ const SOUND_PRESETS = [
 
 const INST_TRANS = {"Concert":0,"Alto Sax":9,"Soprano Sax":2,"Tenor Sax":2,"Baritone Sax":9,"Bb Trumpet":2,"Clarinet":2,"Trombone":0,"Piano":0,"Guitar":0,"Bass":0,"Flute":0,"Vibes":0,"Violin":0,"Vocals":0};
 const TRANS_INSTRUMENTS = ["Concert","Alto Sax","Soprano Sax","Tenor Sax","Baritone Sax","Bb Trumpet","Clarinet","Trombone","Flute","Piano","Guitar","Bass","Vibes","Violin","Vocals"];
+const BASS_CLEF_INSTS = new Set(["Bass","Trombone"]);
+function injectBassClef(abc){return abc.replace(/(K:[^\n]*)/,function(m){return m.includes("clef")?m:m+" clef=bass";});}
 
 // ============================================================
 // MUSIC THEORY
@@ -1420,7 +1422,7 @@ function getBarInfo(abc){
 // ============================================================
 // NOTATION — theme-aware
 // ============================================================
-function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteIdx,onDeselect,theoryMode,theoryAnalysis,onReady,soundAbc}){
+function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteIdx,onDeselect,theoryMode,theoryAnalysis,onReady,soundAbc,bassClef}){
   const ref=useRef(null);const ok=useAbcjs();const prevNoteRef=useRef(-1);const rafRef=useRef(null);
   const onReadyRef=useRef(onReady);useEffect(()=>{onReadyRef.current=onReady;},[onReady]);
   const t=th||TH.classic;
@@ -1432,9 +1434,9 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
     var editorMode=!!onNoteClick;
     var hasContent=abc.includes("|");
     // Inject barsperstaff directive for editor mode (only when there's music content)
-    var renderAbc=abc;
+    var renderAbc=bassClef?injectBassClef(abc):abc;
     if(editorMode&&hasContent){
-      renderAbc=abc.replace(/(K:[^\n]*)/,"%%barsperstaff 2\n$1");
+      renderAbc=renderAbc.replace(/(K:[^\n]*)/,"%%barsperstaff 2\n$1");
     }
     const opts={responsive:"resize",paddingtop:editorMode?28:(focus?14:theoryMode?14:2),paddingbottom:theoryMode?34:(focus?14:2),paddingleft:0,paddingright:0,add_classes:true};
     if(compact){opts.staffwidth=400;opts.scale=0.85;}
@@ -4066,7 +4068,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
         // Notation — card with subtle background, no border
         React.createElement("div",{style:{position:"relative",padding:"14px 10px 10px",borderRadius:16,background:isStudio?"rgba(255,255,255,0.03)":t.settingsBg||"#F8F9FB",boxShadow:isStudio?"inset 0 1px 0 rgba(255,255,255,0.04)":"inset 0 1px 3px rgba(0,0,0,0.03)"}},
           React.createElement("div",{onClick:function(){if(!theoryMode)setFocus(true);},style:{cursor:theoryMode?"default":"zoom-in"}},
-            React.createElement(Notation,{abc:notationAbc,compact:false,focus:true,abRange:abOn?[abA,abB]:null,curNoteRef:curNoteRef,th:t,theoryMode:theoryMode,theoryAnalysis:theoryAnalysis,soundAbc:soundAbc})),
+            React.createElement(Notation,{abc:notationAbc,compact:false,focus:true,abRange:abOn?[abA,abB]:null,curNoteRef:curNoteRef,th:t,theoryMode:theoryMode,theoryAnalysis:theoryAnalysis,soundAbc:soundAbc,bassClef:BASS_CLEF_INSTS.has(trInst)})),
           // X-Ray + Fullscreen buttons
           React.createElement("div",{style:{position:"absolute",top:10,right:14,display:"flex",gap:6,alignItems:"center"}},
             React.createElement("button",{onClick:function(){setTheoryMode(!theoryMode);},title:"Theory Analysis",style:{width:32,height:32,borderRadius:8,background:theoryMode?(isStudio?t.accent+"25":t.accent+"15"):t.accentBg,display:"flex",alignItems:"center",justifyContent:"center",border:theoryMode?"1.5px solid "+(isStudio?t.accent+"60":t.accent):("1px solid "+t.accentBorder),cursor:"pointer",transition:"all 0.2s",boxShadow:theoryMode?("0 0 12px "+(isStudio?t.accent+"30":"rgba(99,102,241,0.15)")):"none"}},IC.xray(15,theoryMode?t.accent:(isStudio?t.subtle:t.muted),theoryMode)),
@@ -4251,7 +4253,7 @@ function DailyLickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:user
         React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace"}},keyDisp+" \u00B7 \u2669="+lick.tempo)),
       // NOTATION
       React.createElement("div",{style:{marginTop:6,display:"flex",justifyContent:"center",overflow:"hidden"}},
-        React.createElement(Notation,{abc:cardAbc,compact:true,th:t,curNoteRef:prevCurNote})),
+        React.createElement(Notation,{abc:cardAbc,compact:true,th:t,curNoteRef:prevCurNote,bassClef:BASS_CLEF_INSTS.has(userInst)})),
       // ACTION ROW — Instagram style
       React.createElement("div",{"data-coach":"flame",style:{display:"flex",alignItems:"center",gap:2,marginTop:isStudio?14:10,paddingTop:isStudio?12:8,borderTop:"1px solid "+t.border}},
         React.createElement(PreviewBtn,{lickId:lick.id,abc:lick.abc,tempo:lick.tempo,th:t,size:30}),
@@ -4439,7 +4441,7 @@ function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst,
           lick.private&&React.createElement("span",{style:{fontSize:8,color:isStudio?"#22D89E":"#2E7D32",fontFamily:"'Inter',sans-serif",fontWeight:600,background:isStudio?"rgba(34,216,158,0.15)":"#E8F5E9",padding:"2px 6px",borderRadius:4}},"\uD83D\uDD12 Private"))),
       // NOTATION
       React.createElement("div",{style:{marginTop:4,display:"flex",justifyContent:"center",overflow:"hidden"}},
-        React.createElement(Notation,{abc:cardAbc,compact:true,th:t,curNoteRef:prevCurNote,onReady:function(){setNotationReady(true);}})),
+        React.createElement(Notation,{abc:cardAbc,compact:true,th:t,curNoteRef:prevCurNote,onReady:function(){setNotationReady(true);},bassClef:BASS_CLEF_INSTS.has(userInst)})),
       // ACTION ROW — Instagram style
       React.createElement("div",{style:{marginTop:isStudio?12:8,paddingTop:isStudio?10:6,borderTop:"1px solid "+t.border}},
         React.createElement("div",{style:{display:"flex",alignItems:"center",gap:2}},
@@ -4599,7 +4601,7 @@ function EarTrainer({licks,onLike,onOpen,likedSet,th,userInst:userInst}){
           // Notation — blurred or revealed
           React.createElement("div",{style:{filter:isRevealed?"blur(0)":"blur(12px)",transition:"filter 0.6s ease",WebkitFilter:isRevealed?"blur(0)":"blur(12px)",pointerEvents:isRevealed?"auto":"none",opacity:isRevealed?1:0.3}},
             React.createElement("div",{style:{background:t.noteBg,borderRadius:14,padding:12,border:"1px solid "+(isStudio?t.staffStroke+"30":t.borderSub)}},
-              React.createElement(Notation,{abc:earAbc,compact:false,curNoteRef:curNoteRef,th:t}))),
+              React.createElement(Notation,{abc:earAbc,compact:false,curNoteRef:curNoteRef,th:t,bassClef:BASS_CLEF_INSTS.has(userInst)}))),
           // Mystery overlay when not revealed
           !isRevealed&&React.createElement("div",{style:{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:isStudio?"rgba(12,12,24,0.5)":"rgba(255,255,255,0.3)",borderRadius:14,backdropFilter:"blur(2px)",WebkitBackdropFilter:"blur(2px)"}},
             IC.tabEar(28,t.accent,false),
@@ -7202,7 +7204,7 @@ function AllKeysTrainer({lick,th,userInst,keyProgress,onUpdateProgress}){
           IC.tabEar(28,t.muted,false),
           React.createElement("p",{style:{fontSize:13,color:t.muted,fontFamily:"'Inter',sans-serif",margin:"10px 0 0"}},"Play from memory in "+learnKeyName),
           React.createElement("button",{onClick:function(){setHidden(false);},style:{marginTop:10,padding:"5px 14px",borderRadius:8,border:"1px solid "+t.border,background:t.filterBg,color:t.subtle,fontSize:10,fontFamily:"'Inter',sans-serif",cursor:"pointer"}},"Peek")):
-        React.createElement(Notation,{abc:learnAbc,compact:false,th:t,curNoteRef:curNoteRef}),
+        React.createElement(Notation,{abc:learnAbc,compact:false,th:t,curNoteRef:curNoteRef,bassClef:BASS_CLEF_INSTS.has(userInst)}),
         React.createElement("div",{style:{borderTop:"1px solid "+t.border,marginTop:10,paddingTop:6}},
           React.createElement(Player,{abc:learnSoundAbc,tempo:learnTempo,abOn:false,abA:0,abB:1,setAbOn:null,setAbA:null,setAbB:null,pT:learnTempo,sPT:null,lickTempo:lick.tempo,trInst:null,setTrInst:null,trMan:null,setTrMan:null,onCurNote:function(n){curNoteRef.current=n;},th:t}))),
       React.createElement("div",{style:{fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",textAlign:"center",marginBottom:4}},"\u2669="+(stage===3?lick.tempo:slowTempo)+(stage===3?" (full tempo)":" (slow)")),
@@ -7302,7 +7304,7 @@ function AllKeysTrainer({lick,th,userInst,keyProgress,onUpdateProgress}){
 
         // Notation card
         React.createElement("div",{style:{background:t.card,borderRadius:12,padding:10,border:"1px solid "+(isStudio?t.staffStroke+"30":t.border),marginBottom:4}},
-          React.createElement(Notation,{key:"drill-n-"+drillOffset,abc:drillAbc,compact:true,th:t,curNoteRef:curNoteRef})),
+          React.createElement(Notation,{key:"drill-n-"+drillOffset,abc:drillAbc,compact:true,th:t,curNoteRef:curNoteRef,bassClef:BASS_CLEF_INSTS.has(userInst)})),
 
         // Player with controls visible (hideControls shows settings, no play button)
         React.createElement(Player,{key:"drill-active",abc:drillSoundAbc,tempo:lick.tempo,abOn:false,abA:0,abB:1,setAbOn:null,setAbA:null,setAbB:null,pT:lick.tempo,sPT:null,lickTempo:lick.tempo,trInst:null,setTrInst:null,trMan:null,setTrMan:null,onCurNote:function(n){curNoteRef.current=n;},th:t,forceLoop:true,autoPlay:true,onLoopComplete:onDrillLoop,hideControls:true}),
@@ -7519,7 +7521,7 @@ function PlanRunner({plan,onClose,th,licks,userInst,keyProgress,onUpdateKeyProgr
           React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace"}},keyDisp+" \u00B7 \u2669="+curLick.tempo)),
         // Notation + Player card
         React.createElement("div",{style:{background:t.card,borderRadius:14,padding:14,border:"1px solid "+(isStudio?t.staffStroke+"30":t.border),marginBottom:10}},
-          React.createElement(Notation,{abc:notationAbc,compact:false,th:t,curNoteRef:curNoteRef}),
+          React.createElement(Notation,{abc:notationAbc,compact:false,th:t,curNoteRef:curNoteRef,bassClef:BASS_CLEF_INSTS.has(trInst)}),
           React.createElement("div",{style:{borderTop:"1px solid "+t.border,marginTop:10,paddingTop:6}},
             React.createElement(Player,{abc:soundAbc,tempo:curLick.tempo,abOn:false,abA:0,abB:1,setAbOn:null,setAbA:null,setAbB:null,pT:curLick.tempo,sPT:null,lickTempo:curLick.tempo,trInst:null,setTrInst:null,trMan:null,setTrMan:null,onCurNote:function(n){curNoteRef.current=n;},th:t}))),
 
