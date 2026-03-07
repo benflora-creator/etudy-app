@@ -1420,7 +1420,7 @@ function getBarInfo(abc){
 // ============================================================
 // NOTATION — theme-aware
 // ============================================================
-function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteIdx,onDeselect,theoryMode,theoryAnalysis,onReady}){
+function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteIdx,onDeselect,theoryMode,theoryAnalysis,onReady,soundAbc}){
   const ref=useRef(null);const ok=useAbcjs();const prevNoteRef=useRef(-1);const rafRef=useRef(null);
   const onReadyRef=useRef(onReady);useEffect(()=>{onReadyRef.current=onReady;},[onReady]);
   const t=th||TH.classic;
@@ -1519,20 +1519,34 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
           if(maxY>vb.y+vb.height)svg.setAttribute("viewBox",vb.x+" "+vb.y+" "+vb.width+" "+(maxY-vb.y));
         }
       }catch(e){}
-      // ── Theory tap: click note to hear it with chord ──
-      var parsed=null;try{parsed=parseAbc(abc);}catch(e){}
-      if(parsed){
+      // ── Theory tap: click note to hear it with chord (concert pitch) ──
+      var tapAbc=soundAbc||abc;
+      var tapParsed=null;try{tapParsed=parseAbc(tapAbc);}catch(e){}
+      if(tapParsed){
         var noteTones=[];
-        for(var ei=0;ei<parsed.events.length;ei++){
-          if(parsed.events[ei].tn&&parsed.events[ei].tn.length>0)noteTones.push(parsed.events[ei].tn);
+        for(var ei=0;ei<tapParsed.events.length;ei++){
+          if(tapParsed.events[ei].tn&&tapParsed.events[ei].tn.length>0)noteTones.push(tapParsed.events[ei].tn);
+        }
+        // Build chord regions from concert-pitch ABC for playback
+        var tapChords=tapParsed.chords||[];
+        var tapChordAtNote=[];
+        var notePos=0;var tci=0;
+        for(var tei=0;tei<tapParsed.events.length;tei++){
+          if(tapParsed.events[tei].tn&&tapParsed.events[tei].tn.length>0){
+            var activeChord=null;
+            for(var tci2=tapChords.length-1;tci2>=0;tci2--){
+              if(notePos>=tapChords[tci2].pos-0.001){activeChord=tapChords[tci2].name;break;}
+            }
+            tapChordAtNote.push(activeChord);
+          }
+          notePos+=tapParsed.events[tei].rL;
         }
         noteEls.forEach(function(noteEl,idx){
           noteEl.style.cursor="pointer";
           noteEl.addEventListener("click",function(e){
             e.stopPropagation();
             var tones=idx<noteTones.length?noteTones[idx]:null;
-            var chordName=null;
-            if(na[idx]&&na[idx].entries&&na[idx].entries[0])chordName=na[idx].entries[0].chord;
+            var chordName=idx<tapChordAtNote.length?tapChordAtNote[idx]:null;
             if(tones)playTheoryTap(tones,chordName);
             // Visual pulse
             var paths=noteEl.querySelectorAll("path,circle,ellipse");
@@ -1580,7 +1594,7 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
           if(!bestInR){p.setAttribute("fill-opacity","0.12");p.setAttribute("stroke-opacity","0.12");}
         }catch(e){}});}
     }
-  },[abc,ok,compact,abRange,focus,th,theoryMode,theoryAnalysis]);
+  },[abc,ok,compact,abRange,focus,th,theoryMode,theoryAnalysis,soundAbc]);
   // Cursor: poll curNoteRef via rAF — zero React re-renders
   useEffect(()=>{if(!curNoteRef)return;
     const tick=()=>{const cn=curNoteRef.current;
@@ -2880,7 +2894,7 @@ function NoteBuilder({onAbcChange,keySig,timeSig,tempo,previewEl,playerEl,noteCl
 // ============================================================
 // SHEET FOCUS — fullscreen notation overlay
 // ============================================================
-function SheetFocus({abc,onClose,abRange,curNoteRef,th,playerCtrlRef,theoryMode,theoryAnalysis}){
+function SheetFocus({abc,onClose,abRange,curNoteRef,th,playerCtrlRef,theoryMode,theoryAnalysis,soundAbc}){
   const t=th||TH.classic;const isStudio=t===TH.studio;
   const[playing,setPlaying]=useState(false);
   useEffect(()=>{document.body.style.overflow="hidden";return()=>{document.body.style.overflow="";};},[]);
@@ -2889,7 +2903,7 @@ function SheetFocus({abc,onClose,abRange,curNoteRef,th,playerCtrlRef,theoryMode,
   var onToggle=function(){if(playerCtrlRef&&playerCtrlRef.current&&playerCtrlRef.current.toggle)playerCtrlRef.current.toggle();};
   return React.createElement("div",{"data-sheet-focus":"true",style:{position:"fixed",top:0,left:0,width:"100vw",height:"100vh",maxWidth:"none",zIndex:9999,background:t.card,display:"flex",flexDirection:"column",animation:"sheetUp 0.25s cubic-bezier(0.4,0,0.2,1)"}},
     React.createElement("div",{style:{flex:1,overflow:"auto",WebkitOverflowScrolling:"touch",padding:"52px 16px 72px",paddingTop:"calc(env(safe-area-inset-top, 0px) + 52px)",minHeight:0}},
-      React.createElement(Notation,{abc,compact:false,focus:true,abRange,curNoteRef,th:t,theoryMode:theoryMode,theoryAnalysis:theoryAnalysis})),
+      React.createElement(Notation,{abc,compact:false,focus:true,abRange,curNoteRef,th:t,theoryMode:theoryMode,theoryAnalysis:theoryAnalysis,soundAbc:soundAbc})),
     // Bottom bar with play/stop
     React.createElement("div",{style:{position:"absolute",bottom:0,left:0,right:0,padding:"12px 16px",paddingBottom:"max(12px, env(safe-area-inset-bottom))",background:t.headerBg,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",borderTop:"1px solid "+t.border,display:"flex",alignItems:"center",justifyContent:"center",gap:16}},
       React.createElement("button",{onClick:onToggle,style:{width:48,height:48,borderRadius:24,border:"none",background:playing?(isStudio?"#EF4444":t.muted):(isStudio?t.playBg:t.accent),color:"#fff",fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:playing?"none":"0 4px 16px "+t.accentGlow,transition:"all 0.15s"}},playing?"\u25A0":"\u25B6")),
@@ -4005,7 +4019,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
         // Notation — card with subtle background, no border
         React.createElement("div",{style:{position:"relative",padding:"14px 10px 10px",borderRadius:16,background:isStudio?"rgba(255,255,255,0.03)":t.settingsBg||"#F8F9FB",boxShadow:isStudio?"inset 0 1px 0 rgba(255,255,255,0.04)":"inset 0 1px 3px rgba(0,0,0,0.03)"}},
           React.createElement("div",{onClick:function(){if(!theoryMode)setFocus(true);},style:{cursor:theoryMode?"default":"zoom-in"}},
-            React.createElement(Notation,{abc:notationAbc,compact:false,focus:true,abRange:abOn?[abA,abB]:null,curNoteRef:curNoteRef,th:t,theoryMode:theoryMode,theoryAnalysis:theoryAnalysis})),
+            React.createElement(Notation,{abc:notationAbc,compact:false,focus:true,abRange:abOn?[abA,abB]:null,curNoteRef:curNoteRef,th:t,theoryMode:theoryMode,theoryAnalysis:theoryAnalysis,soundAbc:soundAbc})),
           // X-Ray + Fullscreen buttons
           React.createElement("div",{style:{position:"absolute",top:10,right:14,display:"flex",gap:6,alignItems:"center"}},
             React.createElement("button",{onClick:function(){setTheoryMode(!theoryMode);},title:"Theory Analysis",style:{width:32,height:32,borderRadius:8,background:theoryMode?(isStudio?t.accent+"25":t.accent+"15"):t.accentBg,display:"flex",alignItems:"center",justifyContent:"center",border:theoryMode?"1.5px solid "+(isStudio?t.accent+"60":t.accent):("1px solid "+t.accentBorder),cursor:"pointer",transition:"all 0.2s",boxShadow:theoryMode?("0 0 12px "+(isStudio?t.accent+"30":"rgba(99,102,241,0.15)")):"none"}},IC.xray(15,theoryMode?t.accent:(isStudio?t.subtle:t.muted),theoryMode)),
@@ -4126,7 +4140,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
       React.createElement(Player,{abc:soundAbc,tempo:pT,abOn:abOn,abA:abA,abB:abB,setAbOn:setAbOn,setAbA:setAbA,setAbB:setAbB,pT:pT,sPT:sPT,lickTempo:lick.tempo,trInst:null,setTrInst:null,trMan:null,setTrMan:null,onCurNote:function(n){curNoteRef.current=n;},th:t,ctrlRef:playerCtrlRef,initFeel:lick.feel,headless:true,onStateChange:setPs})),
 
     // ═══════ OVERLAYS ═══════
-    focus&&React.createElement(SheetFocus,{abc:notationAbc,onClose:function(){setFocus(false);},abRange:abOn?[abA,abB]:null,curNoteRef:curNoteRef,th:t,playerCtrlRef:playerCtrlRef,theoryMode:theoryMode,theoryAnalysis:theoryAnalysis}),
+    focus&&React.createElement(SheetFocus,{abc:notationAbc,onClose:function(){setFocus(false);},abRange:abOn?[abA,abB]:null,curNoteRef:curNoteRef,th:t,playerCtrlRef:playerCtrlRef,theoryMode:theoryMode,theoryAnalysis:theoryAnalysis,soundAbc:soundAbc}),
     scalePopup&&React.createElement(ScalePopup,{data:scalePopup,th:t,isStudio:isStudio,onClose:function(){setScalePopup(null);}}),
     burst&&React.createElement(FireBurst,{key:burst.k,originX:burst.x,originY:burst.y,onDone:function(){sBurst(null);}}),
     showTempoPopup&&React.createElement(TempoPopup,{bpm:pT,onBpmChange:sPT,onClose:function(){setShowTempoPopup(false);},th:t,lickTempo:lick.tempo,playerCtrlRef:playerCtrlRef,ci:ps.ci,setCi:function(v){var c=pc();if(c.setCi)c.setCi(v);}}),
