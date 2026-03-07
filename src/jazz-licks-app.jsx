@@ -472,7 +472,16 @@ const SOUND_PRESETS = [
 ];
 
 const INST_TRANS = {"Concert":0,"Alto Sax":9,"Soprano Sax":2,"Tenor Sax":2,"Baritone Sax":9,"Bb Trumpet":2,"Clarinet":2,"Trombone":0,"Piano":0,"Guitar":0,"Bass":0,"Flute":0,"Vibes":0,"Violin":0,"Vocals":0};
-const TRANS_INSTRUMENTS = ["Concert","Alto Sax","Soprano Sax","Tenor Sax","Baritone Sax","Bb Trumpet","Clarinet","Trombone","Flute","Piano","Guitar","Bass","Vibes","Violin","Vocals"];
+const TRANS_INSTRUMENTS = ["Concert","Alto Sax","Soprano Sax","Tenor Sax","Baritone Sax","Bb Trumpet","Clarinet","Trombone","Flute","Bass"];
+// Maps profile instrument names → INST_TRANS keys (for offset lookup)
+const INST_TO_TRANS={"Alto Sax":"Alto Sax","Soprano Sax":"Soprano Sax","Tenor Sax":"Tenor Sax","Baritone Sax":"Baritone Sax","Trumpet":"Bb Trumpet","Bb Trumpet":"Bb Trumpet","Clarinet":"Clarinet","Trombone":"Trombone","Flute":"Flute","Bass":"Bass","Piano":"Concert","Guitar":"Concert","Vibes":"Concert","Violin":"Concert","Vocals":"Concert","Concert":"Concert"};
+function instToTransKey(inst){return INST_TO_TRANS[inst]||"Concert";}
+// For userInst storage — keeps actual name so BASS_CLEF_INSTS works correctly
+function instToUserInst(inst){
+  // Normalize "Trumpet" → "Bb Trumpet", everything else stays as-is
+  if(inst==="Trumpet")return "Bb Trumpet";
+  return inst||"Concert";
+}
 const BASS_CLEF_INSTS = new Set(["Bass","Trombone"]);
 function injectBassClef(abc){
   var shifted=transposeAbc(abc,-12);
@@ -6716,7 +6725,17 @@ function PracticePlan({th,licks,savedSet,onStartSession,historyKey:externalHisto
   useEffect(function(){
     var s=getStg();if(!s)return;
     s.get("etudy:plans").then(function(r){
-      if(r&&r.value){try{var p=JSON.parse(r.value);if(p.length)setPlans(p);}catch(e){}}
+      if(r&&r.value){try{
+        var p=JSON.parse(r.value);
+        if(p.length){
+          setPlans(p);
+          // Sync nextId to max existing item id to avoid collisions after reload
+          var maxId=p.reduce(function(mx,plan){
+            return plan.items.reduce(function(m,item){return Math.max(m,item.id||0);},mx);
+          },100);
+          nextId.current=maxId;
+        }
+      }catch(e){}}
     }).catch(function(){});
   },[]);
 
@@ -8164,8 +8183,8 @@ export default function Etudy(){
     updateProfile(authUser.id,{...data, username: data.username||null, onboarding_done:true}).then(function(p){
       setAuthProfile(p);
       setShowOnboarding(false);
-      var transMap={"Alto Sax":"Alto Sax","Soprano Sax":"Soprano Sax","Tenor Sax":"Tenor Sax","Baritone Sax":"Baritone Sax","Trumpet":"Bb Trumpet","Clarinet":"Clarinet","Trombone":"Trombone","Flute":"Flute"};
-      if(transMap[data.instrument]){setUserInst(transMap[data.instrument]);var g=getStg();if(g)g.set("etudy:userInst",transMap[data.instrument]).catch(function(){});}
+      var mapped=instToUserInst(data.instrument);
+      setUserInst(mapped);var g=getStg();if(g)g.set("etudy:userInst",mapped).catch(function(){});
     }).catch(function(e){
       console.error("Profile update failed:",e);
       setShowOnboarding(false);
@@ -8176,9 +8195,8 @@ export default function Etudy(){
     var p=await updateProfile(authUser.id,data);
     setAuthProfile(p);
     if(data.instrument){
-      var transMap={"Alto Sax":"Alto Sax","Soprano Sax":"Soprano Sax","Tenor Sax":"Tenor Sax","Baritone Sax":"Baritone Sax","Trumpet":"Bb Trumpet","Clarinet":"Clarinet","Trombone":"Trombone","Flute":"Flute"};
-      var mapped=transMap[data.instrument];
-      if(mapped){setUserInst(mapped);var g=getStg();if(g)g.set("etudy:userInst",mapped).catch(function(){});}
+      var mapped=instToUserInst(data.instrument);
+      setUserInst(mapped);var g=getStg();if(g)g.set("etudy:userInst",mapped).catch(function(){});
     }
     fetchLicks().then(function(fresh){if(fresh&&fresh.length>0)sL(fresh);});
   };
@@ -8649,7 +8667,9 @@ export default function Etudy(){
           React.createElement("div",{style:{fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5,marginBottom:10}},"INSTRUMENT"),
           React.createElement("div",{style:{display:"flex",gap:6,flexWrap:"wrap"}},
             ["Concert","Alto Sax","Soprano Sax","Tenor Sax","Baritone Sax","Bb Trumpet","Clarinet","Trombone","Flute","Piano","Guitar","Bass","Vibes","Violin","Vocals"].map(function(name){
-              return React.createElement("button",{key:name,onClick:function(){changeUserInst(name);},style:{padding:"8px 14px",borderRadius:10,border:userInst===name?"1.5px solid "+t.accent:"1.5px solid "+t.border,background:userInst===name?(isStudio?t.accent+"15":t.accent+"08"):"transparent",color:userInst===name?t.text:t.muted,fontSize:12,fontFamily:"'Inter',sans-serif",fontWeight:userInst===name?600:400,cursor:"pointer",transition:"all 0.15s"}},name);})),
+              var mappedName=instToUserInst(name);
+              var isActive=userInst===mappedName;
+              return React.createElement("button",{key:name,onClick:function(){changeUserInst(mappedName);},style:{padding:"8px 14px",borderRadius:10,border:isActive?"1.5px solid "+t.accent:"1.5px solid "+t.border,background:isActive?(isStudio?t.accent+"15":t.accent+"08"):"transparent",color:isActive?t.text:t.muted,fontSize:12,fontFamily:"'Inter',sans-serif",fontWeight:isActive?600:400,cursor:"pointer",transition:"all 0.15s"}},name);})),
           userInst!=="Concert"&&React.createElement("p",{style:{fontSize:11,color:t.accent,fontFamily:"'Inter',sans-serif",marginTop:8,fontStyle:"italic"}},"All notation auto-transposed for "+userInst)),
         // Theme
         React.createElement("div",{style:{marginBottom:24}},
