@@ -3525,6 +3525,9 @@ function EditProfileView({authUser,authProfile,onClose,onSave,th}){
   const[saving,setSaving]=useState(false);
   const[saved,setSaved]=useState(false);
   const[errs,setErrs]=useState({});
+  const[avatarUrl,setAvatarUrl]=useState(authProfile?.avatar_url||null);
+  const[avatarUploading,setAvatarUploading]=useState(false);
+  const avatarInputRef=useRef(null);
 
   const inputStyle={width:"100%",background:t.inputBg||t.filterBg,border:"1px solid "+(t.inputBorder||t.border),borderRadius:10,padding:"11px 14px",color:t.text,fontSize:14,fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"};
   const fl=(txt,sub)=>React.createElement("div",{style:{marginBottom:6}},
@@ -3570,10 +3573,34 @@ function EditProfileView({authUser,authProfile,onClose,onSave,th}){
     React.createElement("div",{style:{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch"}},
       React.createElement("div",{style:{maxWidth:520,margin:"0 auto",padding:"20px 16px 120px"}},
 
-        // AVATAR PREVIEW
-        React.createElement("div",{style:{display:"flex",justifyContent:"center",marginBottom:28}},
-          React.createElement("div",{style:{width:80,height:80,borderRadius:24,background:isStudio?"linear-gradient(135deg,"+instC+"22,"+instC+"08)":t.accentBg,border:"2px solid "+instC+"50",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:isStudio?"0 0 30px "+instC+"20":"none"}},
-            React.createElement("span",{style:{fontSize:28,fontWeight:700,color:instC,fontFamily:"'Inter',sans-serif",letterSpacing:-0.5}},initials))),
+        // AVATAR — clickable upload
+        React.createElement("div",{style:{display:"flex",flexDirection:"column",alignItems:"center",marginBottom:28}},
+          React.createElement("input",{type:"file",accept:"image/*",ref:avatarInputRef,style:{display:"none"},onChange:async function(ev){
+            var file=ev.target.files&&ev.target.files[0];if(!file)return;
+            setAvatarUploading(true);
+            try{
+              var ext=file.name.split('.').pop()||'jpg';
+              var path=authUser.id+'/avatar.'+ext;
+              var{error:upErr}=await supabase.storage.from('avatars').upload(path,file,{upsert:true,contentType:file.type});
+              if(upErr)throw upErr;
+              var{data:urlData}=supabase.storage.from('avatars').getPublicUrl(path);
+              var url=urlData.publicUrl+'?t='+Date.now();
+              setAvatarUrl(url);
+              await supabase.from('profiles').update({avatar_url:url}).eq('id',authUser.id);
+            }catch(e){console.error('Avatar upload failed:',e);setErrs(function(prev){return{...prev,avatar:'Upload failed: '+e.message};});}
+            setAvatarUploading(false);
+          }}),
+          React.createElement("button",{onClick:function(){if(avatarInputRef.current)avatarInputRef.current.click();},style:{position:"relative",width:88,height:88,borderRadius:24,background:isStudio?"linear-gradient(135deg,"+instC+"22,"+instC+"08)":t.accentBg,border:"2px solid "+instC+"50",overflow:"hidden",cursor:"pointer",boxShadow:isStudio?"0 0 30px "+instC+"20":"none",padding:0}},
+            avatarUrl
+              ?React.createElement("img",{src:avatarUrl,style:{width:"100%",height:"100%",objectFit:"cover"}})
+              :React.createElement("span",{style:{fontSize:28,fontWeight:700,color:instC,fontFamily:"'Inter',sans-serif",letterSpacing:-0.5}},initials),
+            // Camera overlay
+            React.createElement("div",{style:{position:"absolute",bottom:0,left:0,right:0,height:28,background:"rgba(0,0,0,0.55)",display:"flex",alignItems:"center",justifyContent:"center"}},
+              avatarUploading
+                ?React.createElement("span",{style:{fontSize:9,color:"#fff",fontFamily:"monospace"}},"…")
+                :React.createElement("span",{style:{fontSize:13}},"📷"))),
+          React.createElement("div",{style:{fontSize:10,color:t.subtle,fontFamily:"'Inter',sans-serif",marginTop:6}},avatarUploading?"Uploading…":"Tap to change photo"),
+          errs.avatar&&React.createElement("div",{style:{fontSize:10,color:"#FF6666",fontFamily:"'Inter',sans-serif",marginTop:3}},errs.avatar)),
 
         // ERROR GENERAL
         errs.general&&React.createElement("div",{style:{background:"#FF444420",border:"1px solid #FF444440",borderRadius:10,padding:"10px 14px",marginBottom:16,fontSize:12,color:"#FF6666",fontFamily:"'Inter',sans-serif"}},errs.general),
@@ -3653,7 +3680,7 @@ function PublicProfileView({username,onClose,onLickSelect,th,likedSet,savedSet,o
     }).catch(function(){setLoading(false);});
   },[username]);
 
-  const initials=username?username.slice(0,2).toUpperCase():"??";
+  const initials=((profile&&profile.display_name)||username||"??").slice(0,2).toUpperCase();
   const instC=profile&&profile.instrument?(INST_COL[profile.instrument]||t.accent):t.accent;
   const totalLikes=licks.reduce(function(s,l){return s+(l.likes||0);},0);
 
@@ -3665,7 +3692,7 @@ function PublicProfileView({username,onClose,onLickSelect,th,likedSet,savedSet,o
         React.createElement("button",{onClick:onClose,style:{background:"none",border:"none",cursor:"pointer",color:isStudio?t.accent:t.muted,fontSize:22,padding:"4px 8px 4px 0",display:"flex",alignItems:"center"}},"\u2039"),
         React.createElement("div",{style:{flex:1}},
           React.createElement("div",{style:{fontSize:11,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5,textTransform:"uppercase"}},"Musician"),
-          React.createElement("div",{style:{fontSize:16,fontWeight:700,color:t.text,fontFamily:"'Inter',sans-serif"}},username)))),
+          React.createElement("div",{style:{fontSize:16,fontWeight:700,color:t.text,fontFamily:"'Inter',sans-serif"}},(profile&&profile.display_name)||username)))),
 
     // SCROLLABLE BODY
     React.createElement("div",{style:{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch"}},
@@ -3674,11 +3701,14 @@ function PublicProfileView({username,onClose,onLickSelect,th,likedSet,savedSet,o
         // PROFILE HERO
         React.createElement("div",{style:{margin:"24px 0 20px",padding:"20px",background:t.card,borderRadius:18,border:"1px solid "+t.border,boxShadow:isStudio?"0 4px 24px rgba(0,0,0,0.3)":"0 2px 12px rgba(0,0,0,0.06)",display:"flex",alignItems:"flex-start",gap:16}},
           // Avatar
-          React.createElement("div",{style:{width:64,height:64,borderRadius:20,background:isStudio?"linear-gradient(135deg,"+instC+"22,"+instC+"08)":t.accentBg,border:"2px solid "+instC+"50",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:isStudio?"0 0 24px "+instC+"20":"none"}},
-            React.createElement("span",{style:{fontSize:22,fontWeight:700,color:instC,fontFamily:"'Inter',sans-serif",letterSpacing:-0.5}},initials)),
+          React.createElement("div",{style:{width:64,height:64,borderRadius:20,background:isStudio?"linear-gradient(135deg,"+instC+"22,"+instC+"08)":t.accentBg,border:"2px solid "+instC+"50",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:isStudio?"0 0 24px "+instC+"20":"none",overflow:"hidden"}},
+            profile&&profile.avatar_url
+              ?React.createElement("img",{src:profile.avatar_url,style:{width:"100%",height:"100%",objectFit:"cover"}})
+              :React.createElement("span",{style:{fontSize:22,fontWeight:700,color:instC,fontFamily:"'Inter',sans-serif",letterSpacing:-0.5}},initials)),
           // Info
           React.createElement("div",{style:{flex:1,minWidth:0}},
-            React.createElement("div",{style:{fontSize:18,fontWeight:700,color:t.text,fontFamily:"'Inter',sans-serif",marginBottom:4}},username),
+            React.createElement("div",{style:{fontSize:18,fontWeight:700,color:t.text,fontFamily:"'Inter',sans-serif",marginBottom:2}},(profile&&profile.display_name)||username),
+            profile&&profile.username&&React.createElement("div",{style:{fontSize:11,color:t.accent,fontFamily:"'Inter',sans-serif",fontWeight:600,marginBottom:6}},"@"+profile.username),
             profile&&profile.instrument&&React.createElement("div",{style:{display:"inline-flex",alignItems:"center",gap:4,fontSize:10,fontWeight:600,color:instC,background:instC+"15",padding:"3px 10px",borderRadius:8,border:"1px solid "+instC+"25",fontFamily:"'JetBrains Mono',monospace",marginBottom:8}},profile.instrument),
             profile&&profile.bio&&React.createElement("div",{style:{fontSize:12,color:t.muted,fontFamily:"'Inter',sans-serif",lineHeight:1.5,marginBottom:profile&&profile.website_url?6:0}},profile.bio),
             profile&&profile.website_url&&React.createElement("a",{href:profile.website_url,target:"_blank",rel:"noopener noreferrer",onClick:function(e){e.stopPropagation();},style:{display:"inline-flex",alignItems:"center",gap:4,fontSize:11,color:t.accent,fontFamily:"'Inter',sans-serif",textDecoration:"none",fontWeight:500}},"🔗 "+profile.website_url.replace(/^https?:\/\//,"")))),
@@ -4080,24 +4110,27 @@ function FlamesPopup({lickId,lickTitle,th,onClose,onUserClick}){
   var _l=useState(true); var loading=_l[0],setLoading=_l[1];
   useEffect(function(){
     setLoading(true);setUsers(null);
-    // Step 1: fetch user_ids who liked this lick
     supabase.from('user_licks')
-      .select('user_id')
+      .select('user_id, profiles!inner(username, display_name)')
       .eq('lick_id',lickId).eq('type','like').limit(50)
       .then(function(r){
-        if(!r.data||r.data.length===0){setUsers([]);setLoading(false);return;}
-        var ids=r.data.map(function(row){return row.user_id;});
-        // Step 2: fetch profiles for those user_ids
-        supabase.from('profiles')
-          .select('user_id,username,display_name')
-          .in('user_id',ids)
-          .then(function(r2){
-            var profileMap={};
-            (r2.data||[]).forEach(function(p){profileMap[p.user_id]=p.display_name||p.username||null;});
-            setUsers(ids.map(function(id){return profileMap[id]||'Anonymous';}));
-            setLoading(false);
-          }).catch(function(){setUsers(ids.map(function(){return'Anonymous';}));setLoading(false);});
-      }).catch(function(){setLoading(false);setUsers([]);});
+        console.log('[FlamesPopup] lickId='+lickId, r.data, r.error);
+        if(r.error||!r.data){
+          // fallback: just show count with no names
+          supabase.from('user_licks').select('user_id').eq('lick_id',lickId).eq('type','like').limit(50)
+            .then(function(r2){
+              console.log('[FlamesPopup] fallback:', r2.data, r2.error);
+              setUsers((r2.data||[]).map(function(row){return{id:row.user_id,name:null};}));
+              setLoading(false);
+            });
+          return;
+        }
+        setUsers(r.data.map(function(row){
+          var p=row.profiles||{};
+          return{id:row.user_id,name:p.display_name||p.username||null};
+        }));
+        setLoading(false);
+      }).catch(function(e){console.error('[FlamesPopup]',e);setLoading(false);setUsers([]);});
   },[lickId]);
 
   return React.createElement('div',{
@@ -4127,7 +4160,7 @@ function FlamesPopup({lickId,lickTitle,th,onClose,onUserClick}){
         React.createElement('div',{style:{display:'flex',alignItems:'center',gap:8}},
           IC.flame(16,'#F97316',true),
           React.createElement('span',{style:{fontSize:14,fontWeight:700,color:t.text,fontFamily:t.titleFont}},
-            (users?users.length:0)+' Flame'+((!users||users.length!==1)?'s':''))),
+            (users?users.length:0)+(t===TH.studio?' Flame':' Like')+((!users||users.length!==1)?'s':''))),
         React.createElement('button',{
           onClick:onClose,
           style:{background:t.filterBg,border:'1px solid '+t.border,color:t.muted,
@@ -4141,14 +4174,15 @@ function FlamesPopup({lickId,lickTitle,th,onClose,onUserClick}){
         !loading&&(!users||users.length===0)&&React.createElement('div',{style:{
           textAlign:'center',padding:'28px 0',
           color:t.muted,fontSize:12,fontFamily:'monospace'}},'no flames yet'),
-        !loading&&users&&users.map(function(name,i){
-          var isAnon=name==='Anonymous';
+        !loading&&users&&users.map(function(u,i){
+          var name=u&&u.name;
+          var hasName=!!name;
           return React.createElement('div',{key:i,
-            onClick:function(){if(!isAnon&&onUserClick){onUserClick(name);onClose();}},
+            onClick:function(){if(hasName&&onUserClick){onUserClick(name);onClose();}},
             style:{
               display:'flex',alignItems:'center',gap:12,
               padding:'10px 18px',
-              cursor:isAnon?'default':'pointer',
+              cursor:hasName?'pointer':'default',
               transition:'background 0.1s',
             }},
             React.createElement('div',{style:{
@@ -4156,11 +4190,11 @@ function FlamesPopup({lickId,lickTitle,th,onClose,onUserClick}){
               background:'linear-gradient(135deg,#F97316,#EF4444)',
               display:'flex',alignItems:'center',justifyContent:'center',
               fontSize:14,fontWeight:700,color:'#fff'}},
-              (name[0]||'?').toUpperCase()),
+              hasName?(name[0]||'?').toUpperCase():'?'),
             React.createElement('span',{style:{
-              fontSize:13,color:isAnon?t.muted:t.text,
+              fontSize:13,color:hasName?t.text:t.muted,
               fontFamily:"'Inter',sans-serif",fontWeight:500}},
-              isAnon?'Anonymous':'@'+name));
+              hasName?'@'+name:'Someone'));
         }))))
 }
 
@@ -8337,9 +8371,10 @@ export default function Etudy(){
               // Profile card
               React.createElement("div",{style:{background:t.card,borderRadius:16,border:"1px solid "+t.border,padding:"16px",marginBottom:12,display:"flex",alignItems:"center",gap:14}},
                 // Avatar
-                React.createElement("div",{style:{width:52,height:52,borderRadius:16,background:isStudio?"linear-gradient(135deg,"+(authProfile?.instrument?INST_COL[authProfile.instrument]||t.accent:t.accent)+"22,"+(authProfile?.instrument?INST_COL[authProfile.instrument]||t.accent:t.accent)+"08)":t.accentBg,border:"2px solid "+(authProfile?.instrument?INST_COL[authProfile.instrument]||t.accent:t.accent)+"40",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},
-                  React.createElement("span",{style:{fontSize:18,fontWeight:700,color:authProfile?.instrument?INST_COL[authProfile.instrument]||t.accent:t.accent,fontFamily:"'Inter',sans-serif"}},
-                    (authProfile?.display_name||authUser.email||"?").slice(0,2).toUpperCase())),
+                React.createElement("div",{style:{width:52,height:52,borderRadius:16,background:isStudio?"linear-gradient(135deg,"+(authProfile?.instrument?INST_COL[authProfile.instrument]||t.accent:t.accent)+"22,"+(authProfile?.instrument?INST_COL[authProfile.instrument]||t.accent:t.accent)+"08)":t.accentBg,border:"2px solid "+(authProfile?.instrument?INST_COL[authProfile.instrument]||t.accent:t.accent)+"40",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,overflow:"hidden"}},
+                  authProfile?.avatar_url
+                    ?React.createElement("img",{src:authProfile.avatar_url,style:{width:"100%",height:"100%",objectFit:"cover"}})
+                    :React.createElement("span",{style:{fontSize:18,fontWeight:700,color:authProfile?.instrument?INST_COL[authProfile.instrument]||t.accent:t.accent,fontFamily:"'Inter',sans-serif"}},(authProfile?.display_name||authUser.email||"?").slice(0,2).toUpperCase())),
                 // Info
                 React.createElement("div",{style:{flex:1,minWidth:0}},
                   React.createElement("div",{style:{fontSize:14,fontWeight:700,color:t.text,fontFamily:"'Inter',sans-serif",marginBottom:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}},authProfile?.display_name||authUser.email),
