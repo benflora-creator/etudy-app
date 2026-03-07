@@ -3130,17 +3130,20 @@ function YTPMini({videoId,startTime,endTime,speed,th}){
 // YTCardBtn — invisible iframe player, compact card button
 // Renders a single pill button: [▶ ORIG] or [⏸ ORIG]
 // The YT iframe sits 1×1px off-screen; audio only, no video visible.
+// YTCardBtn — pill button that expands a real visible YT player inline.
+// ToS-compliant: player is always visible when active.
+// Player is only created when expanded (no hidden iframe).
 function YTCardBtn({videoId,startTime,endTime,th}){
   var t=th||TH.studio;
-  var _pl=useState(false);  var playing=_pl[0],setPlaying=_pl[1];
-  var _lo=useState(false);  var loaded=_lo[0],setLoaded=_lo[1];
+  var _ex=useState(false); var expanded=_ex[0],setExpanded=_ex[1];
+  var _pl=useState(false); var playing=_pl[0],setPlaying=_pl[1];
   var divRef=useRef(null);
   var playerRef=useRef(null);
   var pollRef=useRef(null);
   var start=startTime||0;
   var end=(endTime&&endTime>start)?endTime:null;
 
-  // Load IFrame API once
+  // Load IFrame API once globally
   useEffect(function(){
     if(window.YT&&window.YT.Player)return;
     if(document.querySelector('script[src*="youtube.com/iframe_api"]'))return;
@@ -3149,8 +3152,9 @@ function YTCardBtn({videoId,startTime,endTime,th}){
     document.head.appendChild(tag);
   },[]);
 
+  // Create player when expanded, destroy when collapsed
   useEffect(function(){
-    if(!videoId||!divRef.current)return;
+    if(!expanded||!videoId)return;
     var destroyed=false;
     function startPoll(){
       if(pollRef.current)clearInterval(pollRef.current);
@@ -3169,9 +3173,9 @@ function YTCardBtn({videoId,startTime,endTime,th}){
       try{
         playerRef.current=new window.YT.Player(divRef.current,{
           videoId:videoId,
-          playerVars:{start:start,autoplay:0,rel:0,controls:0,disablekb:1,modestbranding:1},
+          playerVars:{start:start,autoplay:1,rel:0,modestbranding:1,playsinline:1},
           events:{
-            onReady:function(){setLoaded(true);startPoll();},
+            onReady:function(e){try{e.target.seekTo(start,true);e.target.playVideo();}catch(ex){}startPoll();},
             onStateChange:function(e){setPlaying(e.data===1);if(e.data===1)startPoll();}
           }
         });
@@ -3185,50 +3189,56 @@ function YTCardBtn({videoId,startTime,endTime,th}){
     return function(){
       destroyed=true;
       if(pollRef.current){clearInterval(pollRef.current);pollRef.current=null;}
-      try{if(playerRef.current){playerRef.current.destroy();playerRef.current=null;setLoaded(false);setPlaying(false);}}catch(e){}
+      try{if(playerRef.current){playerRef.current.destroy();playerRef.current=null;}}catch(e){}
+      setPlaying(false);
     };
-  },[videoId,start]);
+  },[expanded,videoId,start,end]);
 
-  if(!videoId)return null;
-
-  // Stop notation preview when YT starts
-  function toggle(e){
-    e.stopPropagation();
-    if(!playerRef.current)return;
-    try{
-      if(playing){playerRef.current.pauseVideo();}
-      else{previewStop();playerRef.current.seekTo(start,true);playerRef.current.playVideo();}
-    }catch(ex){}
-  }
-
-  // Pause YT when notation preview starts
+  // Collapse (and thus destroy player) when notation preview starts
   useEffect(function(){
     return previewSubscribe(function(id){
-      if(id!==null)try{if(playerRef.current&&playerRef.current.pauseVideo)playerRef.current.pauseVideo();}catch(e){}
+      if(id!==null)setExpanded(false);
     });
   },[]);
 
-  var isActive=playing;
-  return React.createElement(React.Fragment,null,
-    // Invisible off-screen iframe container
-    React.createElement('div',{style:{position:'fixed',left:'-9999px',top:0,width:1,height:1,overflow:'hidden',pointerEvents:'none',zIndex:-1}},
-      React.createElement('div',{ref:divRef})),
-    // The visible pill button
+  if(!videoId)return null;
+
+  function toggleExpand(e){
+    e.stopPropagation();
+    if(expanded){
+      // Collapsing: destroy handled by effect cleanup above
+      setExpanded(false);
+    } else {
+      previewStop(); // stop notation playback first
+      setExpanded(true);
+    }
+  }
+
+  var isStudio=t===TH.studio;
+  return React.createElement('div',{
+    onClick:function(e){e.stopPropagation();},
+    style:{marginTop:expanded?10:0,transition:'margin 0.2s'}},
+    // Expandable player — visible and ToS-compliant
+    expanded&&React.createElement('div',{style:{
+      borderRadius:10,overflow:'hidden',
+      border:'1px solid rgba(239,68,68,0.3)',
+      marginBottom:8,
+      position:'relative',paddingBottom:'42%'}},
+      React.createElement('div',{ref:divRef,style:{position:'absolute',top:0,left:0,width:'100%',height:'100%'}})),
+    // Pill button
     React.createElement('button',{
-      onClick:toggle,
-      title:isActive?'Pause original':'Play original recording',
+      onClick:toggleExpand,
+      title:expanded?'Close original':'Show original recording',
       style:{
         display:'flex',alignItems:'center',gap:4,
         padding:'4px 9px',borderRadius:8,
-        border:'1.5px solid '+(isActive?'#EF444480':'rgba(239,68,68,0.25)'),
-        background:isActive?'rgba(239,68,68,0.12)':'transparent',
-        cursor:loaded?'pointer':'default',
-        opacity:loaded?1:0.45,
+        border:'1.5px solid '+(expanded||playing?'#EF444480':'rgba(239,68,68,0.25)'),
+        background:expanded||playing?'rgba(239,68,68,0.12)':'transparent',
+        cursor:'pointer',
         transition:'all 0.15s',
         flexShrink:0,
       }},
-      // Play/Pause icon
-      isActive
+      expanded
         ?React.createElement('div',{style:{display:'flex',gap:2,flexShrink:0}},
             React.createElement('div',{style:{width:2.5,height:9,background:'#EF4444',borderRadius:1}}),
             React.createElement('div',{style:{width:2.5,height:9,background:'#EF4444',borderRadius:1}}))
@@ -3236,9 +3246,8 @@ function YTCardBtn({videoId,startTime,endTime,th}){
       React.createElement('span',{style:{
         fontSize:9,fontWeight:700,letterSpacing:0.5,
         fontFamily:"'JetBrains Mono',monospace",
-        color:'#EF4444',
-        whiteSpace:'nowrap',
-      }},'ORIG')));
+        color:'#EF4444',whiteSpace:'nowrap',
+      }},expanded?'CLOSE':'ORIG')));
 }
 
 function parseSpotify(u){if(!u)return"";const m=u.match(/open\.spotify\.com\/track\/([a-zA-Z0-9]+)/);if(m)return m[1];const m2=u.match(/spotify:track:([a-zA-Z0-9]+)/);return m2?m2[1]:"";}
@@ -3480,34 +3489,6 @@ function EditProfileView({authUser,authProfile,onClose,onSave,th}){
   const[saving,setSaving]=useState(false);
   const[saved,setSaved]=useState(false);
   const[errs,setErrs]=useState({});
-  const[avatarUrl,setAvatarUrl]=useState(authProfile?.avatar_url||null);
-  const[avatarUploading,setAvatarUploading]=useState(false);
-  const[avatarErr,setAvatarErr]=useState(null);
-  const fileInputRef=useRef(null);
-
-  const handleAvatarClick=function(){fileInputRef.current&&fileInputRef.current.click();};
-  const handleAvatarChange=async function(e){
-    const file=e.target.files&&e.target.files[0];
-    if(!file)return;
-    if(file.size>3*1024*1024){setAvatarErr("Max. 3 MB");return;}
-    if(!file.type.startsWith("image/")){setAvatarErr("Images only");return;}
-    setAvatarErr(null);setAvatarUploading(true);
-    try{
-      const ext=file.name.split(".").pop().toLowerCase()||"jpg";
-      const path=authUser.id+"/avatar."+ext;
-      // upsert=true replaces existing file
-      const{error:upErr}=await supabase.storage.from("avatars").upload(path,file,{upsert:true,contentType:file.type});
-      if(upErr)throw upErr;
-      const{data:urlData}=supabase.storage.from("avatars").getPublicUrl(path);
-      // append cache-buster so the browser shows the new image
-      const newUrl=urlData.publicUrl+"?t="+Date.now();
-      setAvatarUrl(newUrl);
-    }catch(err){
-      setAvatarErr("Upload failed — check storage bucket permissions");
-    }finally{setAvatarUploading(false);}
-    // reset input so the same file can be re-selected if needed
-    e.target.value="";
-  };
 
   const inputStyle={width:"100%",background:t.inputBg||t.filterBg,border:"1px solid "+(t.inputBorder||t.border),borderRadius:10,padding:"11px 14px",color:t.text,fontSize:14,fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"};
   const fl=(txt,sub)=>React.createElement("div",{style:{marginBottom:6}},
@@ -3528,7 +3509,7 @@ function EditProfileView({authUser,authProfile,onClose,onSave,th}){
     var ev=validate();if(Object.keys(ev).length){setErrs(ev);return;}
     setSaving(true);setErrs({});
     try{
-      await onSave({display_name:displayName.trim(),username:username.trim()||null,bio:bio.trim(),instrument:instrument||authProfile?.instrument||"",website_url:websiteUrl.trim()||null,is_public:isPublic,avatar_url:avatarUrl||null});
+      await onSave({display_name:displayName.trim(),username:username.trim()||null,bio:bio.trim(),instrument:instrument||authProfile?.instrument||"",website_url:websiteUrl.trim()||null,is_public:isPublic});
       setSaved(true);
       setTimeout(function(){onClose();},700);
     }catch(err){
@@ -3553,58 +3534,10 @@ function EditProfileView({authUser,authProfile,onClose,onSave,th}){
     React.createElement("div",{style:{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch"}},
       React.createElement("div",{style:{maxWidth:520,margin:"0 auto",padding:"20px 16px 120px"}},
 
-        // AVATAR UPLOAD
+        // AVATAR PREVIEW
         React.createElement("div",{style:{display:"flex",justifyContent:"center",marginBottom:28}},
-          React.createElement("div",{style:{position:"relative",display:"inline-block"}},
-            // Circle
-            React.createElement("div",{
-              onClick:handleAvatarClick,
-              style:{
-                width:88,height:88,borderRadius:26,
-                background:avatarUrl?"transparent":(isStudio?"linear-gradient(135deg,"+instC+"22,"+instC+"08)":t.accentBg),
-                border:"2px solid "+(avatarUploading?t.accent:instC+"50"),
-                display:"flex",alignItems:"center",justifyContent:"center",
-                boxShadow:isStudio?"0 0 30px "+instC+"20":"none",
-                cursor:"pointer",overflow:"hidden",position:"relative",
-                transition:"border-color 0.2s"
-              }
-            },
-              avatarUrl&&React.createElement("img",{src:avatarUrl,alt:"avatar",style:{width:"100%",height:"100%",objectFit:"cover"}}),
-              !avatarUrl&&React.createElement("span",{style:{fontSize:30,fontWeight:700,color:instC,fontFamily:"'Inter',sans-serif",letterSpacing:-0.5}},initials),
-              // Overlay on hover
-              React.createElement("div",{style:{
-                position:"absolute",inset:0,
-                background:"rgba(0,0,0,0.45)",
-                display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
-                opacity:avatarUploading?1:0,transition:"opacity 0.18s",
-                borderRadius:24,
-                pointerEvents:"none"
-              }},
-                avatarUploading
-                  ?React.createElement("div",{style:{width:20,height:20,border:"2px solid rgba(255,255,255,0.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.7s linear infinite"}})
-                  :null)),
-            // Camera badge
-            React.createElement("div",{
-              onClick:handleAvatarClick,
-              style:{
-                position:"absolute",bottom:-4,right:-4,
-                width:26,height:26,borderRadius:8,
-                background:isStudio?t.accent:"#6366F1",
-                border:"2px solid "+t.bg,
-                display:"flex",alignItems:"center",justifyContent:"center",
-                cursor:"pointer",fontSize:12
-              }
-            },"📷"),
-            // Hidden file input
-            React.createElement("input",{
-              ref:fileInputRef,type:"file",accept:"image/*",
-              onChange:handleAvatarChange,
-              style:{display:"none"}
-            })),
-          avatarErr&&React.createElement("div",{style:{
-            fontSize:11,color:"#FF6666",fontFamily:"'Inter',sans-serif",
-            marginTop:8,textAlign:"center"
-          }},avatarErr)),
+          React.createElement("div",{style:{width:80,height:80,borderRadius:24,background:isStudio?"linear-gradient(135deg,"+instC+"22,"+instC+"08)":t.accentBg,border:"2px solid "+instC+"50",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:isStudio?"0 0 30px "+instC+"20":"none"}},
+            React.createElement("span",{style:{fontSize:28,fontWeight:700,color:instC,fontFamily:"'Inter',sans-serif",letterSpacing:-0.5}},initials))),
 
         // ERROR GENERAL
         errs.general&&React.createElement("div",{style:{background:"#FF444420",border:"1px solid #FF444440",borderRadius:10,padding:"10px 14px",marginBottom:16,fontSize:12,color:"#FF6666",fontFamily:"'Inter',sans-serif"}},errs.general),
@@ -3675,7 +3608,7 @@ function PublicProfileView({username,onClose,onLickSelect,th,likedSet,savedSet,o
   useEffect(function(){
     if(!username)return;
     setLoading(true);
-    supabase.from('profiles').select('id, display_name, username, instrument, bio, website_url, streak, avatar_url').or('username.eq.'+username+',display_name.eq.'+username).single().then(function(res){
+    supabase.from('profiles').select('id, display_name, username, instrument, bio, website_url, streak').or('username.eq.'+username+',display_name.eq.'+username).single().then(function(res){
       if(res.data)setProfile(res.data);
       return fetchPublicLicksByUser(username);
     }).then(function(userLicks){
@@ -3684,8 +3617,7 @@ function PublicProfileView({username,onClose,onLickSelect,th,likedSet,savedSet,o
     }).catch(function(){setLoading(false);});
   },[username]);
 
-  const displayName=profile?.display_name||username;
-  const initials=displayName.slice(0,2).toUpperCase();
+  const initials=username?username.slice(0,2).toUpperCase():"??";
   const instC=profile&&profile.instrument?(INST_COL[profile.instrument]||t.accent):t.accent;
   const totalLikes=licks.reduce(function(s,l){return s+(l.likes||0);},0);
 
@@ -3697,8 +3629,7 @@ function PublicProfileView({username,onClose,onLickSelect,th,likedSet,savedSet,o
         React.createElement("button",{onClick:onClose,style:{background:"none",border:"none",cursor:"pointer",color:isStudio?t.accent:t.muted,fontSize:22,padding:"4px 8px 4px 0",display:"flex",alignItems:"center"}},"\u2039"),
         React.createElement("div",{style:{flex:1}},
           React.createElement("div",{style:{fontSize:11,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5,textTransform:"uppercase"}},"Musician"),
-          React.createElement("div",{style:{fontSize:16,fontWeight:700,color:t.text,fontFamily:"'Inter',sans-serif"}},displayName),
-          profile?.username&&profile.username!==displayName&&React.createElement("div",{style:{fontSize:10,color:t.accent,fontFamily:"'Inter',sans-serif",fontWeight:600}},"@"+profile.username)))),
+          React.createElement("div",{style:{fontSize:16,fontWeight:700,color:t.text,fontFamily:"'Inter',sans-serif"}},username)))),
 
     // SCROLLABLE BODY
     React.createElement("div",{style:{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch"}},
@@ -3707,14 +3638,11 @@ function PublicProfileView({username,onClose,onLickSelect,th,likedSet,savedSet,o
         // PROFILE HERO
         React.createElement("div",{style:{margin:"24px 0 20px",padding:"20px",background:t.card,borderRadius:18,border:"1px solid "+t.border,boxShadow:isStudio?"0 4px 24px rgba(0,0,0,0.3)":"0 2px 12px rgba(0,0,0,0.06)",display:"flex",alignItems:"flex-start",gap:16}},
           // Avatar
-          React.createElement("div",{style:{width:64,height:64,borderRadius:20,background:isStudio?"linear-gradient(135deg,"+instC+"22,"+instC+"08)":t.accentBg,border:"2px solid "+instC+"50",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:isStudio?"0 0 24px "+instC+"20":"none",overflow:"hidden"}},
-            profile?.avatar_url
-              ?React.createElement("img",{src:profile.avatar_url,alt:displayName,style:{width:"100%",height:"100%",objectFit:"cover"}})
-              :React.createElement("span",{style:{fontSize:22,fontWeight:700,color:instC,fontFamily:"'Inter',sans-serif",letterSpacing:-0.5}},initials)),
+          React.createElement("div",{style:{width:64,height:64,borderRadius:20,background:isStudio?"linear-gradient(135deg,"+instC+"22,"+instC+"08)":t.accentBg,border:"2px solid "+instC+"50",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:isStudio?"0 0 24px "+instC+"20":"none"}},
+            React.createElement("span",{style:{fontSize:22,fontWeight:700,color:instC,fontFamily:"'Inter',sans-serif",letterSpacing:-0.5}},initials)),
           // Info
           React.createElement("div",{style:{flex:1,minWidth:0}},
-            React.createElement("div",{style:{fontSize:18,fontWeight:700,color:t.text,fontFamily:"'Inter',sans-serif",marginBottom:2}},displayName),
-            profile?.username&&React.createElement("div",{style:{fontSize:11,color:t.accent,fontFamily:"'Inter',sans-serif",fontWeight:600,marginBottom:6}},"@"+profile.username),
+            React.createElement("div",{style:{fontSize:18,fontWeight:700,color:t.text,fontFamily:"'Inter',sans-serif",marginBottom:4}},username),
             profile&&profile.instrument&&React.createElement("div",{style:{display:"inline-flex",alignItems:"center",gap:4,fontSize:10,fontWeight:600,color:instC,background:instC+"15",padding:"3px 10px",borderRadius:8,border:"1px solid "+instC+"25",fontFamily:"'JetBrains Mono',monospace",marginBottom:8}},profile.instrument),
             profile&&profile.bio&&React.createElement("div",{style:{fontSize:12,color:t.muted,fontFamily:"'Inter',sans-serif",lineHeight:1.5,marginBottom:profile&&profile.website_url?6:0}},profile.bio),
             profile&&profile.website_url&&React.createElement("a",{href:profile.website_url,target:"_blank",rel:"noopener noreferrer",onClick:function(e){e.stopPropagation();},style:{display:"inline-flex",alignItems:"center",gap:4,fontSize:11,color:t.accent,fontFamily:"'Inter',sans-serif",textDecoration:"none",fontWeight:500}},"🔗 "+profile.website_url.replace(/^https?:\/\//,"")))),
@@ -4109,154 +4037,11 @@ function DailyLickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:user
 // ============================================================
 // LICK CARD — compact, themed
 // ============================================================
-// ============================================================
-// LIKES POPUP — who flamed this lick
-// ============================================================
-function LikesPopup({lickId,lickTitle,likeCount,onClose,th,onUserClick}){
-  const t=th||TH.classic;const isStudio=t===TH.studio;
-  const[users,setUsers]=useState(null);
-  const[err,setErr]=useState(false);
-
-  useEffect(function(){
-    if(!lickId)return;
-    supabase
-      .from('user_licks')
-      .select('user_id')
-      .eq('lick_id', lickId)
-      .eq('type', 'like')
-      .limit(50)
-      .then(function(res){
-        if(res.error){setErr(true);return;}
-        var ids=(res.data||[]).map(function(r){return r.user_id;}).filter(Boolean);
-        if(ids.length===0){setUsers([]);return;}
-        supabase.from('profiles').select('display_name, username, instrument, avatar_url').in('id', ids)
-          .then(function(res2){
-            if(res2.error){setErr(true);return;}
-            setUsers((res2.data||[]).filter(function(p){return p.username||p.display_name;}));
-          }).catch(function(){setErr(true);});
-      })
-      .catch(function(){setErr(true);});
-  },[lickId]);
-
-  return React.createElement(React.Fragment,null,
-    // Backdrop — blurred
-    React.createElement("div",{
-      onClick:onClose,
-      style:{
-        position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:3000,
-        backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",
-        background:isStudio?"rgba(8,8,15,0.72)":"rgba(0,0,0,0.38)",
-        animation:"fadeIn 0.18s ease"
-      }
-    }),
-    // Panel
-    React.createElement("div",{
-      onClick:function(e){e.stopPropagation();},
-      style:{
-        position:"fixed",left:"50%",top:"50%",transform:"translate(-50%,-50%)",
-        zIndex:3001,
-        width:"calc(100% - 48px)",maxWidth:360,
-        background:isStudio?t.cardRaised||t.card:t.card,
-        borderRadius:20,
-        border:"1px solid "+(isStudio?"rgba(34,216,158,0.18)":t.border),
-        boxShadow:isStudio?"0 24px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(34,216,158,0.08)":"0 8px 40px rgba(0,0,0,0.18)",
-        overflow:"hidden",
-        animation:"popupIn 0.22s cubic-bezier(0.34,1.56,0.64,1)"
-      }
-    },
-      // Header
-      React.createElement("div",{style:{
-        padding:"16px 18px 12px",
-        borderBottom:"1px solid "+(isStudio?t.border:t.borderSub||t.border),
-        display:"flex",alignItems:"center",justifyContent:"space-between"
-      }},
-        React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
-          IC.flame(16,"#F97316",true),
-          React.createElement("span",{style:{
-            fontSize:14,fontWeight:700,color:t.text,fontFamily:"'Inter',sans-serif"
-          }},likeCount+" "+(likeCount===1?(isStudio?"Flame":"Like"):(isStudio?"Flames":"Likes")))),
-        React.createElement("button",{
-          onClick:onClose,
-          style:{background:"none",border:"none",cursor:"pointer",color:t.muted,fontSize:20,lineHeight:1,padding:"2px 4px",borderRadius:6,fontFamily:"'Inter',sans-serif"}
-        },"\u00D7")),
-      // Sub-title
-      lickTitle&&React.createElement("div",{style:{
-        padding:"8px 18px",fontSize:10,color:t.muted,
-        fontFamily:"'JetBrains Mono',monospace",
-        borderBottom:"1px solid "+(isStudio?t.border:t.borderSub||t.border),
-        whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"
-      }},lickTitle),
-      // List
-      React.createElement("div",{style:{maxHeight:280,overflowY:"auto",padding:"8px 0"}},
-        users===null&&!err&&React.createElement("div",{style:{padding:"24px",textAlign:"center"}},
-          React.createElement("div",{style:{
-            width:20,height:20,border:"2px solid "+t.border,borderTopColor:t.accent,
-            borderRadius:"50%",animation:"spin 0.7s linear infinite",
-            margin:"0 auto"
-          }})),
-        err&&React.createElement("div",{style:{padding:"24px",textAlign:"center",fontSize:12,color:t.muted,fontFamily:"'Inter',sans-serif"}},"Couldn't load :("),
-        users&&users.length===0&&React.createElement("div",{style:{padding:"24px",textAlign:"center"}},
-          React.createElement("div",{style:{fontSize:22,marginBottom:8}},isStudio?"🔥":"❤️"),
-          React.createElement("div",{style:{fontSize:12,color:t.muted,fontFamily:"'Inter',sans-serif"}},
-            "Be the first to "+(isStudio?"flame":"like")+" this!")),
-        users&&users.length>0&&users.map(function(u,i){
-          var name=u.display_name||u.username;
-          var handle=u.username;
-          var instC=isStudio?(INST_COL[u.instrument]||t.accent):t.accent;
-          var initials=(name||"?").slice(0,2).toUpperCase();
-          return React.createElement("button",{
-            key:i,
-            onClick:function(){if(handle&&onUserClick){onClose();onUserClick(handle);}},
-            style:{
-              display:"flex",alignItems:"center",gap:12,
-              width:"100%",padding:"10px 18px",
-              background:"none",border:"none",cursor:handle?"pointer":"default",
-              transition:"background 0.12s",
-              textAlign:"left"
-            },
-            onMouseEnter:function(e){if(handle)e.currentTarget.style.background=isStudio?"rgba(34,216,158,0.06)":"rgba(0,0,0,0.04)";},
-            onMouseLeave:function(e){e.currentTarget.style.background="none";}
-          },
-            // Avatar
-            React.createElement("div",{style:{
-              width:34,height:34,borderRadius:10,flexShrink:0,
-              background:isStudio?"linear-gradient(135deg,"+instC+"22,"+instC+"08)":t.accentBg,
-              border:"1.5px solid "+instC+"40",
-              display:"flex",alignItems:"center",justifyContent:"center",
-              overflow:"hidden"
-            }},
-              u.avatar_url
-                ?React.createElement("img",{src:u.avatar_url,alt:name,style:{width:"100%",height:"100%",objectFit:"cover"}})
-                :React.createElement("span",{style:{fontSize:12,fontWeight:700,color:instC,fontFamily:"'Inter',sans-serif"}},initials)),
-            // Name + handle
-            React.createElement("div",{style:{flex:1,minWidth:0}},
-              React.createElement("div",{style:{
-                fontSize:13,fontWeight:600,color:t.text,
-                fontFamily:"'Inter',sans-serif",
-                whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"
-              }},name),
-              handle&&React.createElement("div",{style:{
-                fontSize:10,color:isStudio?t.accent+"99":t.accent,
-                fontFamily:"'Inter',sans-serif",fontWeight:600
-              }},"@"+handle)),
-            // Instrument chip
-            u.instrument&&isStudio&&React.createElement("span",{style:{
-              fontSize:8,color:instC,fontFamily:"'JetBrains Mono',monospace",
-              background:instC+"15",padding:"2px 7px",borderRadius:5,
-              border:"1px solid "+instC+"20",fontWeight:600,flexShrink:0
-            }},u.instrument));
-        })
-      )
-    )
-  );
-}
-
 function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst,onUserClick}){
   const t=th||TH.classic;const isStudio=t===TH.studio;
   const uOff=INST_TRANS[userInst]||0;const cardAbc=uOff?transposeAbc(lick.abc,uOff):lick.abc;
   const keyDisp=uOff?trKeyName(lick.key.split(" ")[0],uOff):lick.key;
   const prevCurNote=usePreviewCurNote(lick.id);
-  const[showLikesPopup,setShowLikesPopup]=useState(false);
   
   const catC=getCatColor(lick.category,t);
   return React.createElement("div",{onClick:()=>onSelect(lick),style:{background:isStudio?(t.cardRaised||t.card):t.card,borderRadius:isStudio?16:14,padding:0,marginBottom:isStudio?12:8,border:"1px solid "+(isStudio?catC+"18":t.border),cursor:"pointer",transition:"all 0.15s",boxShadow:isStudio?"0 2px 16px "+catC+"15, 0 1px 6px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.03)":"0 2px 10px rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.03)",overflow:"hidden",display:"flex"}},
@@ -4278,18 +4063,18 @@ function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst,
       React.createElement("div",{style:{marginTop:4,display:"flex",justifyContent:"center",overflow:"hidden"}},
         React.createElement(Notation,{abc:cardAbc,compact:true,th:t,curNoteRef:prevCurNote})),
       // ACTION ROW — Instagram style
-      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:2,marginTop:isStudio?12:8,paddingTop:isStudio?10:6,borderTop:"1px solid "+(isStudio?t.border:t.border)}},
-        React.createElement(PreviewBtn,{lickId:lick.id,abc:lick.abc,tempo:lick.tempo,th:t,size:26}),
-        React.createElement("button",{onClick:e=>{e.stopPropagation();onLike(lick.id);},style:{background:"none",border:"none",cursor:"pointer",padding:"3px 2px",marginLeft:6,display:"flex",alignItems:"center",gap:3,transition:"all 0.15s"}},
-          isStudio?(liked?IC.flame(18,"#F97316",true):IC.flameOff(18)):React.createElement("span",{style:{fontSize:18,color:liked?"#EF4444":t.muted}},liked?"\u2665":"\u2661")),
-        React.createElement("button",{onClick:e=>{e.stopPropagation();onSave(lick.id);},style:{background:"none",border:"none",cursor:"pointer",padding:"3px 2px",display:"flex",alignItems:"center",marginLeft:4,transition:"all 0.15s"}},
-          isStudio?IC.target(18,saved?"#22D89E":"#55556A"):React.createElement("span",{style:{fontSize:18,color:saved?"#F59E0B":t.muted}},saved?"\u2605":"\u2606")),
-        React.createElement("div",{style:{flex:1}}),
-        lick.youtubeId&&React.createElement(YTCardBtn,{videoId:lick.youtubeId,startTime:lick.youtubeStart,endTime:lick.youtubeEnd,th:t}),
-        lick.youtubeId&&React.createElement("div",{style:{width:1,height:16,background:t.border,margin:"0 4px",flexShrink:0}}),
-        React.createElement("span",{onClick:e=>{e.stopPropagation();if(lick.likes>0)setShowLikesPopup(true);},style:{fontSize:10,fontWeight:600,fontFamily:"'JetBrains Mono',monospace",color:liked?(isStudio?"#F97316":"#EF4444"):t.muted,cursor:lick.likes>0?"pointer":"default",borderRadius:6,padding:"2px 4px",transition:"background 0.12s"},onMouseEnter:function(e){if(lick.likes>0)e.currentTarget.style.background=isStudio?"rgba(34,216,158,0.08)":"rgba(0,0,0,0.05)";},onMouseLeave:function(e){e.currentTarget.style.background="none";}},lick.likes+(isStudio?(lick.likes===1?" flame":" flames"):(lick.likes===1?" like":" likes"))),
-        isStudio?React.createElement("div",{style:{marginLeft:6}},IC.arrowR(12,catC)):React.createElement("span",{style:{fontSize:13,color:t.subtle,marginLeft:6}},"\u203A"))),
-    showLikesPopup&&React.createElement(LikesPopup,{lickId:lick.id,lickTitle:lick.title,likeCount:lick.likes,onClose:function(){setShowLikesPopup(false);},th:t,onUserClick:onUserClick}));}
+      React.createElement("div",{style:{marginTop:isStudio?12:8,paddingTop:isStudio?10:6,borderTop:"1px solid "+t.border}},
+        React.createElement("div",{style:{display:"flex",alignItems:"center",gap:2}},
+          React.createElement(PreviewBtn,{lickId:lick.id,abc:lick.abc,tempo:lick.tempo,th:t,size:26}),
+          React.createElement("button",{onClick:e=>{e.stopPropagation();onLike(lick.id);},style:{background:"none",border:"none",cursor:"pointer",padding:"3px 2px",marginLeft:6,display:"flex",alignItems:"center",gap:3,transition:"all 0.15s"}},
+            isStudio?(liked?IC.flame(18,"#F97316",true):IC.flameOff(18)):React.createElement("span",{style:{fontSize:18,color:liked?"#EF4444":t.muted}},liked?"\u2665":"\u2661")),
+          React.createElement("button",{onClick:e=>{e.stopPropagation();onSave(lick.id);},style:{background:"none",border:"none",cursor:"pointer",padding:"3px 2px",display:"flex",alignItems:"center",marginLeft:4,transition:"all 0.15s"}},
+            isStudio?IC.target(18,saved?"#22D89E":"#55556A"):React.createElement("span",{style:{fontSize:18,color:saved?"#F59E0B":t.muted}},saved?"\u2605":"\u2606")),
+          React.createElement("div",{style:{flex:1}}),
+          lick.youtubeId&&React.createElement(YTCardBtn,{videoId:lick.youtubeId,startTime:lick.youtubeStart,endTime:lick.youtubeEnd,th:t}),
+          lick.youtubeId&&React.createElement("div",{style:{width:1,height:16,background:t.border,margin:"0 4px",flexShrink:0}}),
+          React.createElement("span",{style:{fontSize:10,fontWeight:600,fontFamily:"'JetBrains Mono',monospace",color:liked?(isStudio?"#F97316":"#EF4444"):t.muted}},lick.likes+(isStudio?(lick.likes===1?" flame":" flames"):(lick.likes===1?" like":" likes"))),
+          isStudio?React.createElement("div",{style:{marginLeft:6}},IC.arrowR(12,catC)):React.createElement("span",{style:{fontSize:13,color:t.subtle,marginLeft:6}},"\u203A"))));}
 
 
 // ============================================================
@@ -8275,7 +8060,7 @@ export default function Etudy(){
             React.createElement("div",{style:{fontSize:15,fontWeight:600,color:"#fff",fontFamily:"'Inter',sans-serif",marginBottom:3}},"Studio"),
             React.createElement("div",{style:{fontSize:10,color:"#7B7B8A",fontFamily:"'Inter',sans-serif"}},"Dark \u00B7 Colorful \u00B7 Musician"))))));}
   const t=TH[theme];const isStudio=theme==="studio";
-  const css=["@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;500;700&family=Inter:wght@300;400;500;600;700&display=swap');","*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}","html,body{background:"+t.bg+"}","::-webkit-scrollbar{display:none}","input:focus,textarea:focus,select:focus{border-color:"+t.accentBorder+"!important;outline:none}","select option{background:"+t.card+"}","input[type=range]{-webkit-appearance:none;background:"+t.progressBg+";border-radius:4px;height:3px}","input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:"+t.accent+";cursor:pointer;box-shadow:0 1px 4px "+t.accentGlow+"}","@keyframes spin{to{transform:rotate(360deg)}}","@keyframes fadeIn{from{opacity:0}to{opacity:1}}","@keyframes playPulse{0%,100%{box-shadow:0 4px 18px "+t.accentGlow+"}50%{box-shadow:0 4px 28px "+t.accentGlow+",0 0 40px "+t.accentGlow+"}}","@keyframes firePop{0%{transform:scale(1)}30%{transform:scale(1.4)}60%{transform:scale(0.9)}100%{transform:scale(1)}}","@keyframes flameFlicker{0%,100%{transform:scaleX(1) scaleY(1)}25%{transform:scaleX(0.94) scaleY(1.03)}50%{transform:scaleX(1.03) scaleY(0.97)}75%{transform:scaleX(0.97) scaleY(1.02)}}","@keyframes flameCore{0%,100%{opacity:0.8;transform:scaleY(1)}50%{opacity:0.5;transform:scaleY(0.85)}}","@keyframes loopPulse{0%,100%{opacity:1}50%{opacity:0.6}}","@keyframes coachIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}","@keyframes popupIn{from{opacity:0;transform:translate(-50%,-50%) scale(0.88)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}","@keyframes coachPulse{0%,100%{opacity:0.5}50%{opacity:1}}","@keyframes drillPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.7;transform:scale(0.95)}}","@keyframes drillKeyIn{0%{opacity:0;transform:scale(0.5) translateY(10px)}100%{opacity:1;transform:scale(1) translateY(0)}}","@keyframes drillDot{0%,100%{opacity:0.3;transform:scale(0.8)}50%{opacity:1;transform:scale(1.2)}}","@keyframes helpGlow{0%{box-shadow:0 0 0 0 "+t.accent+"60;transform:scale(1)}40%{box-shadow:0 0 12px 4px "+t.accent+"40;transform:scale(1.2)}70%{box-shadow:0 0 6px 2px "+t.accent+"20;transform:scale(1.05)}100%{box-shadow:0 0 0 0 transparent;transform:scale(1)}}","[data-sheet-focus]{position:fixed!important;top:0!important;left:0!important;width:100vw!important;height:100vh!important;max-width:none!important;z-index:9999!important}"].join("\n");
+  const css=["@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;500;700&family=Inter:wght@300;400;500;600;700&display=swap');","*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}","html,body{background:"+t.bg+"}","::-webkit-scrollbar{display:none}","input:focus,textarea:focus,select:focus{border-color:"+t.accentBorder+"!important;outline:none}","select option{background:"+t.card+"}","input[type=range]{-webkit-appearance:none;background:"+t.progressBg+";border-radius:4px;height:3px}","input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:"+t.accent+";cursor:pointer;box-shadow:0 1px 4px "+t.accentGlow+"}","@keyframes spin{to{transform:rotate(360deg)}}","@keyframes fadeIn{from{opacity:0}to{opacity:1}}","@keyframes playPulse{0%,100%{box-shadow:0 4px 18px "+t.accentGlow+"}50%{box-shadow:0 4px 28px "+t.accentGlow+",0 0 40px "+t.accentGlow+"}}","@keyframes firePop{0%{transform:scale(1)}30%{transform:scale(1.4)}60%{transform:scale(0.9)}100%{transform:scale(1)}}","@keyframes flameFlicker{0%,100%{transform:scaleX(1) scaleY(1)}25%{transform:scaleX(0.94) scaleY(1.03)}50%{transform:scaleX(1.03) scaleY(0.97)}75%{transform:scaleX(0.97) scaleY(1.02)}}","@keyframes flameCore{0%,100%{opacity:0.8;transform:scaleY(1)}50%{opacity:0.5;transform:scaleY(0.85)}}","@keyframes loopPulse{0%,100%{opacity:1}50%{opacity:0.6}}","@keyframes coachIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}","@keyframes coachPulse{0%,100%{opacity:0.5}50%{opacity:1}}","@keyframes drillPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.7;transform:scale(0.95)}}","@keyframes drillKeyIn{0%{opacity:0;transform:scale(0.5) translateY(10px)}100%{opacity:1;transform:scale(1) translateY(0)}}","@keyframes drillDot{0%,100%{opacity:0.3;transform:scale(0.8)}50%{opacity:1;transform:scale(1.2)}}","@keyframes helpGlow{0%{box-shadow:0 0 0 0 "+t.accent+"60;transform:scale(1)}40%{box-shadow:0 0 12px 4px "+t.accent+"40;transform:scale(1.2)}70%{box-shadow:0 0 6px 2px "+t.accent+"20;transform:scale(1.05)}100%{box-shadow:0 0 0 0 transparent;transform:scale(1)}}","[data-sheet-focus]{position:fixed!important;top:0!important;left:0!important;width:100vw!important;height:100vh!important;max-width:none!important;z-index:9999!important}"].join("\n");
 
   return React.createElement("div",{style:{minHeight:"100vh",background:t.bg,color:t.text,maxWidth:520,margin:"0 auto",position:"relative",paddingBottom:"calc(72px + env(safe-area-inset-bottom, 0px))"}},
     React.createElement("style",null,css),
@@ -8415,11 +8200,9 @@ export default function Etudy(){
               // Profile card
               React.createElement("div",{style:{background:t.card,borderRadius:16,border:"1px solid "+t.border,padding:"16px",marginBottom:12,display:"flex",alignItems:"center",gap:14}},
                 // Avatar
-                React.createElement("div",{style:{width:52,height:52,borderRadius:16,background:isStudio?"linear-gradient(135deg,"+(authProfile?.instrument?INST_COL[authProfile.instrument]||t.accent:t.accent)+"22,"+(authProfile?.instrument?INST_COL[authProfile.instrument]||t.accent:t.accent)+"08)":t.accentBg,border:"2px solid "+(authProfile?.instrument?INST_COL[authProfile.instrument]||t.accent:t.accent)+"40",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,overflow:"hidden"}},
-                  authProfile?.avatar_url
-                    ?React.createElement("img",{src:authProfile.avatar_url,alt:"avatar",style:{width:"100%",height:"100%",objectFit:"cover"}})
-                    :React.createElement("span",{style:{fontSize:18,fontWeight:700,color:authProfile?.instrument?INST_COL[authProfile.instrument]||t.accent:t.accent,fontFamily:"'Inter',sans-serif"}},
-                      (authProfile?.display_name||authUser.email||"?").slice(0,2).toUpperCase())),
+                React.createElement("div",{style:{width:52,height:52,borderRadius:16,background:isStudio?"linear-gradient(135deg,"+(authProfile?.instrument?INST_COL[authProfile.instrument]||t.accent:t.accent)+"22,"+(authProfile?.instrument?INST_COL[authProfile.instrument]||t.accent:t.accent)+"08)":t.accentBg,border:"2px solid "+(authProfile?.instrument?INST_COL[authProfile.instrument]||t.accent:t.accent)+"40",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},
+                  React.createElement("span",{style:{fontSize:18,fontWeight:700,color:authProfile?.instrument?INST_COL[authProfile.instrument]||t.accent:t.accent,fontFamily:"'Inter',sans-serif"}},
+                    (authProfile?.display_name||authUser.email||"?").slice(0,2).toUpperCase())),
                 // Info
                 React.createElement("div",{style:{flex:1,minWidth:0}},
                   React.createElement("div",{style:{fontSize:14,fontWeight:700,color:t.text,fontFamily:"'Inter',sans-serif",marginBottom:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}},authProfile?.display_name||authUser.email),
