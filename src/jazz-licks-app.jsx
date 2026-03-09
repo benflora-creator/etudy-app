@@ -6467,6 +6467,39 @@ function PolyrhythmTrainer({th,sharedInput,sharedMicSilent}){
 }
 
 
+// ── Custom Select — matches key picker design ──
+function CustomSelect({value,options,onChange,th,placeholder}){
+  var t=th||TH.classic;var isStudio=t===TH.studio;
+  var _o=useState(false),open=_o[0],setOpen=_o[1];
+  var ref=useRef(null);
+  useEffect(function(){
+    if(!open)return;
+    function handleClick(e){if(ref.current&&!ref.current.contains(e.target))setOpen(false);}
+    document.addEventListener("mousedown",handleClick);document.addEventListener("touchstart",handleClick);
+    return function(){document.removeEventListener("mousedown",handleClick);document.removeEventListener("touchstart",handleClick);};
+  },[open]);
+  var label=value||placeholder||"Select";
+  // Find display label if options are objects
+  if(typeof options[0]==="object"){var found=options.find(function(o){return o.value===value;});if(found)label=found.label;}
+  var opts=options.map(function(o){return typeof o==="string"?{value:o,label:o}:o;});
+  return React.createElement("div",{ref:ref,style:{position:"relative"}},
+    React.createElement("button",{onClick:function(){setOpen(!open);},
+      style:{width:"100%",background:t.inputBg,border:"1px solid "+(open?t.accent:t.inputBorder),borderRadius:10,padding:"10px 14px",color:t.text,
+        fontSize:13,fontFamily:"'Inter',sans-serif",fontWeight:500,cursor:"pointer",textAlign:"left",boxSizing:"border-box",
+        outline:"none",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",transition:"border-color 0.15s"}},label+" \u25BE"),
+    open&&React.createElement("div",{style:{position:"absolute",top:"100%",left:0,right:0,marginTop:4,zIndex:100,
+      background:t.card,border:"1px solid "+t.border,borderRadius:10,padding:4,
+      boxShadow:"0 8px 24px rgba(0,0,0,"+(isStudio?"0.5":"0.12")+")",maxHeight:200,overflowY:"auto"}},
+      opts.map(function(o){
+        var active=o.value===value;
+        return React.createElement("button",{key:o.value,onClick:function(){onChange(o.value);setOpen(false);},
+          style:{display:"block",width:"100%",padding:"7px 10px",borderRadius:6,border:"none",cursor:"pointer",textAlign:"left",
+            fontSize:12,fontFamily:"'Inter',sans-serif",fontWeight:active?700:500,
+            background:active?t.accent+"18":(isStudio?"transparent":"transparent"),
+            color:active?t.accent:(isStudio?"#ccc":"#444"),
+            transition:"all 0.1s"}},o.label);
+      })));}
+
 // ============================================================
 // EDITOR — themed
 // ============================================================
@@ -6540,7 +6573,6 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
   const KEYS=["C","Db","D","Eb","E","F","F#","G","Ab","A","Bb","B"];const TS=["4/4","3/4","6/8","5/4","7/8"];const yt=parseYT(yu);const tSec=(parseInt(tm)||0)*60+(parseInt(ts)||0);const tESecEnd=(parseInt(tmEnd)||0)*60+(parseInt(tsEnd)||0)||null;
   const lb={fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600,letterSpacing:0.5,display:"block",marginBottom:4};
   const ip={width:"100%",background:t.inputBg,border:"1px solid "+t.inputBorder,borderRadius:10,padding:"10px 14px",color:t.text,fontSize:14,fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"};
-  const selStyle={width:"100%",background:t.inputBg,border:"1px solid "+t.inputBorder,borderRadius:10,padding:"10px 14px",paddingRight:28,color:t.text,fontSize:13,fontFamily:"'Inter',sans-serif",fontWeight:500,outline:"none",boxSizing:"border-box",appearance:"none",WebkitAppearance:"none",MozAppearance:"none",cursor:"pointer",textAlign:"left",textOverflow:"ellipsis"};
   const noteCount=useMemo(()=>countAbcNotes(abc),[abc]);
   const artistOk=artist.trim().length>=1;
   const notesOk=noteCount>=4;
@@ -6551,8 +6583,7 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
   if(cat&&cat!=="All")autoTitle+=(autoTitle?" \u2014 ":"")+cat;
   if(label.trim())autoTitle+=" \u00B7 "+label.trim();
 
-  // Compact select helper
-  const cSel=(val,opts,onChange,w)=>React.createElement("div",{style:{position:"relative",width:w||"100%"}},React.createElement("select",{value:val,onChange:e=>onChange(e.target.value),style:{...selStyle,width:"100%"}},opts.map(o=>React.createElement("option",{key:o,value:o,style:{background:t.card}},o))),React.createElement("span",{style:{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",pointerEvents:"none",fontSize:10,color:t.subtle}},"\u25BE"));
+  // Compact select helper removed — now using CustomSelect component
 
   // Feel buttons inline
 
@@ -6636,12 +6667,12 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
                 React.createElement("input",{style:ip,value:tune,onChange:e=>sTune(e.target.value),placeholder:"Confirmation, Autumn Leaves, ..."})),
               React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}},
                 React.createElement("div",null,React.createElement("label",{style:lb},"KEY"),keyPickerEl),
-                React.createElement("div",null,React.createElement("label",{style:lb},"TIME"),cSel(timeSig,TS,sTS,"100%")),
+                React.createElement("div",null,React.createElement("label",{style:lb},"TIME"),React.createElement(CustomSelect,{value:timeSig,options:TS,onChange:sTS,th:t})),
                 React.createElement("div",null,React.createElement("label",{style:lb},"BPM"),React.createElement("input",{type:"number",value:tempo,onChange:e=>sTm(e.target.value),style:{...ip,fontFamily:"'JetBrains Mono',monospace"}}))),
               React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}},
-                React.createElement("div",null,React.createElement("label",{style:lb},"FEEL"),React.createElement("div",{style:{position:"relative"}},React.createElement("select",{value:feel,onChange:e=>setFeel(e.target.value),style:selStyle},React.createElement("option",{value:"straight",style:{background:t.card}},"Straight"),React.createElement("option",{value:"swing",style:{background:t.card}},"Swing"),React.createElement("option",{value:"hard-swing",style:{background:t.card}},"Hard Swing")),React.createElement("span",{style:{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",pointerEvents:"none",fontSize:10,color:t.subtle}},"\u25BE"))),
-                React.createElement("div",null,React.createElement("label",{style:lb},"INSTRUMENT"),React.createElement("div",{style:{position:"relative"}},React.createElement("select",{style:selStyle,value:inst,onChange:e=>sI(e.target.value)},INST_LIST.filter(i=>i!=="All").map(i=>React.createElement("option",{key:i,value:i,style:{background:t.card}},i))),React.createElement("span",{style:{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",pointerEvents:"none",fontSize:10,color:t.subtle}},"\u25BE"))),
-                React.createElement("div",null,React.createElement("label",{style:lb},"CATEGORY"),React.createElement("div",{style:{position:"relative"}},React.createElement("select",{style:selStyle,value:cat,onChange:e=>sC(e.target.value)},CAT_LIST.filter(c=>c!=="All").map(c=>React.createElement("option",{key:c,value:c,style:{background:t.card}},c))),React.createElement("span",{style:{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",pointerEvents:"none",fontSize:10,color:t.subtle}},"\u25BE")))),
+                React.createElement("div",null,React.createElement("label",{style:lb},"FEEL"),React.createElement(CustomSelect,{value:feel,options:[{value:"straight",label:"Straight"},{value:"swing",label:"Swing"},{value:"hard-swing",label:"Hard Swing"}],onChange:setFeel,th:t})),
+                React.createElement("div",null,React.createElement("label",{style:lb},"INSTRUMENT"),React.createElement(CustomSelect,{value:inst,options:INST_LIST.filter(i=>i!=="All"),onChange:sI,th:t})),
+                React.createElement("div",null,React.createElement("label",{style:lb},"CATEGORY"),React.createElement(CustomSelect,{value:cat,options:CAT_LIST.filter(c=>c!=="All"),onChange:sC,th:t}))),
               React.createElement("div",null,
                 React.createElement("label",{style:lb},"LABEL"),
                 React.createElement("input",{style:ip,value:label,onChange:e=>{if(e.target.value.length<=30)setLabel(e.target.value);},placeholder:"optional, e.g. bridge turnaround",maxLength:30})),
@@ -6739,9 +6770,10 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
           React.createElement("button",{onClick:function(){if(!step2Ok)return;var hasChords=Object.keys(chordsRef.current||{}).length>0;if(!hasChords&&!showChordHint){setShowChordHint("private");return;}setShowChordHint(false);tryPublish("private");},disabled:!canPublish,style:{padding:"10px 18px",background:canPublish?t.card:t.border,color:canPublish?t.text:t.subtle,border:canPublish?"1.5px solid "+t.accent:"none",borderRadius:10,fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:canPublish?"pointer":"default",transition:"all 0.2s"}},"\uD83D\uDD12 Private"),
           React.createElement("button",{onClick:function(){if(!step2Ok)return;var hasChords=Object.keys(chordsRef.current||{}).length>0;if(!hasChords&&!showChordHint){setShowChordHint("publish");return;}setShowChordHint(false);tryPublish("publish");},disabled:!canPublish,style:{padding:"10px 22px",background:canPublish?(isStudio?t.playBg:t.accent):t.border,color:canPublish?"#fff":t.subtle,border:"none",borderRadius:10,fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:canPublish?"pointer":"default",boxShadow:canPublish?"0 4px 16px "+t.accentGlow:"none",transition:"all 0.2s"}},"Publish"),
           edStep===2&&!step2Ok&&!showChordHint&&React.createElement("span",{style:{position:"absolute",left:"50%",transform:"translateX(-50%)",bottom:"calc(100% + 6px)",fontSize:10,color:t.subtle,fontFamily:"'Inter',sans-serif",whiteSpace:"nowrap",background:t.headerBg,padding:"2px 8px",borderRadius:6}},noteCount>0?"min 4 notes ("+noteCount+" so far)":"add some notes"))),
-    // Chord hint dialog — exact same structure as bar-fill dialog
-    showChordHint&&!Object.keys(chordsRef.current||{}).length&&React.createElement("div",{onClick:function(){setShowChordHint(false);},style:{position:"absolute",top:0,left:0,right:0,bottom:0,zIndex:1100,background:"rgba(0,0,0,0.5)",backdropFilter:"blur(4px)",WebkitBackdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",padding:20,paddingBottom:120}},
-      React.createElement("div",{onClick:function(e){e.stopPropagation();},style:{background:t.card,borderRadius:16,padding:"24px 20px",maxWidth:320,width:"100%",border:"1px solid "+(isStudio?t.accent+"30":t.border),boxShadow:"0 12px 40px rgba(0,0,0,"+(isStudio?"0.6":"0.2")+")"}},
+    // Chord hint dialog — overlay as backdrop + card positioned explicitly
+    showChordHint&&!Object.keys(chordsRef.current||{}).length&&React.createElement("div",{style:{position:"absolute",top:0,left:0,right:0,bottom:0,zIndex:1100}},
+      React.createElement("div",{onClick:function(){setShowChordHint(false);},style:{position:"absolute",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.5)"}}),
+      React.createElement("div",{onClick:function(e){e.stopPropagation();},style:{position:"absolute",top:"35%",left:"50%",transform:"translate(-50%, -50%)",zIndex:1,background:t.card,borderRadius:16,padding:"24px 20px",maxWidth:320,width:"calc(100% - 40px)",border:"1px solid "+(isStudio?t.accent+"30":t.border),boxShadow:"0 12px 40px rgba(0,0,0,"+(isStudio?"0.6":"0.2")+")"}},
         React.createElement("div",{style:{fontSize:28,textAlign:"center",marginBottom:10}},"\uD83C\uDFB5"),
         React.createElement("div",{style:{fontSize:15,fontWeight:700,color:t.text,fontFamily:"'Inter',sans-serif",textAlign:"center",marginBottom:8}},"No chords added yet"),
         React.createElement("p",{style:{fontSize:12,color:t.muted,fontFamily:"'Inter',sans-serif",margin:"0 0 18px",lineHeight:1.5,textAlign:"center"}},"Chord symbols help with theory analysis and make your lick much more useful for others. Add them in the CHORDS section above."),
