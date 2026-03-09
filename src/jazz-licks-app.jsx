@@ -6522,7 +6522,7 @@ var SCALE_ROOT_ROW1=["C","Db","D","Eb","E","F"];
 var SCALE_ROOT_ROW2=["F#","G","Ab","A","Bb","B"];
 
 // Comfortable low MIDI note per instrument (WRITTEN pitch) for scale display
-var INST_LOW_MIDI={"Concert":48,"Alto Sax":56,"Soprano Sax":56,"Tenor Sax":56,"Baritone Sax":56,"Bb Trumpet":55,"Trumpet":55,"Clarinet":50,"Trombone":36,"Piano":48,"Guitar":48,"Bass":28,"Flute":60,"Vibes":53,"Violin":55,"Vocals":48};
+var INST_LOW_MIDI={"Concert":60,"Alto Sax":58,"Soprano Sax":58,"Tenor Sax":58,"Baritone Sax":56,"Bb Trumpet":58,"Trumpet":58,"Clarinet":52,"Trombone":36,"Piano":60,"Guitar":52,"Bass":28,"Flute":60,"Vibes":53,"Violin":55,"Vocals":60};
 
 function buildScaleAbc(rootName,scaleDef,baseMidi,useBassClef){
   if(!scaleDef)return null;
