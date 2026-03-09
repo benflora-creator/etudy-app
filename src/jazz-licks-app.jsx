@@ -6649,41 +6649,56 @@ function buildFullRangeScaleAbc(rootName,scaleDef,lowMidi,highMidi,useBassClef){
       spellMap[scaleDef.notes[ni]%12]=spellMap[scaleDef.notes[ni]%12]||{letter:bestL||"C",acc:bestA};
     }
   }
-  // Also root
   spellMap[0]=spellMap[0]||{letter:rootLetter,acc:rootAcc};
 
-  // Find lowest root at or above lowMidi
+  // Helper: midi → abc note string
+  function midiToAbc(m,usedAcc){
+    var iv=((m-rootPc)%12+12)%12;
+    var sp=spellMap[iv];if(!sp)return null;
+    var oct=Math.floor((m-LET_PC[sp.letter]-sp.acc)/12)-1;
+    var needsAcc=false;var abcAcc="";
+    if(sp.acc!==0){abcAcc=sp.acc>1?"^^":sp.acc===1?"^":sp.acc===-1?"_":"__";needsAcc=true;}
+    else if(usedAcc[sp.letter]!==undefined&&usedAcc[sp.letter]!==0){abcAcc="=";needsAcc=true;}
+    usedAcc[sp.letter]=sp.acc;
+    var abcN="";
+    if(oct>=5){abcN=(needsAcc?abcAcc:"")+sp.letter.toLowerCase();for(var oi=6;oi<=oct;oi++)abcN+="'";}
+    else{abcN=(needsAcc?abcAcc:"")+sp.letter.toUpperCase();for(var oi2=3;oi2>=oct;oi2--)abcN+=",";}
+    return abcN;
+  }
+
+  // Collect ascending MIDIs
   var startMidi=rootPc+Math.floor(lowMidi/12)*12;
   if(startMidi<lowMidi)startMidi+=12;
-  // Go one octave lower if possible to start scale from root
   if(startMidi-12>=lowMidi)startMidi-=12;
-
-  var abcNotes=[];var midis=[];var intervals=[];var usedAcc={};
+  var ascMidis=[];
   var midi=startMidi;
   while(midi<=highMidi){
     for(var si=0;si<scaleDef.notes.length;si++){
       var m=midi+scaleDef.notes[si];
       if(m<lowMidi)continue;if(m>highMidi)break;
-      var iv=scaleDef.notes[si]%12;
-      var sp=spellMap[iv];if(!sp)continue;
-      midis.push(m);intervals.push(scaleDef.notes[si]%12);
-      var oct=Math.floor((m-LET_PC[sp.letter]-sp.acc)/12)-1;
-      var needsAcc=false;var abcAcc="";
-      if(sp.acc!==0){abcAcc=sp.acc>1?"^^":sp.acc===1?"^":sp.acc===-1?"_":"__";needsAcc=true;}
-      else if(usedAcc[sp.letter]!==undefined&&usedAcc[sp.letter]!==0){abcAcc="=";needsAcc=true;}
-      usedAcc[sp.letter]=sp.acc;
-      var abcN="";
-      if(oct>=5){abcN=(needsAcc?abcAcc:"")+sp.letter.toLowerCase();for(var oi=6;oi<=oct;oi++)abcN+="'";}
-      else{abcN=(needsAcc?abcAcc:"")+sp.letter.toUpperCase();for(var oi2=3;oi2>=oct;oi2--)abcN+=",";}
-      abcNotes.push(abcN);
+      ascMidis.push(m);
     }
     midi+=12;
   }
-  if(!abcNotes.length)return null;
+  if(!ascMidis.length)return null;
+
+  // Build descending: reverse without repeating top note
+  var descMidis=ascMidis.slice(0,-1).reverse();
+  var allMidis=ascMidis.concat(descMidis);
+
+  // Generate ABC with bar lines every 8 eighth notes
+  var usedAcc={};var abcParts=[];var noteCount=0;
+  for(var i=0;i<allMidis.length;i++){
+    var abcN=midiToAbc(allMidis[i],usedAcc);
+    if(!abcN)continue;
+    abcParts.push(abcN);
+    noteCount++;
+    if(noteCount%8===0&&i<allMidis.length-1){abcParts.push("|");usedAcc={};}// reset accidentals at bar line
+  }
+
   var clefStr=useBassClef?" clef=bass":"";
-  // Use quarter notes for compact multi-octave display
-  var abc="X:1\n%%stretchlast true\nM:free\nL:1/4\nK:C"+clefStr+"\n"+abcNotes.join(" ")+" |";
-  return{abc:abc,midis:midis,intervals:intervals};
+  var abc="X:1\nM:4/4\nL:1/8\nK:C"+clefStr+"\n"+abcParts.join(" ")+" |";
+  return{abc:abc,midis:allMidis,intervals:allMidis.map(function(m){return((m-rootPc)%12+12)%12;})};
 }
 
 // Fullscreen scale range viewer
@@ -6697,14 +6712,14 @@ function FullRangeScaleView({rootName,scaleDef,scaleName,lowMidi,highMidi,useBas
   var getAudioCtx=function(){if(!audioCtxRef.current)audioCtxRef.current=new(window.AudioContext||window.webkitAudioContext)();return audioCtxRef.current;};
   var playMidi=function(midi,dur){try{var ctx=getAudioCtx();if(ctx.state==="suspended")ctx.resume();var osc=ctx.createOscillator();var gain=ctx.createGain();osc.type="triangle";osc.frequency.value=440*Math.pow(2,(midi-69)/12);gain.gain.setValueAtTime(0.25,ctx.currentTime);gain.gain.exponentialRampToValueAtTime(0.01,ctx.currentTime+(dur||0.4));osc.connect(gain);gain.connect(ctx.destination);osc.start();osc.stop(ctx.currentTime+(dur||0.4));}catch(e){}};
   var playAll=function(){if(playingRef.current||!data||!data.midis)return;playingRef.current=true;var midis=data.midis.map(function(m){return m-instOff;});var i=0;
-    var step=function(){if(!mountedRef.current||i>=midis.length){playingRef.current=false;if(mountedRef.current)setPlayIdx(-1);return;}if(mountedRef.current)setPlayIdx(i);playMidi(midis[i],0.25);i++;timerRef.current=setTimeout(step,280);};step();};
+    var step=function(){if(!mountedRef.current||i>=midis.length){playingRef.current=false;if(mountedRef.current)setPlayIdx(-1);return;}if(mountedRef.current)setPlayIdx(i);playMidi(midis[i],0.18);i++;timerRef.current=setTimeout(step,200);};step();};
 
   // Render notation
   useEffect(function(){
     if(!notRef.current||!data||!data.abc||!window.ABCJS)return;
     try{
       notRef.current.innerHTML="";
-      window.ABCJS.renderAbc(notRef.current,data.abc,{paddingtop:6,paddingbottom:6,paddingleft:0,paddingright:0,add_classes:true,responsive:"resize",staffwidth:600,wrap:{minSpacing:1.4,maxSpacing:2.2,preferredMeasuresPerLine:1}});
+      window.ABCJS.renderAbc(notRef.current,data.abc,{paddingtop:6,paddingbottom:6,paddingleft:0,paddingright:0,add_classes:true,responsive:"resize",staffwidth:400,wrap:{minSpacing:1.2,maxSpacing:2.0,preferredMeasuresPerLine:2}});
       var svg=notRef.current.querySelector("svg");
       if(svg){
         svg.style.maxWidth="100%";svg.style.overflow="visible";
@@ -6742,7 +6757,7 @@ function FullRangeScaleView({rootName,scaleDef,scaleName,lowMidi,highMidi,useBas
     React.createElement("div",{style:{padding:"10px 16px",paddingTop:"calc(env(safe-area-inset-top, 0px) + 10px)",display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:"1px solid "+t.border,flexShrink:0}},
       React.createElement("div",null,
         React.createElement("div",{style:{fontSize:16,fontWeight:700,color:t.text,fontFamily:t.titleFont}},rootName+" "+scaleName),
-        React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace"}},data?data.midis.length+" notes · full range":"...")),
+        React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace"}},data?data.midis.length+" notes · ↑↓":"...")),
       React.createElement("div",{style:{display:"flex",gap:8,alignItems:"center"}},
         React.createElement("button",{onClick:playAll,style:{width:36,height:36,borderRadius:10,background:isStudio?t.playBg:t.accent,border:"none",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",boxShadow:"0 2px 10px "+t.accentGlow}},
           React.createElement("div",{style:{width:0,height:0,borderTop:"7px solid transparent",borderBottom:"7px solid transparent",borderLeft:"12px solid #fff",marginLeft:2}})),
