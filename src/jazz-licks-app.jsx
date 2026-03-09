@@ -6526,32 +6526,81 @@ var INST_LOW_MIDI={"Concert":60,"Alto Sax":58,"Soprano Sax":58,"Tenor Sax":58,"B
 
 function buildScaleAbc(rootName,scaleDef,baseMidi,useBassClef){
   if(!scaleDef)return null;
-  var N2M_L={C:0,D:2,E:4,F:5,G:7,A:9,B:11};
-  var rootPc=N2M_L[rootName[0]]||0;
-  if(rootName.includes("b"))rootPc--;if(rootName.includes("#"))rootPc++;
-  rootPc=((rootPc%12)+12)%12;
-  var KEY_S=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
-  var KEY_F=["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"];
-  var useFlat=rootName.includes("b")||["F","Bb","Eb","Ab","Db","Gb"].indexOf(rootName)>=0;
-  var names=useFlat?KEY_F:KEY_S;
-  // Find starting octave: nearest root at or above baseMidi
+  var LETTERS=["C","D","E","F","G","A","B"];
+  var LET_PC={C:0,D:2,E:4,F:5,G:7,A:9,B:11};
+  // Parse root
+  var rootLetter=rootName[0];
+  var rootAcc=0;
+  if(rootName.includes("b"))rootAcc=-1;if(rootName.includes("#"))rootAcc=1;
+  var rootPc=((LET_PC[rootLetter]+rootAcc)%12+12)%12;
+  var rootLetIdx=LETTERS.indexOf(rootLetter);
+
+  // For 7-note scales: assign sequential letters from root
+  // For other sizes: pick best letter per note
+  var noteCount=scaleDef.notes.length;
+  var is7=noteCount===7;
+  var spellings=[];// {letter, acc, pc}
+
+  for(var ni=0;ni<noteCount;ni++){
+    var interval=scaleDef.notes[ni];
+    var pc=(rootPc+interval)%12;
+
+    if(is7){
+      // 7-note: degree ni gets letter (rootLetIdx + ni) % 7
+      var li=(rootLetIdx+ni)%7;
+      var letter=LETTERS[li];
+      var natPc=LET_PC[letter];
+      var acc=((pc-natPc)%12+12)%12;
+      if(acc>6)acc=acc-12;// prefer flats: +11 → -1
+      spellings.push({letter:letter,acc:acc,pc:pc});
+    }else{
+      // Non-7-note: find closest letter name
+      // Try natural, then sharp, then flat
+      var bestLetter=null,bestAcc=0,bestDist=99;
+      for(var li2=0;li2<7;li2++){
+        var let2=LETTERS[li2];
+        var nat=LET_PC[let2];
+        var a=((pc-nat)%12+12)%12;
+        if(a>6)a=a-12;
+        if(Math.abs(a)<=1&&Math.abs(a)<bestDist){
+          bestDist=Math.abs(a);bestLetter=let2;bestAcc=a;
+        }
+      }
+      if(!bestLetter){bestLetter="C";bestAcc=0;}// fallback
+      // Avoid duplicate letters: check if previous note uses same letter
+      if(spellings.length>0&&spellings[spellings.length-1].letter===bestLetter){
+        // Try next letter up with flat
+        var altLi=(LETTERS.indexOf(bestLetter)+1)%7;
+        var altLetter=LETTERS[altLi];
+        var altNat=LET_PC[altLetter];
+        var altAcc=((pc-altNat)%12+12)%12;
+        if(altAcc>6)altAcc=altAcc-12;
+        if(Math.abs(altAcc)<=1){bestLetter=altLetter;bestAcc=altAcc;}
+      }
+      spellings.push({letter:bestLetter,acc:bestAcc,pc:pc});
+    }
+  }
+  // Add octave root
+  spellings.push({letter:rootLetter,acc:rootAcc,pc:rootPc});
+
+  // Find starting octave
   var base=baseMidi||60;
   var rootMidi=rootPc+Math.floor(base/12)*12;
   if(rootMidi<base)rootMidi+=12;
-  // Don't go too high
   if(rootMidi>84)rootMidi-=12;
+
+  // Build ABC and MIDI
   var abcNotes=[];var midis=[];
-  for(var ni=0;ni<=scaleDef.notes.length;ni++){
-    var interval=ni<scaleDef.notes.length?scaleDef.notes[ni]:12;
-    var midi=rootMidi+interval;midis.push(midi);
-    var pc=(rootPc+interval)%12;
-    var noteName=names[pc];var letter=noteName[0];
-    var accVal=noteName.length>1?(noteName[1]==="#"?1:-1):0;
+  for(var si=0;si<=noteCount;si++){
+    var sp=spellings[si];
+    var interval2=si<noteCount?scaleDef.notes[si]:12;
+    var midi=rootMidi+interval2;midis.push(midi);
     var oct=Math.floor(midi/12)-1;
-    var abcAcc=accVal>0?"^":accVal<0?"_":"=";
+    var abcAcc=sp.acc>0?"^":sp.acc<0?"_":"=";
+    if(sp.acc<-1)abcAcc="__";if(sp.acc>1)abcAcc="^^";
     var abcN="";
-    if(oct>=5){abcN=abcAcc+letter.toLowerCase();for(var oi=6;oi<=oct;oi++)abcN+="'";}
-    else{abcN=abcAcc+letter.toUpperCase();for(var oi2=3;oi2>=oct;oi2--)abcN+=",";}
+    if(oct>=5){abcN=abcAcc+sp.letter.toLowerCase();for(var oi=6;oi<=oct;oi++)abcN+="'";}
+    else{abcN=abcAcc+sp.letter.toUpperCase();for(var oi2=3;oi2>=oct;oi2--)abcN+=",";}
     abcNotes.push(abcN);
   }
   var clefStr=useBassClef?" clef=bass":"";
