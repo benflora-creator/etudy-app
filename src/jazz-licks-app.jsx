@@ -1400,27 +1400,29 @@ async function previewPlay(lickId,abc,tempo,feel){
   // Schedule chord accompaniment
   var chordCleanup=null;
   if(_chordSamplerReady&&_chordSampler&&chordTimes.length>0){
-    var cRev=new Tone.Reverb({decay:1.8,wet:0.15}).toDestination();
-    var cComp=new Tone.Compressor({threshold:-24,ratio:3}).connect(cRev);
-    var cFlt=new Tone.Filter({frequency:3500,type:"lowpass"}).connect(cComp);
-    _chordSampler.disconnect();_chordSampler.connect(cFlt);
-    var cNow=Tone.now();var cLA=0.04;
-    for(var ci=0;ci<chordTimes.length;ci++){var ch=chordTimes[ci];var cn=chordToNotes(ch.name,4);if(!cn.length)continue;
-      var nextT=ci<chordTimes.length-1?chordTimes[ci+1].time:totalDur;var cDur=Math.max(0.5,nextT-ch.time);
-      for(var cni=0;cni<cn.length;cni++){(function(_note,_time,_dur){
-        var fireMs=Math.max(0,_time*1000-cLA*1000);
-        timers.push(setTimeout(function(){if(_preview.gen!==myGen)return;try{_chordSampler.triggerAttackRelease(_note,_dur,cNow+_time-cLA,0.55);}catch(e){}},fireMs));
-      })(cn[cni],ch.time,cDur);}}
-    chordCleanup=function(){try{_chordSampler.releaseAll();_chordSampler.disconnect();_chordSampler.toDestination();}catch(e){}try{cFlt.dispose();}catch(e){}try{cComp.dispose();}catch(e){}try{cRev.dispose();}catch(e){}};
+    var cRev=new Tone.Reverb({decay:1.5,wet:0.12}).toDestination();
+    _chordSampler.disconnect();_chordSampler.connect(cRev);
+    chordCleanup=function(){try{_chordSampler.releaseAll();_chordSampler.disconnect();_chordSampler.toDestination();}catch(e){}try{cRev.dispose();}catch(e){}};
   }
   if(_samplerReady&&_sampler){
     // Use piano sampler with dedicated effects chain
     var rev=new Tone.Reverb({decay:2.2,wet:0.16}).toDestination();
     var comp=new Tone.Compressor({threshold:-22,ratio:3,attack:0.005,release:0.12}).connect(rev);
     _sampler.disconnect();_sampler.connect(comp);
+    // Single shared time reference for melody + chords
     var now=Tone.now();var LA=0.04;
+    // Schedule melody
     for(var i=0;i<notes.length;i++){var n=notes[i];if(!n.tones)continue;
       (function(_n){var fireMs=Math.max(0,_n.startTime*1000-LA*1000);timers.push(setTimeout(function(){if(_preview.gen!==myGen)return;for(var j=0;j<_n.tones.length;j++){try{_sampler.triggerAttackRelease(_n.tones[j],Math.min(_n.dur*0.85,1.5),now+_n.startTime,_n.vel);}catch(e){}}},fireMs));})(n);}
+    // Schedule chords on same time base
+    if(_chordSamplerReady&&_chordSampler&&chordTimes.length>0){
+      for(var ci=0;ci<chordTimes.length;ci++){var ch=chordTimes[ci];var cn=chordToNotes(ch.name,4);if(!cn.length)continue;
+        var nextT=ci<chordTimes.length-1?chordTimes[ci+1].time:totalDur;var cDur=Math.max(0.5,nextT-ch.time);
+        for(var cni=0;cni<cn.length;cni++){(function(_note,_time,_dur){
+          var fireMs=Math.max(0,_time*1000-LA*1000);
+          timers.push(setTimeout(function(){if(_preview.gen!==myGen)return;try{_chordSampler.triggerAttackRelease(_note,_dur,now+_time,0.7);}catch(e){}},fireMs));
+        })(cn[cni],ch.time,cDur);}}
+    }
     if(myGen!==_preview.gen){for(var k=0;k<timers.length;k++)clearTimeout(timers[k]);try{_sampler.disconnect();_sampler.toDestination();}catch(e){}try{rev.dispose();}catch(e){}try{comp.dispose();}catch(e){}if(chordCleanup)chordCleanup();return;}
     _preview.id=lickId;
     var tid=setTimeout(function(){if(_preview.id===lickId)previewStop();},totalDur*1000+300);
@@ -1433,6 +1435,15 @@ async function previewPlay(lickId,abc,tempo,feel){
     var now2=Tone.now();
     for(var i2=0;i2<notes.length;i2++){var n2=notes[i2];if(!n2.tones)continue;
       (function(_n){var fireMs=Math.max(0,_n.startTime*1000-40);timers.push(setTimeout(function(){if(_preview.gen!==myGen)return;for(var j=0;j<_n.tones.length;j++){try{syn.triggerAttackRelease(_n.tones[j],Math.min(_n.dur*0.85,1.5),now2+_n.startTime);}catch(e){}}},fireMs));})(n2);}
+    // Schedule chords in fallback too
+    if(_chordSamplerReady&&_chordSampler&&chordTimes.length>0){
+      for(var ci2=0;ci2<chordTimes.length;ci2++){var ch2=chordTimes[ci2];var cn2=chordToNotes(ch2.name,4);if(!cn2.length)continue;
+        var nextT2=ci2<chordTimes.length-1?chordTimes[ci2+1].time:totalDur;var cDur2=Math.max(0.5,nextT2-ch2.time);
+        for(var cni2=0;cni2<cn2.length;cni2++){(function(_note,_time,_dur){
+          var fireMs=Math.max(0,_time*1000-40);
+          timers.push(setTimeout(function(){if(_preview.gen!==myGen)return;try{_chordSampler.triggerAttackRelease(_note,_dur,now2+_time,0.7);}catch(e){}},fireMs));
+        })(cn2[cni2],ch2.time,cDur2);}}
+    }
     _preview.id=lickId;
     var tid2=setTimeout(function(){if(_preview.id===lickId)previewStop();},totalDur*1000+300);
     _preview.stop=function(){clearTimeout(tid2);for(var k=0;k<timers.length;k++)clearTimeout(timers[k]);try{syn.releaseAll();}catch(e){}try{syn.dispose();}catch(e){}try{rev2.dispose();}catch(e){}if(chordCleanup)chordCleanup();};
