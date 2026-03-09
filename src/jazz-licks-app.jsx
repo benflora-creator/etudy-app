@@ -6635,7 +6635,7 @@ function buildFullRangeScaleAbc(rootName,scaleDef,lowMidi,highMidi,useBassClef){
   var rootLetIdx=LETTERS.indexOf(rootLetter);
   var is7=scaleDef.notes.length===7;
 
-  // Build spelling map: interval → {letter, acc}
+  // Build spelling map
   var spellMap={};
   for(var ni=0;ni<scaleDef.notes.length;ni++){
     var pc=(rootPc+scaleDef.notes[ni])%12;
@@ -6651,7 +6651,6 @@ function buildFullRangeScaleAbc(rootName,scaleDef,lowMidi,highMidi,useBassClef){
   }
   spellMap[0]=spellMap[0]||{letter:rootLetter,acc:rootAcc};
 
-  // Helper: midi → abc note string
   function midiToAbc(m,usedAcc){
     var iv=((m-rootPc)%12+12)%12;
     var sp=spellMap[iv];if(!sp)return null;
@@ -6666,39 +6665,48 @@ function buildFullRangeScaleAbc(rootName,scaleDef,lowMidi,highMidi,useBassClef){
     return abcN;
   }
 
-  // Collect ascending MIDIs
-  var startMidi=rootPc+Math.floor(lowMidi/12)*12;
-  if(startMidi<lowMidi)startMidi+=12;
-  if(startMidi-12>=lowMidi)startMidi-=12;
-  var ascMidis=[];
-  var midi=startMidi;
-  while(midi<=highMidi){
+  // 1. Collect ALL scale tones in range (ascending, low to high)
+  var lowestOct=Math.floor(lowMidi/12)*12;
+  var allAsc=[];
+  for(var oct2=lowestOct;oct2<=highMidi;oct2+=12){
     for(var si=0;si<scaleDef.notes.length;si++){
-      var m=midi+scaleDef.notes[si];
-      if(m<lowMidi)continue;if(m>highMidi)break;
-      ascMidis.push(m);
+      var m=oct2+rootPc+scaleDef.notes[si];
+      if(m<lowMidi||m>highMidi)continue;
+      allAsc.push(m);
     }
-    midi+=12;
   }
-  if(!ascMidis.length)return null;
+  // Dedupe and sort
+  allAsc=Array.from(new Set(allAsc)).sort(function(a,b){return a-b;});
+  if(allAsc.length<3)return null;
 
-  // Build descending: reverse without repeating top note
-  var descMidis=ascMidis.slice(0,-1).reverse();
-  var allMidis=ascMidis.concat(descMidis);
+  // 2. Find starting note: lowest root in range
+  var startIdx=0;
+  for(var i=0;i<allAsc.length;i++){
+    var iv2=((allAsc[i]-rootPc)%12+12)%12;
+    if(iv2===0){startIdx=i;break;}
+  }
 
-  // Generate ABC with bar lines every 8 eighth notes
-  var usedAcc={};var abcParts=[];var noteCount=0;
-  for(var i=0;i<allMidis.length;i++){
-    var abcN=midiToAbc(allMidis[i],usedAcc);
+  // 3. Build path: start → top, top → bottom (no repeat), bottom → start (no repeat)
+  var path=[];
+  // Ascending from start to top
+  for(var i2=startIdx;i2<allAsc.length;i2++)path.push(allAsc[i2]);
+  // Descending from top-1 to bottom
+  for(var i3=allAsc.length-2;i3>=0;i3--)path.push(allAsc[i3]);
+  // Ascending from bottom+1 back to start
+  for(var i4=1;i4<=startIdx;i4++)path.push(allAsc[i4]);
+
+  // 4. Generate ABC: 4/4, 8th notes, bar lines every 8 notes
+  var usedAcc2={};var abcParts=[];var nc=0;
+  for(var i5=0;i5<path.length;i5++){
+    var abcN=midiToAbc(path[i5],usedAcc2);
     if(!abcN)continue;
-    abcParts.push(abcN);
-    noteCount++;
-    if(noteCount%8===0&&i<allMidis.length-1){abcParts.push("|");usedAcc={};}// reset accidentals at bar line
+    abcParts.push(abcN);nc++;
+    if(nc%8===0&&i5<path.length-1){abcParts.push("|");usedAcc2={};}
   }
 
   var clefStr=useBassClef?" clef=bass":"";
   var abc="X:1\nM:4/4\nL:1/8\nK:C"+clefStr+"\n"+abcParts.join(" ")+" |";
-  return{abc:abc,midis:allMidis,intervals:allMidis.map(function(m){return((m-rootPc)%12+12)%12;})};
+  return{abc:abc,midis:path,intervals:path.map(function(m){return((m-rootPc)%12+12)%12;})};
 }
 
 // Fullscreen scale range viewer
@@ -6719,7 +6727,7 @@ function FullRangeScaleView({rootName,scaleDef,scaleName,lowMidi,highMidi,useBas
     if(!notRef.current||!data||!data.abc||!window.ABCJS)return;
     try{
       notRef.current.innerHTML="";
-      window.ABCJS.renderAbc(notRef.current,data.abc,{paddingtop:6,paddingbottom:6,paddingleft:0,paddingright:0,add_classes:true,responsive:"resize",staffwidth:400,wrap:{minSpacing:1.2,maxSpacing:2.0,preferredMeasuresPerLine:2}});
+      window.ABCJS.renderAbc(notRef.current,data.abc,{paddingtop:6,paddingbottom:6,paddingleft:0,paddingright:0,add_classes:true,responsive:"resize",staffwidth:500,wrap:{minSpacing:1.0,maxSpacing:1.8,preferredMeasuresPerLine:4}});
       var svg=notRef.current.querySelector("svg");
       if(svg){
         svg.style.maxWidth="100%";svg.style.overflow="visible";
@@ -6727,8 +6735,9 @@ function FullRangeScaleView({rootName,scaleDef,scaleName,lowMidi,highMidi,useBas
         svg.querySelectorAll("path").forEach(function(p){p.setAttribute("fill",stCol);p.setAttribute("stroke",stCol);});
         svg.querySelectorAll(".abcjs-staff path").forEach(function(p){p.setAttribute("stroke",t.staffStroke);p.setAttribute("fill","none");p.setAttribute("stroke-width","0.6");});
         svg.querySelectorAll(".abcjs-staff-extra path").forEach(function(p){p.setAttribute("stroke",isStudio?t.staffStroke:t.muted);p.setAttribute("fill",isStudio?t.staffStroke:t.muted);p.setAttribute("stroke-width","0.6");});
-        svg.querySelectorAll(".abcjs-bar path").forEach(function(p){p.style.display="none";});
-        svg.querySelectorAll("text.abcjs-chord,text.abcjs-title,.abcjs-meta-top,.abcjs-time-signature").forEach(function(el){el.style.display="none";});
+        svg.querySelectorAll(".abcjs-bar path").forEach(function(p){p.setAttribute("stroke",t.barStroke);p.setAttribute("stroke-width","0.8");});
+        svg.querySelectorAll("text.abcjs-chord,text.abcjs-title,.abcjs-meta-top").forEach(function(el){el.style.display="none";});
+        svg.querySelectorAll(".abcjs-time-signature path").forEach(function(p){p.setAttribute("fill",stCol);});
         var noteEls=svg.querySelectorAll(".abcjs-note");
         noteEls.forEach(function(noteEl,ni){
           noteEl.style.cursor="pointer";
