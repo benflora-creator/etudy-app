@@ -263,7 +263,7 @@ const SAMPLE_LICKS = [  { id:1, title:"Classic Charlie Parker ii-V-I", artist:"C
   { id:2, title:"Coltrane Pentatonic Run", artist:"John Coltrane", instrument:"Tenor Sax", category:"Pentatonic", key:"Bb Major", tempo:160, feel:"straight", abc:"X:1\nT:Coltrane Pentatonic\nM:4/4\nL:1/16\nQ:1/4=160\nK:Bb\n\"Bbmaj7\"B2cd efga | bagf edcB | \"Eb7\"e2fg abc'b | agfe dcBA |", youtubeId:"TsgGbgWDOuo", youtubeStart:120, spotifyId:"7aBo1GlChOBEEreEHqB7EY", likes:189, user:"TraneFanatic", tags:["modal","advanced"], description:"A flowing pentatonic idea from Trane's modal period." },
   { id:3, title:"Clifford Brown Turnaround", artist:"Clifford Brown", instrument:"Trumpet", category:"Turnaround", key:"F Major", tempo:140, feel:"swing", abc:'X:1\nT:Brownie Turnaround\nM:4/4\nL:1/8\nQ:1/4=140\nK:F\n"Fmaj7"f2 ed cA GF | "D7"^F2 AB cd ef | "Gm7"g2 fe dc BA | "C7"G2 AB c4 |', youtubeId:"p9VOoYfIFek", youtubeStart:30, likes:156, user:"BrownieJazz", tags:["turnaround","hard-bop"], description:"Brownie's elegant turnaround lick." },
   { id:4, title:"Bill Evans Shell Voicings", artist:"Bill Evans", instrument:"Piano", category:"ii-V-I", key:"D Minor", tempo:120, feel:"straight", abc:'X:1\nT:Evans Shells\nM:4/4\nL:1/4\nQ:1/4=120\nK:Dm\n"Em7b5"[EB]2 [EA]2 | "A7"[^CG]2 [^CF]2 | "Dm7"[DA]4 |', youtubeId:"bJBgtAIC5Wk", youtubeStart:60, likes:312, user:"EvansKeys", tags:["voicings","essential"], description:"Bill Evans' signature shell voicing approach." },
-  { id:5, title:"Wes Montgomery Octave Lick", artist:"Wes Montgomery", instrument:"Guitar", category:"Blues", key:"Bb Blues", tempo:130, feel:"swing", abc:'X:1\nT:Wes Octaves\nM:4/4\nL:1/8\nQ:1/4=130\nK:Bb\n"Bb7"B,2 D2 F2 A2 | B2 AF DB, z2 | "Eb7"E,2 G,2 B,2 d2 | e2 dB G,E, z2 |', youtubeId:"MOm17yw__tE", youtubeStart:15, likes:201, user:"OctaveKing", tags:["octaves","blues"], description:"Wes's trademark octave technique." }
+  { id:5, title:"Wes Montgomery Octave Lick", artist:"Wes Montgomery", instrument:"Guitar", category:"Blues", key:"Bb Major", tempo:130, feel:"swing", abc:'X:1\nT:Wes Octaves\nM:4/4\nL:1/8\nQ:1/4=130\nK:Bb\n"Bb7"B,2 D2 F2 A2 | B2 AF DB, z2 | "Eb7"E,2 G,2 B,2 d2 | e2 dB G,E, z2 |', youtubeId:"MOm17yw__tE", youtubeStart:15, likes:201, user:"OctaveKing", tags:["octaves","blues"], description:"Wes's trademark octave technique." }
 ];
 
 // ============================================================
@@ -2593,7 +2593,7 @@ function buildAbc(items,keySig,timeSig,tempo,chords,minBars,keyQual){const[tsN,t
   else{for(var g2=1;g2<tsN;g2++){beamBreaks.push(g2*beatE);beamBreaks16.push(g2*beatE);}}
 
   // Helper: emit note name in ABC
-  var isMinor=(keyQual==="Minor"||keyQual==="Blues");
+  var isMinor=(keyQual==="Minor");
   var abcKBase=abcKeySig(keySig);
   var abcKFull=isMinor?abcKBase+"m":abcKBase;
   var ksMap=KEY_SIG_ACC[abcKFull]||KEY_SIG_ACC[abcKBase]||{};
@@ -4274,7 +4274,7 @@ function DailyLickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:user
   const t=th||TH.classic;const isStudio=t===TH.studio;
   const uOff=INST_TRANS[userInst]||0;const cardAbc=uOff?transposeAbc(lick.abc,uOff):lick.abc;
   const keyRoot=uOff?trKeyName(lick.key.split(" ")[0],uOff):lick.key.split(" ")[0];
-  const keyQualLabel=lick.key&&lick.key.toLowerCase().includes("minor")?" Moll":lick.key&&lick.key.toLowerCase().includes("blues")?" Blues":" Dur";
+  const keyQualLabel=lick.key&&lick.key.toLowerCase().includes("minor")?" Minor":" Major";
   const keyLabel=keyRoot+keyQualLabel;
   const prevCurNote=usePreviewCurNote(lick.id);
   const titleParts=lick.title?lick.title.split(" \u2014 "):null;
@@ -4296,7 +4296,7 @@ function DailyLickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:user
           React.createElement("span",{onClick:function(e){e.stopPropagation();if(onArtistSearch)onArtistSearch(lick.artist);},style:{cursor:"pointer",borderBottom:"1px solid transparent",transition:"border-color 0.15s"},"onMouseEnter":function(e){e.currentTarget.style.borderBottomColor=isStudio?t.accent+"60":t.accent+"40";},"onMouseLeave":function(e){e.currentTarget.style.borderBottomColor="transparent";}},titleParts[0]),
           React.createElement("span",{style:{color:t.text,fontWeight:400}}," \u2014 "+titleParts.slice(1).join(" \u2014 ")))
         :lick.title),
-      // LINE 2: Tune · Key (Dur/Moll) · Category
+      // LINE 2: Tune · Key (Major/Minor) · Category
       React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:isStudio?12:10,flexWrap:"wrap"}},
         lick.tune&&React.createElement("span",{style:{fontSize:10,color:t.text,fontFamily:"'Inter',sans-serif",fontWeight:500,opacity:0.75}},lick.tune),
         lick.tune&&React.createElement("span",{style:{fontSize:8,color:t.muted}},"\u00B7"),
@@ -4457,7 +4457,7 @@ function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst,
   const t=th||TH.classic;const isStudio=t===TH.studio;
   const uOff=INST_TRANS[userInst]||0;const cardAbc=uOff?transposeAbc(lick.abc,uOff):lick.abc;
   const keyRoot=uOff?trKeyName(lick.key.split(" ")[0],uOff):lick.key.split(" ")[0];
-  const keyQualLabel=lick.key&&lick.key.toLowerCase().includes("minor")?" Moll":lick.key&&lick.key.toLowerCase().includes("blues")?" Blues":" Dur";
+  const keyQualLabel=lick.key&&lick.key.toLowerCase().includes("minor")?" Minor":" Major";
   const keyLabel=keyRoot+keyQualLabel;
   const prevCurNote=usePreviewCurNote(lick.id);
   const[showFlames,setShowFlames]=useState(false);
@@ -4493,7 +4493,7 @@ function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst,
             React.createElement("span",{onClick:function(e){e.stopPropagation();if(onArtistSearch)onArtistSearch(lick.artist);},style:{cursor:"pointer",borderBottom:"1px solid transparent",transition:"border-color 0.15s"},"onMouseEnter":function(e){e.currentTarget.style.borderBottomColor=isStudio?t.accent+"60":t.accent+"40";},"onMouseLeave":function(e){e.currentTarget.style.borderBottomColor="transparent";}},titleParts[0]),
             React.createElement("span",{style:{color:t.text,fontWeight:isStudio?500:400}}," \u2014 "+titleParts.slice(1).join(" \u2014 ")))
           :lick.title),
-        // LINE 2: Tune · Key (Dur/Moll) · Category chip · Private · ... @user (right)
+        // LINE 2: Tune · Key (Major/Minor) · Category chip · Private · ... @user (right)
         React.createElement("div",{style:{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}},
           lick.tune&&React.createElement("span",{style:{fontSize:10,color:t.text,fontFamily:"'Inter',sans-serif",fontWeight:500,opacity:0.75}},lick.tune),
           lick.tune&&React.createElement("span",{style:{fontSize:8,color:t.muted}},"\u00B7"),
@@ -6512,7 +6512,7 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
       boxShadow:"0 8px 24px rgba(0,0,0,"+(isStudio?"0.5":"0.12")+")"}},
       // Quality toggle
       React.createElement("div",{style:{display:"flex",gap:3,marginBottom:6}},
-        ["Major","Minor","Blues"].map(function(q){
+        ["Major","Minor"].map(function(q){
           var active=keyQual===q;
           return React.createElement("button",{key:q,onClick:function(){sKQ(q);},
             style:{flex:1,padding:"5px 3px",borderRadius:6,border:active?"1.5px solid "+t.accent:"1px solid "+t.border,
@@ -6737,7 +6737,7 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
         edStep===2&&React.createElement(React.Fragment,null,
           React.createElement("button",{onClick:function(){if(!step2Ok)return;var hasChords=Object.keys(chordsRef.current||{}).length>0;if(!hasChords&&!showChordHint){setShowChordHint("private");return;}setShowChordHint(false);tryPublish("private");},disabled:!canPublish,style:{padding:"10px 18px",background:canPublish?t.card:t.border,color:canPublish?t.text:t.subtle,border:canPublish?"1.5px solid "+t.accent:"none",borderRadius:10,fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:canPublish?"pointer":"default",transition:"all 0.2s"}},"\uD83D\uDD12 Private"),
           React.createElement("button",{onClick:function(){if(!step2Ok)return;var hasChords=Object.keys(chordsRef.current||{}).length>0;if(!hasChords&&!showChordHint){setShowChordHint("publish");return;}setShowChordHint(false);tryPublish("publish");},disabled:!canPublish,style:{padding:"10px 22px",background:canPublish?(isStudio?t.playBg:t.accent):t.border,color:canPublish?"#fff":t.subtle,border:"none",borderRadius:10,fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:canPublish?"pointer":"default",boxShadow:canPublish?"0 4px 16px "+t.accentGlow:"none",transition:"all 0.2s"}},"Publish"),
-          edStep===2&&showChordHint&&!Object.keys(chordsRef.current||{}).length&&React.createElement("div",{onClick:function(e){e.stopPropagation();},style:{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:1200,background:"rgba(0,0,0,0.45)",backdropFilter:"blur(4px)",WebkitBackdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}},
+          edStep===2&&showChordHint&&!Object.keys(chordsRef.current||{}).length&&React.createElement("div",{onClick:function(e){e.stopPropagation();setShowChordHint(false);},style:{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:1200,background:"rgba(0,0,0,0.45)",backdropFilter:"blur(4px)",WebkitBackdropFilter:"blur(4px)",display:"flex",alignItems:"flex-start",justifyContent:"center",paddingTop:"25vh",paddingLeft:20,paddingRight:20}},
             React.createElement("div",{style:{background:t.card,borderRadius:16,padding:"24px 20px",maxWidth:320,width:"100%",border:"1px solid "+(isStudio?t.accent+"30":t.border),boxShadow:"0 12px 40px rgba(0,0,0,"+(isStudio?"0.6":"0.2")+"), 0 0 24px "+(isStudio?"rgba(34,216,158,0.15)":"rgba(99,102,241,0.1)")}},
               React.createElement("div",{style:{fontSize:28,textAlign:"center",marginBottom:10}},"\uD83C\uDFB5"),
               React.createElement("div",{style:{fontSize:15,fontWeight:700,color:t.text,fontFamily:"'Inter',sans-serif",textAlign:"center",marginBottom:8}},"No chords added yet"),
@@ -7188,11 +7188,10 @@ function AllKeysTrainer({lick,th,userInst,keyProgress,onUpdateProgress}){
   // Learn mode: COF offsets starting at 0 (= original key at top)
   var learnOrder=useMemo(function(){return buildKeySeq(7,0);},[]);
   var lickRootName=lick.key.split(" ")[0];
-  // Short quality suffix for circle labels: "Minor"→"m", "Blues"→" bl", "Major"→""
+  // Short quality suffix for circle labels: "Minor"→"m", "Major"→""
   var keySuffix=useMemo(function(){
     var parts=lick.key.split(" ");var qual=(parts[1]||"").toLowerCase();
     if(qual==="minor")return "m";
-    if(qual==="blues")return " bl";
     return "";
   },[lick.key]);
   var learnLabels=learnOrder.map(function(st){return trKeyName(lickRootName,st+uOff)+keySuffix;});
