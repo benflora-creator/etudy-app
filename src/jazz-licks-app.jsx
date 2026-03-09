@@ -6589,19 +6589,28 @@ function buildScaleAbc(rootName,scaleDef,baseMidi,useBassClef){
   if(rootMidi<base)rootMidi+=12;
   if(rootMidi>84)rootMidi-=12;
 
-  // Build ABC and MIDI
+  // Build ABC and MIDI — track accidentals per letter to handle ABC bar rules
   var abcNotes=[];var midis=[];
+  var usedAcc={};// letter → last accidental used
   for(var si=0;si<=noteCount;si++){
     var sp=spellings[si];
     var interval2=si<noteCount?scaleDef.notes[si]:12;
     var midi=rootMidi+interval2;midis.push(midi);
-    // Calculate octave from letter+acc: letter in oct has MIDI = LET_PC[letter]+acc+(oct+1)*12
     var oct=Math.floor((midi-LET_PC[sp.letter]-sp.acc)/12)-1;
-    var abcAcc=sp.acc>0?"^":sp.acc<0?"_":"=";
-    if(sp.acc<-1)abcAcc="__";if(sp.acc>1)abcAcc="^^";
+    // Determine if we need explicit accidental
+    var needsAcc=false;var abcAcc="";
+    if(sp.acc!==0){
+      // Always mark sharps/flats
+      abcAcc=sp.acc>1?"^^":sp.acc===1?"^":sp.acc===-1?"_":"__";
+      needsAcc=true;
+    }else if(usedAcc[sp.letter]!==undefined&&usedAcc[sp.letter]!==0){
+      // Same letter was previously altered, need explicit natural
+      abcAcc="=";needsAcc=true;
+    }
+    usedAcc[sp.letter]=sp.acc;
     var abcN="";
-    if(oct>=5){abcN=abcAcc+sp.letter.toLowerCase();for(var oi=6;oi<=oct;oi++)abcN+="'";}
-    else{abcN=abcAcc+sp.letter.toUpperCase();for(var oi2=3;oi2>=oct;oi2--)abcN+=",";}
+    if(oct>=5){abcN=(needsAcc?abcAcc:"")+sp.letter.toLowerCase();for(var oi=6;oi<=oct;oi++)abcN+="'";}
+    else{abcN=(needsAcc?abcAcc:"")+sp.letter.toUpperCase();for(var oi2=3;oi2>=oct;oi2--)abcN+=",";}
     abcNotes.push(abcN);
   }
   var clefStr=useBassClef?" clef=bass":"";
