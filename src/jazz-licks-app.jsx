@@ -7032,6 +7032,23 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
   const[edStep,setEdStep]=useState(0);// 0=About, 1=Reference, 2=Notes
   const[ytSpeed,setYtSpeed]=useState(1);
   const[showChordHint,setShowChordHint]=useState(false);
+  var tapTempoRef=useRef([]);
+  var handleTapTempo=function(){
+    var now=performance.now();var taps=tapTempoRef.current;
+    // Reset if last tap was >2 seconds ago
+    if(taps.length>0&&now-taps[taps.length-1]>2000)taps.length=0;
+    taps.push(now);
+    if(taps.length>=2){
+      var intervals=[];for(var i=1;i<taps.length;i++)intervals.push(taps[i]-taps[i-1]);
+      // Use last 6 taps max
+      if(intervals.length>5)intervals=intervals.slice(-5);
+      var avg=intervals.reduce(function(a,b){return a+b;},0)/intervals.length;
+      var bpm=Math.round(60000/avg);
+      if(bpm>=30&&bpm<=300)sTm(String(bpm));
+    }
+    // Keep max 8 taps
+    if(taps.length>8)taps.splice(0,taps.length-8);
+  };
   var edInstOff=INST_TRANS[userInst]||0;
   var concertKeyRoot=edInstOff?trKeyName(abcKeySig(keySig),-edInstOff):abcKeySig(keySig);
   var concertKey=concertKeyRoot+" "+keyQual;
@@ -7184,7 +7201,7 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
               React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}},
                 React.createElement("div",null,React.createElement("label",{style:lb},"KEY"),keyPickerEl),
                 React.createElement("div",null,React.createElement("label",{style:lb},"TIME"),React.createElement(CustomSelect,{value:timeSig,options:TS,onChange:sTS,th:t})),
-                React.createElement("div",null,React.createElement("label",{style:lb},"BPM"),React.createElement("input",{type:"number",value:tempo,onChange:e=>sTm(e.target.value),style:{...ip,fontFamily:"'JetBrains Mono',monospace"}}))),
+                React.createElement("div",null,React.createElement("label",{style:lb},"BPM"),React.createElement("div",{style:{display:"flex",gap:4}},React.createElement("input",{type:"number",value:tempo,onChange:e=>sTm(e.target.value),style:{...ip,fontFamily:"'JetBrains Mono',monospace",flex:1,minWidth:0}}),React.createElement("button",{onClick:handleTapTempo,style:{padding:"0 10px",borderRadius:10,border:"1px solid "+t.inputBorder,background:t.inputBg,color:t.accent,fontSize:10,fontWeight:700,fontFamily:"'JetBrains Mono',monospace",cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}},"TAP")))),
               React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}},
                 React.createElement("div",null,React.createElement("label",{style:lb},"FEEL"),React.createElement(CustomSelect,{value:feel,options:[{value:"straight",label:"Straight"},{value:"swing",label:"Swing"},{value:"hard-swing",label:"Hard Swing"}],onChange:setFeel,th:t})),
                 React.createElement("div",null,React.createElement("label",{style:lb},"INSTRUMENT"),React.createElement(CustomSelect,{value:inst,options:INST_LIST.filter(i=>i!=="All"),onChange:sI,th:t})),
