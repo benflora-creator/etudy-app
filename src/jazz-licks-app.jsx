@@ -2296,7 +2296,7 @@ function chordBlockColor(name){
   if(!ps)return"#666";return CH_CAT_COL[findChordCat(ps[1]||"")]||"#666";
 }
 function ChordTimeline(props){
-  var chords=props.chords,onChordsChange=props.onChordsChange,totalBeats=props.totalBeats,tsN=props.tsN,th=props.th,keySig=props.keySig||"C";
+  var chords=props.chords,onChordsChange=props.onChordsChange,totalBeats=props.totalBeats,tsN=props.tsN,th=props.th,keySig=props.keySig||"C",forceOpen=props.forceOpen;
   var t=th;var isStudio=t===TH.studio;
   var ac=isStudio?"#22D89E":"#6366F1";
   var totalBars=Math.max(1,Math.ceil(totalBeats/tsN));
@@ -2315,6 +2315,8 @@ function ChordTimeline(props){
   var s6=ST("7"),pQual=s6[0],setPQual=s6[1];
   var s7=ST([]),pTens=s7[0],setPTens=s7[1];
   var s8=ST(false),expanded=s8[0],setExpanded=s8[1];
+  // Auto-expand when forceOpen becomes true
+  useEffect(function(){if(forceOpen)setExpanded(true);},[forceOpen]);
 
   var barsPerRow=2;var beatsPerRow=barsPerRow*tsN;
   var numRows=Math.ceil(effBars/barsPerRow);
@@ -2717,7 +2719,7 @@ function buildAbc(items,keySig,timeSig,tempo,chords,minBars,keyQual){const[tsN,t
     }
   }
   return abc;}
-function NoteBuilder({onAbcChange,keySig,keyQual,timeSig,tempo,previewEl,playerEl,noteClickRef,onSelChange,deselectRef,previewOffset,th,chordsRef,barInfoRef,fillBarRef,visible}){
+function NoteBuilder({onAbcChange,keySig,keyQual,timeSig,tempo,previewEl,playerEl,noteClickRef,onSelChange,deselectRef,previewOffset,th,chordsRef,barInfoRef,fillBarRef,visible,highlightChords}){
   const[items,sIt]=useState([]);const[cO,sCO]=useState(4);const[cD,sCD]=useState(2);const[dt,sDt]=useState(false);const[tri,sTri]=useState(false);
   const[chords,sChords]=useState({});
   useEffect(function(){if(chordsRef)chordsRef.current=chords;},[chords]);
@@ -2921,13 +2923,13 @@ function NoteBuilder({onAbcChange,keySig,keyQual,timeSig,tempo,previewEl,playerE
     els.push(React.createElement("div",{key:idx,"data-nidx":idx,onClick:function(){tapNote(idx);},style:{minWidth:38,height:48,borderRadius:8,background:bg,color:t.text,display:"flex",alignItems:"center",justifyContent:"center",padding:"2px 5px",cursor:"pointer",flexShrink:0,border:isSel?"2px solid "+ac:"1px solid "+btnBd,transition:"all 0.1s"}},ct));return els;};
 
   // Chord timeline component
-  var chordLaneEl=React.createElement(ChordTimeline,{chords:chords,onChordsChange:function(nc){sChords(nc);pushHist(items,nc);},totalBeats:totalBeats,tsN:tsN,th:th,keySig:keySig});
+  var chordLaneEl=React.createElement(ChordTimeline,{chords:chords,onChordsChange:function(nc){sChords(nc);pushHist(items,nc);},totalBeats:totalBeats,tsN:tsN,th:th,keySig:keySig,forceOpen:highlightChords});
 
   return React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:8}},
     // 1. Notation preview
     previewEl,
-    // 2. Chord timeline
-    chordLaneEl,
+    // 2. Chord timeline (with optional glow highlight)
+    React.createElement("div",{style:{borderRadius:10,padding:highlightChords?2:0,background:highlightChords?(isS?"rgba(34,216,158,0.12)":"rgba(99,102,241,0.08)"):"transparent",border:highlightChords?("2px solid "+(isS?"rgba(34,216,158,0.5)":"rgba(99,102,241,0.4)")):"2px solid transparent",boxShadow:highlightChords?("0 0 16px "+(isS?"rgba(34,216,158,0.3)":"rgba(99,102,241,0.25)")+", 0 0 32px "+(isS?"rgba(34,216,158,0.15)":"rgba(99,102,241,0.12)")):"none",transition:"all 0.4s ease, box-shadow 0.4s ease",animation:highlightChords?"chordGlow 1.5s ease-in-out infinite":"none"}},chordLaneEl),
     // 3. Minimal player
     playerEl,
     // 4. Empty state hint
@@ -4271,7 +4273,9 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
 function DailyLickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst,onArtistSearch}){
   const t=th||TH.classic;const isStudio=t===TH.studio;
   const uOff=INST_TRANS[userInst]||0;const cardAbc=uOff?transposeAbc(lick.abc,uOff):lick.abc;
-  const keyDisp=uOff?trKeyName(lick.key.split(" ")[0],uOff):lick.key;
+  const keyRoot=uOff?trKeyName(lick.key.split(" ")[0],uOff):lick.key.split(" ")[0];
+  const keyQualLabel=lick.key&&lick.key.toLowerCase().includes("minor")?" Moll":lick.key&&lick.key.toLowerCase().includes("blues")?" Blues":" Dur";
+  const keyLabel=keyRoot+keyQualLabel;
   const prevCurNote=usePreviewCurNote(lick.id);
   const titleParts=lick.title?lick.title.split(" \u2014 "):null;
   const hasArtistInTitle=titleParts&&titleParts.length>1&&lick.artist&&titleParts[0].trim()===lick.artist.trim();
@@ -4290,13 +4294,13 @@ function DailyLickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:user
       React.createElement("h3",{style:{fontSize:isStudio?22:18,fontWeight:700,color:t.text,margin:"0 0 6px",fontFamily:t.titleFont,letterSpacing:isStudio?-0.3:0}},
         hasArtistInTitle?React.createElement(React.Fragment,null,
           React.createElement("span",{onClick:function(e){e.stopPropagation();if(onArtistSearch)onArtistSearch(lick.artist);},style:{cursor:"pointer",borderBottom:"1px solid transparent",transition:"border-color 0.15s"},"onMouseEnter":function(e){e.currentTarget.style.borderBottomColor=isStudio?t.accent+"60":t.accent+"40";},"onMouseLeave":function(e){e.currentTarget.style.borderBottomColor="transparent";}},titleParts[0]),
-          React.createElement("span",{style:{color:t.subtle,fontWeight:400}}," \u2014 "+titleParts.slice(1).join(" \u2014 ")))
+          React.createElement("span",{style:{color:t.text,fontWeight:400}}," \u2014 "+titleParts.slice(1).join(" \u2014 ")))
         :lick.title),
-      // LINE 2: Tune · Key · Category
+      // LINE 2: Tune · Key (Dur/Moll) · Category
       React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:isStudio?12:10,flexWrap:"wrap"}},
         lick.tune&&React.createElement("span",{style:{fontSize:10,color:t.text,fontFamily:"'Inter',sans-serif",fontWeight:500,opacity:0.75}},lick.tune),
         lick.tune&&React.createElement("span",{style:{fontSize:8,color:t.muted}},"\u00B7"),
-        React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace"}},keyDisp),
+        React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace"}},keyLabel),
         React.createElement("span",{style:{fontSize:8,color:t.muted}},"\u00B7"),
         React.createElement("span",{style:{fontSize:10,color:isStudio?catC:t.muted,fontFamily:"'JetBrains Mono',monospace",fontWeight:isStudio?600:400}},lick.category)),
       // NOTATION
@@ -4452,7 +4456,9 @@ function FlamesPopup({lickId,lickTitle,likeCount,th,onClose,onUserClick}){
 function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst,onUserClick,onArtistSearch,animIdx}){
   const t=th||TH.classic;const isStudio=t===TH.studio;
   const uOff=INST_TRANS[userInst]||0;const cardAbc=uOff?transposeAbc(lick.abc,uOff):lick.abc;
-  const keyDisp=uOff?trKeyName(lick.key.split(" ")[0],uOff):lick.key;
+  const keyRoot=uOff?trKeyName(lick.key.split(" ")[0],uOff):lick.key.split(" ")[0];
+  const keyQualLabel=lick.key&&lick.key.toLowerCase().includes("minor")?" Moll":lick.key&&lick.key.toLowerCase().includes("blues")?" Blues":" Dur";
+  const keyLabel=keyRoot+keyQualLabel;
   const prevCurNote=usePreviewCurNote(lick.id);
   const[showFlames,setShowFlames]=useState(false);
   const[likeAnim,setLikeAnim]=useState(false);
@@ -4485,18 +4491,18 @@ function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst,
         React.createElement("h3",{style:{fontSize:isStudio?17:16,fontWeight:isStudio?700:600,color:t.text,margin:"0 0 6px",lineHeight:1.3,fontFamily:t.titleFont,letterSpacing:isStudio?-0.2:0}},
           hasArtistInTitle?React.createElement(React.Fragment,null,
             React.createElement("span",{onClick:function(e){e.stopPropagation();if(onArtistSearch)onArtistSearch(lick.artist);},style:{cursor:"pointer",borderBottom:"1px solid transparent",transition:"border-color 0.15s"},"onMouseEnter":function(e){e.currentTarget.style.borderBottomColor=isStudio?t.accent+"60":t.accent+"40";},"onMouseLeave":function(e){e.currentTarget.style.borderBottomColor="transparent";}},titleParts[0]),
-            React.createElement("span",{style:{color:t.subtle,fontWeight:400}}," \u2014 "+titleParts.slice(1).join(" \u2014 ")))
+            React.createElement("span",{style:{color:t.text,fontWeight:isStudio?500:400}}," \u2014 "+titleParts.slice(1).join(" \u2014 ")))
           :lick.title),
-        // LINE 2: Tune · Key · @user · Category chip · Private
+        // LINE 2: Tune · Key (Dur/Moll) · Category chip · Private · ... @user (right)
         React.createElement("div",{style:{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}},
           lick.tune&&React.createElement("span",{style:{fontSize:10,color:t.text,fontFamily:"'Inter',sans-serif",fontWeight:500,opacity:0.75}},lick.tune),
           lick.tune&&React.createElement("span",{style:{fontSize:8,color:t.muted}},"\u00B7"),
-          React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace"}},keyDisp),
-          lick.user&&lick.user!=="Anonymous"&&React.createElement("span",{style:{fontSize:8,color:t.muted}},"\u00B7"),
-          lick.user&&lick.user!=="Anonymous"&&React.createElement("button",{onClick:function(e){e.stopPropagation();if(onUserClick)onUserClick(lick.user);},style:{background:"none",border:"none",cursor:"pointer",padding:0,display:"flex",alignItems:"center"}},
-            React.createElement("span",{style:{fontSize:9,color:isStudio?t.accent+"99":t.accent,fontFamily:"'Inter',sans-serif",fontWeight:600,background:isStudio?t.accent+"10":"transparent",padding:isStudio?"2px 6px":"0",borderRadius:5}},"\u0040"+lick.user)),
+          React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace"}},keyLabel),
           isStudio&&React.createElement("span",{style:{fontSize:9,color:catC,fontFamily:"'JetBrains Mono',monospace",background:catC+"15",padding:"2px 8px",borderRadius:6,fontWeight:600,border:"1px solid "+catC+"20"}},lick.category),
-          lick.private&&React.createElement("span",{style:{fontSize:8,color:isStudio?"#22D89E":"#2E7D32",fontFamily:"'Inter',sans-serif",fontWeight:600,background:isStudio?"rgba(34,216,158,0.15)":"#E8F5E9",padding:"2px 6px",borderRadius:4}},"\uD83D\uDD12 Private"))),
+          lick.private&&React.createElement("span",{style:{fontSize:8,color:isStudio?"#22D89E":"#2E7D32",fontFamily:"'Inter',sans-serif",fontWeight:600,background:isStudio?"rgba(34,216,158,0.15)":"#E8F5E9",padding:"2px 6px",borderRadius:4}},"\uD83D\uDD12 Private"),
+          lick.user&&lick.user!=="Anonymous"&&React.createElement("div",{style:{flex:1}}),
+          lick.user&&lick.user!=="Anonymous"&&React.createElement("button",{onClick:function(e){e.stopPropagation();if(onUserClick)onUserClick(lick.user);},style:{background:"none",border:"none",cursor:"pointer",padding:0,display:"flex",alignItems:"center"}},
+            React.createElement("span",{style:{fontSize:9,color:isStudio?t.accent+"99":t.accent,fontFamily:"'Inter',sans-serif",fontWeight:600,background:isStudio?t.accent+"10":"transparent",padding:isStudio?"2px 6px":"0",borderRadius:5}},"\u0040"+lick.user)))),
       // NOTATION
       React.createElement("div",{style:{marginTop:4,display:"flex",justifyContent:"center",overflow:"hidden"}},
         React.createElement(Notation,{abc:cardAbc,compact:true,th:t,curNoteRef:prevCurNote,onReady:function(){setNotationReady(true);},bassClef:BASS_CLEF_INSTS.has(userInst)})),
@@ -6695,7 +6701,7 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
           edInstOff!==0&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",background:isStudio?"rgba(34,216,158,0.06)":"rgba(99,102,241,0.04)",borderRadius:8,border:"1px solid "+(isStudio?"rgba(34,216,158,0.15)":"rgba(99,102,241,0.1)")}},
             React.createElement("span",{style:{fontSize:10,color:isStudio?"#22D89E":t.accent,fontFamily:"'Inter',sans-serif"}},"Entering for "+userInst+" \u2014 will be saved in concert pitch")),
           React.createElement("div",{style:{borderRadius:12,padding:14,border:"1px solid "+t.border,background:t.card}},
-            React.createElement(NoteBuilder,{onAbcChange:sAbc,keySig,keyQual,timeSig,tempo:parseInt(tempo)||120,noteClickRef:noteClickRef,onSelChange:setEdSelIdx,deselectRef:deselectRef,previewOffset:-edInstOff,th:t,chordsRef:chordsRef,barInfoRef:barInfoRef,fillBarRef:fillBarRef,visible:edStep===2,
+            React.createElement(NoteBuilder,{onAbcChange:sAbc,keySig,keyQual,timeSig,tempo:parseInt(tempo)||120,noteClickRef:noteClickRef,onSelChange:setEdSelIdx,deselectRef:deselectRef,previewOffset:-edInstOff,th:t,chordsRef:chordsRef,barInfoRef:barInfoRef,fillBarRef:fillBarRef,visible:edStep===2,highlightChords:showChordHint,
               previewEl:React.createElement("div",{style:{marginBottom:4}},
                 React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}},
                   React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,fontWeight:600}},"PREVIEW"),
@@ -6729,9 +6735,16 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
           "Next \u2192"),
         // Step 2: Next (needs 4+ notes) + Publish buttons
         edStep===2&&React.createElement(React.Fragment,null,
-          React.createElement("button",{onClick:function(){if(!step2Ok)return;var hasChords=Object.keys(chordsRef.current||{}).length>0;if(!hasChords&&!showChordHint){setShowChordHint(true);return;}setShowChordHint(false);tryPublish("private");},disabled:!canPublish,style:{padding:"10px 18px",background:canPublish?t.card:t.border,color:canPublish?t.text:t.subtle,border:canPublish?"1.5px solid "+t.accent:"none",borderRadius:10,fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:canPublish?"pointer":"default",transition:"all 0.2s"}},"\uD83D\uDD12 Private"),
-          React.createElement("button",{onClick:function(){if(!step2Ok)return;var hasChords=Object.keys(chordsRef.current||{}).length>0;if(!hasChords&&!showChordHint){setShowChordHint(true);return;}setShowChordHint(false);tryPublish("publish");},disabled:!canPublish,style:{padding:"10px 22px",background:canPublish?(isStudio?t.playBg:t.accent):t.border,color:canPublish?"#fff":t.subtle,border:"none",borderRadius:10,fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:canPublish?"pointer":"default",boxShadow:canPublish?"0 4px 16px "+t.accentGlow:"none",transition:"all 0.2s"}},"Publish"),
-          edStep===2&&showChordHint&&!Object.keys(chordsRef.current||{}).length&&React.createElement("span",{style:{position:"absolute",left:"50%",transform:"translateX(-50%)",bottom:"calc(100% + 6px)",fontSize:10,color:isStudio?"#F0C050":t.accent,fontFamily:"'Inter',sans-serif",whiteSpace:"nowrap",background:t.headerBg,padding:"3px 10px",borderRadius:6,border:"1px solid "+(isStudio?"rgba(240,192,80,0.3)":t.accentBorder)}},"No chords yet \u2014 tap Skip or add some first"),
+          React.createElement("button",{onClick:function(){if(!step2Ok)return;var hasChords=Object.keys(chordsRef.current||{}).length>0;if(!hasChords&&!showChordHint){setShowChordHint("private");return;}setShowChordHint(false);tryPublish("private");},disabled:!canPublish,style:{padding:"10px 18px",background:canPublish?t.card:t.border,color:canPublish?t.text:t.subtle,border:canPublish?"1.5px solid "+t.accent:"none",borderRadius:10,fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:canPublish?"pointer":"default",transition:"all 0.2s"}},"\uD83D\uDD12 Private"),
+          React.createElement("button",{onClick:function(){if(!step2Ok)return;var hasChords=Object.keys(chordsRef.current||{}).length>0;if(!hasChords&&!showChordHint){setShowChordHint("publish");return;}setShowChordHint(false);tryPublish("publish");},disabled:!canPublish,style:{padding:"10px 22px",background:canPublish?(isStudio?t.playBg:t.accent):t.border,color:canPublish?"#fff":t.subtle,border:"none",borderRadius:10,fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:canPublish?"pointer":"default",boxShadow:canPublish?"0 4px 16px "+t.accentGlow:"none",transition:"all 0.2s"}},"Publish"),
+          edStep===2&&showChordHint&&!Object.keys(chordsRef.current||{}).length&&React.createElement("div",{onClick:function(e){e.stopPropagation();},style:{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:1200,background:"rgba(0,0,0,0.45)",backdropFilter:"blur(4px)",WebkitBackdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}},
+            React.createElement("div",{style:{background:t.card,borderRadius:16,padding:"24px 20px",maxWidth:320,width:"100%",border:"1px solid "+(isStudio?t.accent+"30":t.border),boxShadow:"0 12px 40px rgba(0,0,0,"+(isStudio?"0.6":"0.2")+"), 0 0 24px "+(isStudio?"rgba(34,216,158,0.15)":"rgba(99,102,241,0.1)")}},
+              React.createElement("div",{style:{fontSize:28,textAlign:"center",marginBottom:10}},"\uD83C\uDFB5"),
+              React.createElement("div",{style:{fontSize:15,fontWeight:700,color:t.text,fontFamily:"'Inter',sans-serif",textAlign:"center",marginBottom:8}},"No chords added yet"),
+              React.createElement("p",{style:{fontSize:12,color:t.muted,fontFamily:"'Inter',sans-serif",margin:"0 0 18px",lineHeight:1.5,textAlign:"center"}},"Chord symbols help with theory analysis and make your lick much more useful for others. Add them in the CHORDS section above."),
+              React.createElement("div",{style:{display:"flex",gap:8}},
+                React.createElement("button",{onClick:function(){setShowChordHint(false);},style:{flex:1,padding:"10px",borderRadius:10,border:"none",background:isStudio?t.playBg:t.accent,color:"#fff",fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer"}},"Add Chords"),
+                React.createElement("button",{onClick:function(){setShowChordHint(false);tryPublish(showChordHint);},style:{flex:1,padding:"10px",borderRadius:10,border:"1px solid "+t.border,background:t.filterBg,color:t.muted,fontSize:13,fontWeight:500,fontFamily:"'Inter',sans-serif",cursor:"pointer"}},"Skip")))),
           edStep===2&&!step2Ok&&!showChordHint&&React.createElement("span",{style:{position:"absolute",left:"50%",transform:"translateX(-50%)",bottom:"calc(100% + 6px)",fontSize:10,color:t.subtle,fontFamily:"'Inter',sans-serif",whiteSpace:"nowrap",background:t.headerBg,padding:"2px 8px",borderRadius:6}},noteCount>0?"min 4 notes ("+noteCount+" so far)":"add some notes"))),
     // Bar-fill dialog
     showBarFill&&React.createElement("div",{style:{position:"absolute",top:0,left:0,right:0,bottom:0,zIndex:1100,background:"rgba(0,0,0,0.5)",backdropFilter:"blur(4px)",WebkitBackdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}},
@@ -8554,7 +8567,7 @@ export default function Etudy(){
             React.createElement("div",{style:{fontSize:10,color:"#7B7B8A",fontFamily:"'Inter',sans-serif"}},"Dark \u00B7 Colorful \u00B7 Musician"))))));}
   const t=TH[theme];const isStudio=theme==="studio";
   const css=["@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;500;700&family=Inter:wght@300;400;500;600;700&display=swap');","*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}","html,body{background:"+t.bg+"}","::-webkit-scrollbar{display:none}","input:focus,textarea:focus,select:focus{border-color:"+t.accentBorder+"!important;outline:none}","select option{background:"+t.card+"}","input[type=range]{-webkit-appearance:none;background:"+t.progressBg+";border-radius:4px;height:3px}","input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:"+t.accent+";cursor:pointer;box-shadow:0 1px 4px "+t.accentGlow+"}","@keyframes spin{to{transform:rotate(360deg)}}","@keyframes fadeIn{from{opacity:0}to{opacity:1}}","@keyframes playPulse{0%,100%{box-shadow:0 4px 18px "+t.accentGlow+"}50%{box-shadow:0 4px 28px "+t.accentGlow+",0 0 40px "+t.accentGlow+"}}","@keyframes firePop{0%{transform:scale(1)}30%{transform:scale(1.4)}60%{transform:scale(0.9)}100%{transform:scale(1)}}","@keyframes flameFlicker{0%,100%{transform:scaleX(1) scaleY(1)}25%{transform:scaleX(0.94) scaleY(1.03)}50%{transform:scaleX(1.03) scaleY(0.97)}75%{transform:scaleX(0.97) scaleY(1.02)}}","@keyframes flameCore{0%,100%{opacity:0.8;transform:scaleY(1)}50%{opacity:0.5;transform:scaleY(0.85)}}","@keyframes loopPulse{0%,100%{opacity:1}50%{opacity:0.6}}","@keyframes coachIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}","@keyframes coachPulse{0%,100%{opacity:0.5}50%{opacity:1}}","@keyframes drillPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.7;transform:scale(0.95)}}","@keyframes drillKeyIn{0%{opacity:0;transform:scale(0.5) translateY(10px)}100%{opacity:1;transform:scale(1) translateY(0)}}","@keyframes drillDot{0%,100%{opacity:0.3;transform:scale(0.8)}50%{opacity:1;transform:scale(1.2)}}","@keyframes helpGlow{0%{box-shadow:0 0 0 0 "+t.accent+"60;transform:scale(1)}40%{box-shadow:0 0 12px 4px "+t.accent+"40;transform:scale(1.2)}70%{box-shadow:0 0 6px 2px "+t.accent+"20;transform:scale(1.05)}100%{box-shadow:0 0 0 0 transparent;transform:scale(1)}}",
-"@keyframes popupIn{from{opacity:0;transform:translate(-50%,-50%) scale(0.92)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}","@keyframes cardIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}","@keyframes pageIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}","@keyframes heartPop{0%{transform:scale(1)}40%{transform:scale(1.35)}70%{transform:scale(0.88)}100%{transform:scale(1)}}","@keyframes sheetUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}","[data-sheet-focus]{position:fixed!important;top:0!important;left:0!important;width:100vw!important;height:100vh!important;max-width:none!important;z-index:9999!important}"].join("\n");
+"@keyframes popupIn{from{opacity:0;transform:translate(-50%,-50%) scale(0.92)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}","@keyframes cardIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}","@keyframes pageIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}","@keyframes heartPop{0%{transform:scale(1)}40%{transform:scale(1.35)}70%{transform:scale(0.88)}100%{transform:scale(1)}}","@keyframes chordGlow{0%,100%{box-shadow:0 0 12px rgba(99,102,241,0.2)}50%{box-shadow:0 0 24px rgba(99,102,241,0.4),0 0 48px rgba(99,102,241,0.15)}}","@keyframes sheetUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}","[data-sheet-focus]{position:fixed!important;top:0!important;left:0!important;width:100vw!important;height:100vh!important;max-width:none!important;z-index:9999!important}"].join("\n");
 
   return React.createElement("div",{style:{minHeight:"100vh",background:t.bg,color:t.text,maxWidth:520,margin:"0 auto",position:"relative",paddingBottom:"calc(72px + env(safe-area-inset-bottom, 0px))"}},
     React.createElement("style",null,css),
