@@ -6920,7 +6920,8 @@ function ScaleChordTrainer({th,userInst}){
             var isRoot=iv===0;
             var isActive=tappedIdx===idx||playIdx===idx;
             return React.createElement("div",{key:idx,onClick:function(){tapNote(idx);},style:{position:"absolute",left:notePositions[idx]+"%",transform:"translateX(-50%)",cursor:"pointer",padding:"3px 5px",borderRadius:6,background:isActive?t.accent+"15":"transparent",transition:"all 0.15s"}},
-              React.createElement("span",{style:{fontSize:11,fontWeight:isRoot?700:500,color:isActive?t.accent:isRoot?t.accent:t.text,fontFamily:"'JetBrains Mono',monospace"}},label));})))),
+              React.createElement("span",{style:{fontSize:11,fontWeight:isRoot?700:500,color:isActive?t.accent:isRoot?t.accent:t.text,fontFamily:"'JetBrains Mono',monospace"}},label));})))
+      ,
       // Full Range button
       scaleDef&&React.createElement("button",{onClick:function(){setShowFullRange(true);},style:{width:"100%",padding:"10px",borderRadius:10,border:"1px solid "+(isStudio?t.accent+"30":t.accentBorder),background:isStudio?t.accent+"08":t.accentBg,color:t.accent,fontSize:12,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer",marginTop:4,display:"flex",alignItems:"center",justifyContent:"center",gap:6,transition:"all 0.15s"}},
         IC.tabScales(14,t.accent,false),"Full Range")),
