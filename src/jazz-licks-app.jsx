@@ -8909,7 +8909,7 @@ export default function Etudy(){
               m[0]==="rhythm"?IC.tabRhythm(13,active?t.text:t.subtle,active):m[0]==="ear"?IC.tabEar(13,active?t.text:t.subtle,active):IC.tabScales(13,active?t.text:t.subtle,active),m[1]);
           })),
         // Scales & Chords sub-view
-        trainSub==="scales"&&React.createElement(ScaleChordTrainer,{th:t,userInst:userInst}),
+        trainSub==="scales"&&React.createElement(ScaleChordTrainer,{key:userInst,th:t,userInst:userInst}),
         // Ear sub-view
         trainSub==="ear"&&React.createElement(EarTrainer,{licks:allLicks,onLike:toggleLike,onOpen:openLick,likedSet:likedSet,th:t,userInst:userInst}),
         // Rhythm sub-view
