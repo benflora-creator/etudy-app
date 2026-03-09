@@ -132,6 +132,11 @@ const IC={
     S("circle",{cx:11,cy:11,r:7,stroke:c,strokeWidth:active?2:1.5,fill:active?c+"15":"none"}),
     S("path",{d:"M16.5 16.5L21 21",stroke:c,strokeWidth:active?2:1.5,strokeLinecap:"round"}),
     S("path",{d:"M11 8v5l2.5-1.5",stroke:c,strokeWidth:1.5,strokeLinecap:"round",strokeLinejoin:"round",fill:"none"})),
+  // Inline play triangle + stop square for buttons with text
+  playInline:(sz=12,c="#fff")=>S("svg",{width:sz,height:sz,viewBox:"0 0 12 12",fill:"none",style:{display:"inline-block",verticalAlign:"middle",flexShrink:0,marginRight:4}},
+    S("path",{d:"M3 1.5L10.5 6 3 10.5z",fill:c})),
+  stopInline:(sz=12,c="#fff")=>S("svg",{width:sz,height:sz,viewBox:"0 0 12 12",fill:"none",style:{display:"inline-block",verticalAlign:"middle",flexShrink:0,marginRight:4}},
+    S("rect",{x:2,y:2,width:8,height:8,rx:1,fill:c})),
 };
 
 // Full-screen fire burst animation on like
@@ -5014,7 +5019,7 @@ function Metronome({th}){
 
     // Start / Tap row
     React.createElement("div",{style:{display:"flex",gap:10,marginBottom:28,padding:"0 8px"}},
-      React.createElement("button",{onClick:startStop,style:{flex:1,padding:"16px",borderRadius:14,border:"none",background:playing?(isStudio?"#EF4444":"#EF4444"):t.accent,color:"#fff",fontSize:16,fontWeight:700,fontFamily:"'Inter',sans-serif",cursor:"pointer",boxShadow:playing?"0 4px 20px rgba(239,68,68,0.4)":"0 4px 20px "+t.accentGlow,transition:"all 0.15s",letterSpacing:0.5}},playing?"\u25A0  Stop":mode==="trainer"?"\u25B6  Start Training":"\u25B6  Start"),
+      React.createElement("button",{onClick:startStop,style:{flex:1,padding:"16px",borderRadius:14,border:"none",background:playing?(isStudio?"#EF4444":"#EF4444"):t.accent,color:"#fff",fontSize:16,fontWeight:700,fontFamily:"'Inter',sans-serif",cursor:"pointer",boxShadow:playing?"0 4px 20px rgba(239,68,68,0.4)":"0 4px 20px "+t.accentGlow,transition:"all 0.15s",letterSpacing:0.5,display:"flex",alignItems:"center",justifyContent:"center",gap:6}},playing?IC.stopInline(14,"#fff"):IC.playInline(14,"#fff"),playing?"Stop":mode==="trainer"?"Start Training":"Start"),
       mode==="metronome"&&React.createElement("button",{onClick:tapTempo,style:{padding:"16px 24px",borderRadius:14,border:"2px solid "+t.border,background:t.card,color:t.text,fontSize:14,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer",transition:"all 0.1s"}},"Tap")),
 
     // Settings toggle
@@ -5818,7 +5823,7 @@ function RhythmGame({th,sharedInput,sharedMicSilent}){
       React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:8}},
         React.createElement("button",{onClick:function(){setPhase("ready");setResults(null);},style:{width:"100%",padding:"14px",borderRadius:14,border:"none",background:t.accent,color:"#fff",fontSize:14,fontWeight:700,fontFamily:"'Inter',sans-serif",cursor:"pointer",boxShadow:"0 4px 16px "+t.accentGlow}},"Same Rhythm"),
         React.createElement("div",{style:{display:"flex",gap:8}},
-          React.createElement("button",{onClick:function(){playPreview(pattern,true);},style:{padding:"12px 16px",borderRadius:14,border:"2px solid "+t.border,background:t.card,color:t.text,fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer"}},"▶"),
+          React.createElement("button",{onClick:function(){playPreview(pattern,true);},style:{padding:"12px 16px",borderRadius:14,border:"2px solid "+t.border,background:t.card,color:t.text,fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer"}},IC.playInline(14,t.text)),
           React.createElement("button",{onClick:function(){setPattern(null);generateReady();},style:{flex:1,padding:"12px",borderRadius:14,border:"2px solid "+t.accent+"40",background:isStudio?t.accent+"10":t.accent+"08",color:t.accent,fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer"}},"New Rhythm"),
           React.createElement("button",{onClick:function(){setPhase("setup");setPattern(null);},style:{padding:"12px 20px",borderRadius:14,border:"2px solid "+t.border,background:t.card,color:t.text,fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer"}},"\u2190"))));
   }
@@ -5861,7 +5866,7 @@ function RhythmGame({th,sharedInput,sharedMicSilent}){
       ),
 
       // Generate
-      React.createElement("button",{onClick:generateReady,style:{width:"100%",padding:"16px",borderRadius:14,border:"none",background:t.accent,color:"#fff",fontSize:16,fontWeight:700,fontFamily:"'Inter',sans-serif",cursor:"pointer",boxShadow:"0 4px 20px "+t.accentGlow,letterSpacing:0.5}},"\u25B6  Generate Rhythm"));
+      React.createElement("button",{onClick:generateReady,style:{width:"100%",padding:"16px",borderRadius:14,border:"none",background:t.accent,color:"#fff",fontSize:16,fontWeight:700,fontFamily:"'Inter',sans-serif",cursor:"pointer",boxShadow:"0 4px 20px "+t.accentGlow,letterSpacing:0.5}},IC.playInline(14,"#fff"),"Generate Rhythm"));
   }
 
   // READY SCREEN — pattern generated, choose what to do
@@ -5876,11 +5881,11 @@ function RhythmGame({th,sharedInput,sharedMicSilent}){
       // Action buttons
       React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:8}},
         // Primary: Start
-        React.createElement("button",{onClick:function(){if(!isListening)startGame(false);},style:{width:"100%",padding:"16px",borderRadius:14,border:"none",background:isListening?t.subtle:t.accent,color:"#fff",fontSize:16,fontWeight:700,fontFamily:"'Inter',sans-serif",cursor:isListening?"default":"pointer",boxShadow:isListening?"none":"0 4px 20px "+t.accentGlow,letterSpacing:0.5,opacity:isListening?0.5:1}},"\u25B6  Tap Solo"),
+        React.createElement("button",{onClick:function(){if(!isListening)startGame(false);},style:{width:"100%",padding:"16px",borderRadius:14,border:"none",background:isListening?t.subtle:t.accent,color:"#fff",fontSize:16,fontWeight:700,fontFamily:"'Inter',sans-serif",cursor:isListening?"default":"pointer",boxShadow:isListening?"none":"0 4px 20px "+t.accentGlow,letterSpacing:0.5,opacity:isListening?0.5:1}},IC.playInline(14,"#fff"),"Tap Solo"),
         // Secondary row
         React.createElement("div",{style:{display:"flex",gap:8}},
           React.createElement("button",{onClick:function(){if(!isListening)playPreview(pattern);},style:{flex:1,padding:"12px",borderRadius:10,border:"1px solid "+(isListening?t.accent:t.border),background:isListening?(isStudio?t.accent+"15":t.accent+"08"):t.filterBg,color:isListening?t.accent:t.text,fontSize:12,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:isListening?"default":"pointer",opacity:isListening?0.7:1}},isListening?"...":"Listen"),
-          React.createElement("button",{onClick:function(){if(!isListening)startGame(true);},style:{flex:1,padding:"12px",borderRadius:10,border:"1px solid "+(isListening?t.subtle:t.accent+"40"),background:isListening?t.filterBg:(isStudio?t.accent+"08":t.accent+"06"),color:isListening?t.subtle:t.accent,fontSize:12,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:isListening?"default":"pointer",opacity:isListening?0.5:1}},"\u25B6 Guide")),
+          React.createElement("button",{onClick:function(){if(!isListening)startGame(true);},style:{flex:1,padding:"12px",borderRadius:10,border:"1px solid "+(isListening?t.subtle:t.accent+"40"),background:isListening?t.filterBg:(isStudio?t.accent+"08":t.accent+"06"),color:isListening?t.subtle:t.accent,fontSize:12,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:isListening?"default":"pointer",opacity:isListening?0.5:1}},IC.playInline(12,isListening?t.subtle:t.accent),"Guide")),
         // Tertiary row
         React.createElement("div",{style:{display:"flex",gap:8}},
           React.createElement("button",{onClick:function(){if(!isListening){setPhase("setup");setPattern(null);}},style:{flex:1,padding:"8px",borderRadius:8,border:"none",background:"transparent",color:t.subtle,fontSize:10,fontWeight:500,fontFamily:"'Inter',sans-serif",cursor:isListening?"default":"pointer",opacity:isListening?0.5:1}},"\u2190 Settings"),
@@ -6415,7 +6420,7 @@ function PolyrhythmTrainer({th,sharedInput,sharedMicSilent}){
       // Demo + Start
       React.createElement("div",{style:{display:"flex",gap:10}},
         React.createElement("button",{onClick:playDemo,style:{padding:"16px 20px",borderRadius:14,border:"2px solid "+t.border,background:t.card,color:t.text,fontSize:14,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer"}},"Demo"),
-        React.createElement("button",{onClick:startPlay,style:{flex:1,padding:"16px",borderRadius:14,border:"none",background:t.accent,color:"#fff",fontSize:16,fontWeight:700,fontFamily:"'Inter',sans-serif",cursor:"pointer",boxShadow:"0 4px 20px "+t.accentGlow,letterSpacing:0.5}},"\u25B6  Start")));
+        React.createElement("button",{onClick:startPlay,style:{flex:1,padding:"16px",borderRadius:14,border:"none",background:t.accent,color:"#fff",fontSize:16,fontWeight:700,fontFamily:"'Inter',sans-serif",cursor:"pointer",boxShadow:"0 4px 20px "+t.accentGlow,letterSpacing:0.5}},IC.playInline(14,"#fff"),"Start")));
   }
 
   // COUNTDOWN + PLAYING + DEMO
@@ -6479,7 +6484,7 @@ function PolyrhythmTrainer({th,sharedInput,sharedMicSilent}){
         React.createElement("div",{style:{height:"100%",width:(pMicLevel*100)+"%",background:pMicLevel>0.6?"#EF4444":pMicLevel>0.3?"#F59E0B":"#22D89E",borderRadius:4,transition:"width 0.05s ease"}})),
       React.createElement("div",{style:{fontSize:10,color:t.subtle,fontFamily:"'Inter',sans-serif"}},phase==="playing"?taps.length+" claps":pMicActive?"Mic active":"Starting mic...")),
     // Stop button
-    (phase==="playing"||isDemo)&&React.createElement("button",{onClick:stopPlay,style:{width:"100%",marginTop:10,padding:"10px",borderRadius:10,border:"1px solid "+t.border,background:t.filterBg,color:t.muted,fontSize:11,fontWeight:500,fontFamily:"'Inter',sans-serif",cursor:"pointer"}},isDemo?"\u25A0 Stop Demo":"\u25A0 Stop"));
+    (phase==="playing"||isDemo)&&React.createElement("button",{onClick:stopPlay,style:{width:"100%",marginTop:10,padding:"10px",borderRadius:10,border:"1px solid "+t.border,background:t.filterBg,color:t.muted,fontSize:11,fontWeight:500,fontFamily:"'Inter',sans-serif",cursor:"pointer"}},IC.stopInline(11,t.muted),isDemo?"Stop Demo":"Stop"));
 }
 
 
@@ -7608,7 +7613,7 @@ function AllKeysTrainer({lick,th,userInst,keyProgress,onUpdateProgress}){
 
         // Start button
         React.createElement("button",{onClick:startDrill,style:{width:"100%",padding:"16px",borderRadius:14,border:"none",background:"linear-gradient(135deg, "+drillColor+", "+(isStudio?"#A855F7":"#DB2777")+")",color:"#fff",fontSize:14,fontWeight:700,fontFamily:"'Inter',sans-serif",cursor:"pointer",boxShadow:"0 6px 24px "+drillColor+"50",transition:"transform 0.15s",letterSpacing:0.3}},
-          "\u25B6  Start Drill")),
+          IC.playInline(14,"#fff"),"Start Drill")),
 
       // === DRILLING: active drill UI ===
       drilling&&React.createElement("div",null,
@@ -7660,7 +7665,7 @@ function AllKeysTrainer({lick,th,userInst,keyProgress,onUpdateProgress}){
 
         // Stop button
         React.createElement("button",{onClick:stopDrill,style:{width:"100%",padding:"13px",borderRadius:12,border:"none",background:isStudio?t.card:t.filterBg,color:drillColor,fontSize:13,fontWeight:700,fontFamily:"'Inter',sans-serif",cursor:"pointer",boxShadow:"inset 0 0 0 1.5px "+drillColor,marginTop:8}},
-          "\u25A0  Stop"))))
+          IC.stopInline(12,drillColor),"Stop"))))
 }
 
 
@@ -7957,7 +7962,7 @@ function PlanRunner({plan,onClose,th,licks,userInst,keyProgress,onUpdateKeyProgr
           React.createElement("button",{onClick:function(){setPaused(!paused);},style:{width:36,height:36,borderRadius:10,background:paused?t.accent:t.card,boxShadow:paused?"0 2px 10px "+t.accentGlow:"none",color:paused?"#fff":t.text,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",border:paused?"none":"1.5px solid "+t.border}},
             paused?React.createElement("div",{style:{width:0,height:0,borderTop:"6px solid transparent",borderBottom:"6px solid transparent",borderLeft:"10px solid #fff",marginLeft:2}})
             :React.createElement("div",{style:{display:"flex",gap:2.5}},React.createElement("div",{style:{width:3,height:12,background:t.text,borderRadius:1}}),React.createElement("div",{style:{width:3,height:12,background:t.text,borderRadius:1}}))),
-          React.createElement("button",{onClick:skipNext,style:{width:30,height:30,borderRadius:8,border:"1px solid "+t.border,background:t.card,color:t.text,fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"\u25B6")),
+          React.createElement("button",{onClick:skipNext,style:{width:30,height:30,borderRadius:8,border:"1px solid "+t.border,background:t.card,color:t.text,fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},IC.playInline(10,t.text)),
         // Timer badge
         React.createElement("div",{style:{background:remaining<=10?"#EF4444":tc,borderRadius:8,padding:"4px 10px",minWidth:52,textAlign:"center",flexShrink:0}},
           React.createElement("span",{style:{fontSize:13,fontWeight:700,color:"#fff",fontFamily:"'JetBrains Mono',monospace"}},fmtSec(remaining)))),
