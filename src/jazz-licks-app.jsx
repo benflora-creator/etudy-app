@@ -4274,8 +4274,8 @@ function DailyLickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:user
   const keyDisp=uOff?trKeyName(lick.key.split(" ")[0],uOff):lick.key;
   const prevCurNote=usePreviewCurNote(lick.id);
   
-  const catC=getCatColor(lick.category,t);const instC=getInstColor(lick.instrument,t);
-  return React.createElement("div",{"data-coach":"daily",onClick:()=>onSelect(lick),style:{background:isStudio?(t.cardRaised||t.card):t.card,borderRadius:isStudio?20:16,padding:0,marginBottom:isStudio?18:14,border:"1px solid "+(isStudio?catC+"25":t.border),cursor:"pointer",boxShadow:isStudio?"0 4px 24px "+catC+"20, 0 1px 8px rgba(0,0,0,0.4), inset 0 1px 0 "+catC+"10":"0 2px 12px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.03)",transition:"box-shadow 0.2s, transform 0.15s",overflow:"hidden",display:"flex"}},
+  const catC=getCatColor(lick.category,t);const instC=getInstColor(lick.instrument,t);const instBorderC=INST_COL[lick.instrument]||t.accent;
+  return React.createElement("div",{"data-coach":"daily",onClick:()=>onSelect(lick),style:{background:isStudio?(t.cardRaised||t.card):t.card,borderRadius:isStudio?20:16,padding:0,marginBottom:isStudio?18:14,border:"1px solid "+(isStudio?catC+"25":t.border),borderLeft:isStudio?"none":("3px solid "+instBorderC),cursor:"pointer",boxShadow:isStudio?"0 4px 24px "+catC+"20, 0 1px 8px rgba(0,0,0,0.4), inset 0 1px 0 "+catC+"10":"0 2px 12px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.03)",transition:"box-shadow 0.2s, transform 0.15s",overflow:"hidden",display:"flex"}},
     isStudio&&React.createElement("div",{style:{width:5,flexShrink:0,background:"linear-gradient(180deg,"+catC+","+instC+")",boxShadow:"2px 0 12px "+catC+"30"}}),
     React.createElement("div",{style:{flex:1,padding:isStudio?18:16}},
       // TOP: badge + date
@@ -4454,6 +4454,8 @@ function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst,
   const[inView,setInView]=useState(false);
   const cardRef=useRef(null);
   const catC=getCatColor(lick.category,t);
+  const instC=getInstColor(lick.instrument,t);
+  const instBorderC=INST_COL[lick.instrument]||t.accent;
   // IntersectionObserver — fire once when card enters viewport
   useEffect(()=>{
     if(!cardRef.current)return;
@@ -4466,7 +4468,7 @@ function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst,
   const visible=notationReady&&inView;
   return React.createElement(React.Fragment,null,
     showFlames&&React.createElement(FlamesPopup,{lickId:lick.id,lickTitle:lick.title,likeCount:lick.likes,th:t,onClose:function(e){setShowFlames(false);},onUserClick:onUserClick}),
-    React.createElement("div",{ref:cardRef,onClick:()=>onSelect(lick),style:{background:isStudio?(t.cardRaised||t.card):t.card,borderRadius:isStudio?16:14,padding:0,marginBottom:isStudio?12:8,border:"1px solid "+(isStudio?catC+"18":t.border),cursor:"pointer",transition:visible?"opacity 0.7s ease-out, transform 0.7s cubic-bezier(0.2,0,0.2,1)":"none",opacity:visible?1:0,transform:visible?"translateY(0)":"translateY(22px)",boxShadow:isStudio?"0 2px 16px "+catC+"15, 0 1px 6px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.03)":"0 2px 10px rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.03)",overflow:"hidden",display:"flex"}},
+    React.createElement("div",{ref:cardRef,onClick:()=>onSelect(lick),style:{background:isStudio?(t.cardRaised||t.card):t.card,borderRadius:isStudio?16:14,padding:0,marginBottom:isStudio?12:8,border:"1px solid "+(isStudio?catC+"18":t.border),borderLeft:"3px solid "+instBorderC,cursor:"pointer",transition:visible?"opacity 0.7s ease-out, transform 0.7s cubic-bezier(0.2,0,0.2,1)":"none",opacity:visible?1:0,transform:visible?"translateY(0)":"translateY(22px)",boxShadow:isStudio?"0 2px 16px "+catC+"15, 0 1px 6px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.03)":"0 2px 10px rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.03)",overflow:"hidden",display:"flex"}},
     React.createElement("div",{style:{flex:1,padding:isStudio?16:14}},
       // TITLE + META
       React.createElement("div",{style:{marginBottom:8}},
