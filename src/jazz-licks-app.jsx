@@ -2719,9 +2719,11 @@ function buildAbc(items,keySig,timeSig,tempo,chords,minBars,keyQual){const[tsN,t
     }
   }
   return abc;}
-function NoteBuilder({onAbcChange,keySig,keyQual,timeSig,tempo,previewEl,playerEl,noteClickRef,onSelChange,deselectRef,previewOffset,th,chordsRef,barInfoRef,fillBarRef,visible,highlightChords}){
+function NoteBuilder({onAbcChange,keySig,keyQual,timeSig,tempo,previewEl,playerEl,noteClickRef,onSelChange,deselectRef,previewOffset,th,chordsRef,barInfoRef,fillBarRef,visible,highlightChords,onChordHintDismiss,onChordHintSkip}){
   const[items,sIt]=useState([]);const[cO,sCO]=useState(4);const[cD,sCD]=useState(2);const[dt,sDt]=useState(false);const[tri,sTri]=useState(false);
   const[chords,sChords]=useState({});
+  var chordHintRef=useRef(null);
+  useEffect(function(){if(highlightChords&&chordHintRef.current)chordHintRef.current.scrollIntoView({behavior:"smooth",block:"center"});},[highlightChords]);
   useEffect(function(){if(chordsRef)chordsRef.current=chords;},[chords]);
   // Auto-rename chord roots when keySig changes between sharp/flat
   var prevKeyRef=useRef(keySig);
@@ -2928,7 +2930,17 @@ function NoteBuilder({onAbcChange,keySig,keyQual,timeSig,tempo,previewEl,playerE
   return React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:8}},
     // 1. Notation preview
     previewEl,
-    // 2. Chord timeline (with optional glow highlight)
+    // 2. Chord hint popup — rendered inline above chord section
+    highlightChords&&onChordHintDismiss&&React.createElement("div",{ref:chordHintRef,style:{background:t.card,borderRadius:14,padding:"20px 18px",border:"2px solid "+(isS?t.accent:t.accent),boxShadow:"0 4px 20px "+(isS?"rgba(34,216,158,0.2)":"rgba(99,102,241,0.15)")+", 0 0 16px "+(isS?"rgba(34,216,158,0.1)":"rgba(99,102,241,0.08)"),animation:"fadeIn 0.25s ease"}},
+      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:10}},
+        React.createElement("span",{style:{fontSize:22}},"\uD83C\uDFB5"),
+        React.createElement("div",null,
+          React.createElement("div",{style:{fontSize:14,fontWeight:700,color:t.text,fontFamily:"'Inter',sans-serif"}},"No chords added yet"),
+          React.createElement("div",{style:{fontSize:11,color:t.muted,fontFamily:"'Inter',sans-serif",marginTop:2}},"Add them below \u2014 they help with theory analysis"))),
+      React.createElement("div",{style:{display:"flex",gap:8,marginTop:4}},
+        React.createElement("button",{onClick:onChordHintDismiss,style:{flex:1,padding:"9px",borderRadius:10,border:"none",background:isS?t.playBg:t.accent,color:"#fff",fontSize:12,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer"}},"Add Chords"),
+        React.createElement("button",{onClick:onChordHintSkip,style:{flex:1,padding:"9px",borderRadius:10,border:"1px solid "+t.border,background:"transparent",color:t.muted,fontSize:12,fontWeight:500,fontFamily:"'Inter',sans-serif",cursor:"pointer"}},"Skip"))),
+    // 3. Chord timeline (with optional glow highlight)
     React.createElement("div",{style:{borderRadius:10,padding:highlightChords?2:0,background:highlightChords?(isS?"rgba(34,216,158,0.12)":"rgba(99,102,241,0.08)"):"transparent",border:highlightChords?("2px solid "+(isS?"rgba(34,216,158,0.5)":"rgba(99,102,241,0.4)")):"2px solid transparent",boxShadow:highlightChords?("0 0 16px "+(isS?"rgba(34,216,158,0.3)":"rgba(99,102,241,0.25)")+", 0 0 32px "+(isS?"rgba(34,216,158,0.15)":"rgba(99,102,241,0.12)")):"none",transition:"all 0.4s ease, box-shadow 0.4s ease",animation:highlightChords?"chordGlow 1.5s ease-in-out infinite":"none"}},chordLaneEl),
     // 3. Minimal player
     playerEl,
@@ -6733,7 +6745,7 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
           edInstOff!==0&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",background:isStudio?"rgba(34,216,158,0.06)":"rgba(99,102,241,0.04)",borderRadius:8,border:"1px solid "+(isStudio?"rgba(34,216,158,0.15)":"rgba(99,102,241,0.1)")}},
             React.createElement("span",{style:{fontSize:10,color:isStudio?"#22D89E":t.accent,fontFamily:"'Inter',sans-serif"}},"Entering for "+userInst+" \u2014 will be saved in concert pitch")),
           React.createElement("div",{style:{borderRadius:12,padding:14,border:"1px solid "+t.border,background:t.card}},
-            React.createElement(NoteBuilder,{onAbcChange:sAbc,keySig,keyQual,timeSig,tempo:parseInt(tempo)||120,noteClickRef:noteClickRef,onSelChange:setEdSelIdx,deselectRef:deselectRef,previewOffset:-edInstOff,th:t,chordsRef:chordsRef,barInfoRef:barInfoRef,fillBarRef:fillBarRef,visible:edStep===2,highlightChords:showChordHint,
+            React.createElement(NoteBuilder,{onAbcChange:sAbc,keySig,keyQual,timeSig,tempo:parseInt(tempo)||120,noteClickRef:noteClickRef,onSelChange:setEdSelIdx,deselectRef:deselectRef,previewOffset:-edInstOff,th:t,chordsRef:chordsRef,barInfoRef:barInfoRef,fillBarRef:fillBarRef,visible:edStep===2,highlightChords:showChordHint,onChordHintDismiss:function(){setShowChordHint(false);},onChordHintSkip:function(){var mode=showChordHint;setShowChordHint(false);tryPublish(mode);},
               previewEl:React.createElement("div",{style:{marginBottom:4}},
                 React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}},
                   React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,fontWeight:600}},"PREVIEW"),
@@ -6770,16 +6782,6 @@ function Editor({onClose,onSubmit,onSubmitPrivate,th,userInst}){const t=th||TH.c
           React.createElement("button",{onClick:function(){if(!step2Ok)return;var hasChords=Object.keys(chordsRef.current||{}).length>0;if(!hasChords&&!showChordHint){setShowChordHint("private");return;}setShowChordHint(false);tryPublish("private");},disabled:!canPublish,style:{padding:"10px 18px",background:canPublish?t.card:t.border,color:canPublish?t.text:t.subtle,border:canPublish?"1.5px solid "+t.accent:"none",borderRadius:10,fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:canPublish?"pointer":"default",transition:"all 0.2s"}},"\uD83D\uDD12 Private"),
           React.createElement("button",{onClick:function(){if(!step2Ok)return;var hasChords=Object.keys(chordsRef.current||{}).length>0;if(!hasChords&&!showChordHint){setShowChordHint("publish");return;}setShowChordHint(false);tryPublish("publish");},disabled:!canPublish,style:{padding:"10px 22px",background:canPublish?(isStudio?t.playBg:t.accent):t.border,color:canPublish?"#fff":t.subtle,border:"none",borderRadius:10,fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:canPublish?"pointer":"default",boxShadow:canPublish?"0 4px 16px "+t.accentGlow:"none",transition:"all 0.2s"}},"Publish"),
           edStep===2&&!step2Ok&&!showChordHint&&React.createElement("span",{style:{position:"absolute",left:"50%",transform:"translateX(-50%)",bottom:"calc(100% + 6px)",fontSize:10,color:t.subtle,fontFamily:"'Inter',sans-serif",whiteSpace:"nowrap",background:t.headerBg,padding:"2px 8px",borderRadius:6}},noteCount>0?"min 4 notes ("+noteCount+" so far)":"add some notes"))),
-    // Chord hint dialog — overlay as backdrop + card positioned explicitly
-    showChordHint&&!Object.keys(chordsRef.current||{}).length&&React.createElement("div",{style:{position:"absolute",top:0,left:0,right:0,bottom:0,zIndex:1100}},
-      React.createElement("div",{onClick:function(){setShowChordHint(false);},style:{position:"absolute",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.5)"}}),
-      React.createElement("div",{onClick:function(e){e.stopPropagation();},style:{position:"absolute",top:"35%",left:"50%",transform:"translate(-50%, -50%)",zIndex:1,background:t.card,borderRadius:16,padding:"24px 20px",maxWidth:320,width:"calc(100% - 40px)",border:"1px solid "+(isStudio?t.accent+"30":t.border),boxShadow:"0 12px 40px rgba(0,0,0,"+(isStudio?"0.6":"0.2")+")"}},
-        React.createElement("div",{style:{fontSize:28,textAlign:"center",marginBottom:10}},"\uD83C\uDFB5"),
-        React.createElement("div",{style:{fontSize:15,fontWeight:700,color:t.text,fontFamily:"'Inter',sans-serif",textAlign:"center",marginBottom:8}},"No chords added yet"),
-        React.createElement("p",{style:{fontSize:12,color:t.muted,fontFamily:"'Inter',sans-serif",margin:"0 0 18px",lineHeight:1.5,textAlign:"center"}},"Chord symbols help with theory analysis and make your lick much more useful for others. Add them in the CHORDS section above."),
-        React.createElement("div",{style:{display:"flex",gap:8}},
-          React.createElement("button",{onClick:function(){setShowChordHint(false);},style:{flex:1,padding:"10px",borderRadius:10,border:"none",background:isStudio?t.playBg:t.accent,color:"#fff",fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer"}},"Add Chords"),
-          React.createElement("button",{onClick:function(){var mode=showChordHint;setShowChordHint(false);tryPublish(mode);},style:{flex:1,padding:"10px",borderRadius:10,border:"1px solid "+t.border,background:t.filterBg,color:t.muted,fontSize:13,fontWeight:500,fontFamily:"'Inter',sans-serif",cursor:"pointer"}},"Skip")))),
     // Bar-fill dialog
     showBarFill&&React.createElement("div",{style:{position:"absolute",top:0,left:0,right:0,bottom:0,zIndex:1100,background:"rgba(0,0,0,0.5)",backdropFilter:"blur(4px)",WebkitBackdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}},
       React.createElement("div",{onClick:function(e){e.stopPropagation();},style:{background:t.card,borderRadius:16,padding:"24px 20px",maxWidth:340,width:"100%",border:"1px solid "+t.border,boxShadow:"0 12px 40px rgba(0,0,0,"+(isStudio?"0.6":"0.15")+")"}},
