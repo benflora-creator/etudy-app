@@ -1379,7 +1379,7 @@ function ytCardCollapseAll(){_ytCard.subs.forEach(function(fn){fn();});}
 function previewSubscribe(fn){_preview.subs.add(fn);return function(){_preview.subs.delete(fn);};}
 function previewNotify(){_preview.subs.forEach(function(fn){fn(_preview.id);});}
 function previewStop(){if(_preview.stop){try{_preview.stop();}catch(e){}_preview.stop=null;}_preview.id=null;_preview.gen++;for(var i=0;i<_preview.noteTimers.length;i++)clearTimeout(_preview.noteTimers[i]);_preview.noteTimers=[];_preview.curNote=-1;previewNotify();}
-async function previewPlay(lickId,abc,tempo){
+async function previewPlay(lickId,abc,tempo,feel){
   previewStop();
   var myGen=_preview.gen;
   try{await Tone.start();}catch(e){}
@@ -1387,8 +1387,9 @@ async function previewPlay(lickId,abc,tempo){
   if(!_samplerReady&&!_samplerFailed){await preloadPiano();}
   if(!_chordSamplerReady){await preloadChordPiano();}
   if(myGen!==_preview.gen)return;
+  var sw=feel==="swing"?1:feel==="hard-swing"?2:0;
   var parsed=parseAbc(abc,tempo);
-  var result=applyTiming(parsed,0);
+  var result=applyTiming(parsed,sw);
   var notes=result.scheduled;var totalDur=result.totalDur;var chordTimes=result.chordTimes||[];
   var timers=[];
   // Schedule curNote tracking
@@ -1399,16 +1400,16 @@ async function previewPlay(lickId,abc,tempo){
   // Schedule chord accompaniment
   var chordCleanup=null;
   if(_chordSamplerReady&&_chordSampler&&chordTimes.length>0){
-    var cRev=new Tone.Reverb({decay:2,wet:0.2}).toDestination();
+    var cRev=new Tone.Reverb({decay:2.5,wet:0.3}).toDestination();
     var cComp=new Tone.Compressor({threshold:-24,ratio:3}).connect(cRev);
-    var cFlt=new Tone.Filter({frequency:2500,type:"lowpass"}).connect(cComp);
+    var cFlt=new Tone.Filter({frequency:1800,type:"lowpass"}).connect(cComp);
     _chordSampler.disconnect();_chordSampler.connect(cFlt);
     var cNow=Tone.now();var cLA=0.04;
     for(var ci=0;ci<chordTimes.length;ci++){var ch=chordTimes[ci];var cn=chordToNotes(ch.name,3);if(!cn.length)continue;
       var nextT=ci<chordTimes.length-1?chordTimes[ci+1].time:totalDur;var cDur=Math.max(0.5,nextT-ch.time);
       for(var cni=0;cni<cn.length;cni++){(function(_note,_time,_dur){
         var fireMs=Math.max(0,_time*1000-cLA*1000);
-        timers.push(setTimeout(function(){if(_preview.gen!==myGen)return;try{_chordSampler.triggerAttackRelease(_note,_dur,cNow+_time-cLA,0.35);}catch(e){}},fireMs));
+        timers.push(setTimeout(function(){if(_preview.gen!==myGen)return;try{_chordSampler.triggerAttackRelease(_note,_dur,cNow+_time-cLA,0.18);}catch(e){}},fireMs));
       })(cn[cni],ch.time,cDur);}}
     chordCleanup=function(){try{_chordSampler.releaseAll();_chordSampler.disconnect();_chordSampler.toDestination();}catch(e){}try{cFlt.dispose();}catch(e){}try{cComp.dispose();}catch(e){}try{cRev.dispose();}catch(e){}};
   }
@@ -1448,10 +1449,10 @@ function usePreviewCurNote(lickId){
   useEffect(function(){return previewSubscribe(function(activeId){cnRef.current=activeId===lickId?_preview.curNote:-1;});},[lickId]);
   return cnRef;
 }
-function PreviewBtn({lickId,abc,tempo,th,size}){
+function PreviewBtn({lickId,abc,tempo,feel,th,size}){
   var t=th||TH.classic;var isStudio=t===TH.studio;
   var playing=usePreviewState(lickId);var sz=size||28;
-  var handleClick=function(e){e.stopPropagation();if(playing){previewStop();}else{previewPlay(lickId,abc,tempo);}};
+  var handleClick=function(e){e.stopPropagation();if(playing){previewStop();}else{previewPlay(lickId,abc,tempo,feel);}};
   return React.createElement("button",{onClick:handleClick,style:{width:sz,height:sz,borderRadius:sz/2,border:"none",background:playing?(isStudio?"#22D89E":"#6366F1"):(isStudio?"rgba(34,216,158,0.12)":"rgba(99,102,241,0.08)"),cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.15s",boxShadow:playing?"0 2px 10px "+(isStudio?"rgba(34,216,158,0.3)":"rgba(99,102,241,0.25)"):"none"}},
     playing?React.createElement("div",{style:{width:sz*0.28,height:sz*0.28,borderRadius:2,background:isStudio?"#fff":"#fff"}}):
     React.createElement("div",{style:{width:0,height:0,borderTop:(sz*0.2)+"px solid transparent",borderBottom:(sz*0.2)+"px solid transparent",borderLeft:(sz*0.3)+"px solid "+(isStudio?"#22D89E":"#6366F1"),marginLeft:sz*0.06}}));
@@ -4346,7 +4347,7 @@ function DailyLickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:user
         React.createElement(Notation,{abc:cardAbc,compact:true,th:t,curNoteRef:prevCurNote,bassClef:BASS_CLEF_INSTS.has(userInst)})),
       // ACTION ROW — Instagram style
       React.createElement("div",{"data-coach":"flame",style:{display:"flex",alignItems:"center",gap:2,marginTop:isStudio?14:10,paddingTop:isStudio?12:8,borderTop:"1px solid "+t.border}},
-        React.createElement(PreviewBtn,{lickId:lick.id,abc:lick.abc,tempo:lick.tempo,th:t,size:30}),
+        React.createElement(PreviewBtn,{lickId:lick.id,abc:lick.abc,tempo:lick.tempo,feel:lick.feel,th:t,size:30}),
         React.createElement("button",{onClick:e=>{e.stopPropagation();onLike(lick.id);},style:{background:"none",border:"none",cursor:"pointer",padding:"4px 2px",marginLeft:6,display:"flex",alignItems:"center",gap:4,transition:"all 0.15s"}},
           isStudio?(liked?IC.flame(20,"#F97316",true):IC.flameOff(20)):React.createElement("span",{style:{fontSize:20,color:liked?"#EF4444":t.muted}},liked?"\u2665":"\u2661")),
         React.createElement("button",{onClick:e=>{e.stopPropagation();onSave(lick.id);},style:{background:"none",border:"none",cursor:"pointer",padding:"4px 2px",display:"flex",alignItems:"center",marginLeft:4,transition:"all 0.15s"}},
@@ -4548,7 +4549,7 @@ function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst,
       // ACTION ROW — Instagram style
       React.createElement("div",{style:{marginTop:isStudio?12:8,paddingTop:isStudio?10:6,borderTop:"1px solid "+t.border}},
         React.createElement("div",{style:{display:"flex",alignItems:"center",gap:2}},
-          React.createElement(PreviewBtn,{lickId:lick.id,abc:lick.abc,tempo:lick.tempo,th:t,size:26}),
+          React.createElement(PreviewBtn,{lickId:lick.id,abc:lick.abc,tempo:lick.tempo,feel:lick.feel,th:t,size:26}),
           React.createElement("button",{onClick:e=>{e.stopPropagation();onLike(lick.id);setLikeAnim(true);setTimeout(()=>setLikeAnim(false),300);},style:{background:"none",border:"none",cursor:"pointer",padding:"3px 2px",marginLeft:6,display:"flex",alignItems:"center",gap:3,transition:"all 0.15s",animation:likeAnim?"heartPop 0.3s ease":"none"}},
             isStudio?(liked?IC.flame(18,"#F97316",true):IC.flameOff(18)):React.createElement("span",{style:{fontSize:18,color:liked?"#EF4444":t.muted}},liked?"\u2665":"\u2661")),
           React.createElement("button",{onClick:e=>{e.stopPropagation();onSave(lick.id);setSaveAnim(true);setTimeout(()=>setSaveAnim(false),300);},style:{background:"none",border:"none",cursor:"pointer",padding:"3px 2px",display:"flex",alignItems:"center",marginLeft:4,transition:"all 0.15s",animation:saveAnim?"heartPop 0.3s ease":"none"}},
