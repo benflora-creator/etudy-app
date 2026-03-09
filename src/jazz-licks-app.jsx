@@ -6931,7 +6931,7 @@ function ScaleChordTrainer({th,userInst}){
       React.createElement("div",{style:{fontSize:12,color:t.muted,fontFamily:"'Inter',sans-serif"}},"Inversions, drop voicings & more — coming soon")),
 
     // Fullscreen range overlay
-    showFullRange&&scaleDef&&React.createElement(FullRangeScaleView,{rootName:root,scaleDef:scaleDef,scaleName:scaleName,lowMidi:instLowMidi,highMidi:instHighMidi,useBassClef:isBassClef,instOff:instOff,th:t,onClose:function(){setShowFullRange(false);}}));}}
+    showFullRange&&scaleDef&&React.createElement(FullRangeScaleView,{rootName:root,scaleDef:scaleDef,scaleName:scaleName,lowMidi:instLowMidi,highMidi:instHighMidi,useBassClef:isBassClef,instOff:instOff,th:t,onClose:function(){setShowFullRange(false);}}));}
 
 
 // ── Custom Select — matches key picker design ──
