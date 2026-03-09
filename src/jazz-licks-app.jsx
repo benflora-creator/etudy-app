@@ -6615,7 +6615,7 @@ function buildScaleAbc(rootName,scaleDef,baseMidi,useBassClef){
   }
   var clefStr=useBassClef?" clef=bass":"";
   var nNotes=abcNotes.length;
-  var abcHeader="X:1\n%%stretchlast true\n%%notespacingfactor 1.8\nM:"+nNotes+"/4\nL:1/4\nK:C"+clefStr+"\n";
+  var abcHeader="X:1\n%%stretchlast true\n%%notespacingfactor 1.8\nM:"+nNotes+"/1\nL:1\nK:C"+clefStr+"\n";
   return{abc:abcHeader+abcNotes.join(" ")+" |",midis:midis,intervals:scaleDef.notes.concat([0])};
 }
 
