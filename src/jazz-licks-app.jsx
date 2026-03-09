@@ -8368,7 +8368,7 @@ export default function Etudy(){
   const[myLicksSub,setMyLicksSub]=useState("saved"); // saved | private
   const allLicks=useMemo(function(){return[...licks,...myLicks];},[licks,myLicks]);
   const[rhythmSub,setRhythmSub]=useState("metronome"); // metronome | reading | poly
-  const[trainSub,setTrainSub]=useState("ear"); // ear | rhythm (later: scales)
+  const[trainSub,setTrainSub]=useState("rhythm"); // rhythm | ear
   const[showSettings,setShowSettings]=useState(false);
   const[rhythmInput,setRhythmInput]=useState("tap"); // tap | mic — shared across modes
   const[rhythmMicSilent,setRhythmMicSilent]=useState(true);
@@ -8660,8 +8660,10 @@ export default function Etudy(){
       view==="train"&&React.createElement("div",null,
         // Train sub-tabs: Ear | Rhythm (later: Scales)
         React.createElement("div",{style:{display:"flex",gap:4,marginBottom:14,background:t.filterBg,borderRadius:10,padding:3}},
-          [["ear","\uD83D\uDC42 Ear"],["rhythm","\uD83E\uDD41 Rhythm"]].map(function(m){
-            return React.createElement("button",{key:m[0],onClick:function(){setTrainSub(m[0]);},style:{flex:1,padding:"8px 12px",borderRadius:8,border:"none",background:trainSub===m[0]?(t.activeTabBg||t.card):"transparent",color:trainSub===m[0]?t.text:t.subtle,fontSize:12,fontWeight:trainSub===m[0]?600:400,fontFamily:"'Inter',sans-serif",cursor:"pointer",boxShadow:trainSub===m[0]?"0 1px 4px rgba(0,0,0,0.08)":"none",transition:"all 0.15s"}},m[1]);
+          [["rhythm","Rhythm"],["ear","Ear"]].map(function(m){
+            var active=trainSub===m[0];
+            return React.createElement("button",{key:m[0],onClick:function(){setTrainSub(m[0]);},style:{flex:1,padding:"8px 12px",borderRadius:8,border:"none",background:active?(t.activeTabBg||t.card):"transparent",color:active?t.text:t.subtle,fontSize:12,fontWeight:active?600:400,fontFamily:"'Inter',sans-serif",cursor:"pointer",boxShadow:active?"0 1px 4px rgba(0,0,0,0.08)":"none",transition:"all 0.15s",display:"flex",alignItems:"center",justifyContent:"center",gap:6}},
+              m[0]==="rhythm"?IC.tabRhythm(14,active?t.text:t.subtle,active):IC.tabEar(14,active?t.text:t.subtle,active),m[1]);
           })),
         // Ear sub-view
         trainSub==="ear"&&React.createElement(EarTrainer,{licks:allLicks,onLike:toggleLike,onOpen:openLick,likedSet:likedSet,th:t,userInst:userInst}),
