@@ -2295,7 +2295,7 @@ function enharmonicChords(chords,toSharp){
 }
 // Hierarchical chord quality picker: Category → qualities
 var CHORD_HIER=[
-  {id:"dur",label:"Dur",quals:[
+  {id:"dur",label:"Maj",quals:[
     {q:"",l:"triad"},{q:"6",l:"6"},{q:"69",l:"69"},
     {q:"maj7",l:"maj7"},{q:"maj9",l:"maj9"},{q:"maj7#11",l:"\u0394#11"}
   ],def:"maj7"},
@@ -2304,7 +2304,7 @@ var CHORD_HIER=[
     {q:"7b9",l:"7b9"},{q:"7#9",l:"7#9"},{q:"7#11",l:"7#11"},
     {q:"7b13",l:"7b13"},{q:"7alt",l:"7alt"},{q:"13b9",l:"13b9"},{q:"7#5",l:"7#5"}
   ],def:"7"},
-  {id:"moll",label:"Moll",quals:[
+  {id:"moll",label:"Min",quals:[
     {q:"m",l:"m"},{q:"m6",l:"m6"},
     {q:"m7",l:"m7"},{q:"m9",l:"m9"},{q:"m(maj7)",l:"m\u03947"}
   ],def:"m7"},
