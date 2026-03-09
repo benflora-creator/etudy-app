@@ -1420,7 +1420,7 @@ async function previewPlay(lickId,abc,tempo,feel){
         var nextT=ci<chordTimes.length-1?chordTimes[ci+1].time:totalDur;var cDur=Math.max(0.5,nextT-ch.time);
         for(var cni=0;cni<cn.length;cni++){(function(_note,_time,_dur){
           var fireMs=Math.max(0,_time*1000-LA*1000);
-          timers.push(setTimeout(function(){if(_preview.gen!==myGen)return;try{_chordSampler.triggerAttackRelease(_note,_dur,now+_time,0.7);}catch(e){}},fireMs));
+          timers.push(setTimeout(function(){if(_preview.gen!==myGen)return;try{_chordSampler.triggerAttackRelease(_note,_dur,now+_time,0.85);}catch(e){}},fireMs));
         })(cn[cni],ch.time,cDur);}}
     }
     if(myGen!==_preview.gen){for(var k=0;k<timers.length;k++)clearTimeout(timers[k]);try{_sampler.disconnect();_sampler.toDestination();}catch(e){}try{rev.dispose();}catch(e){}try{comp.dispose();}catch(e){}if(chordCleanup)chordCleanup();return;}
@@ -1441,7 +1441,7 @@ async function previewPlay(lickId,abc,tempo,feel){
         var nextT2=ci2<chordTimes.length-1?chordTimes[ci2+1].time:totalDur;var cDur2=Math.max(0.5,nextT2-ch2.time);
         for(var cni2=0;cni2<cn2.length;cni2++){(function(_note,_time,_dur){
           var fireMs=Math.max(0,_time*1000-40);
-          timers.push(setTimeout(function(){if(_preview.gen!==myGen)return;try{_chordSampler.triggerAttackRelease(_note,_dur,now2+_time,0.7);}catch(e){}},fireMs));
+          timers.push(setTimeout(function(){if(_preview.gen!==myGen)return;try{_chordSampler.triggerAttackRelease(_note,_dur,now2+_time,0.85);}catch(e){}},fireMs));
         })(cn2[cni2],ch2.time,cDur2);}}
     }
     _preview.id=lickId;
