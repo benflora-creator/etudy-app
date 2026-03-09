@@ -6522,8 +6522,11 @@ var SCALE_ROOT_ROW1=["C","Db","D","Eb","E","F"];
 var SCALE_ROOT_ROW2=["F#","G","Ab","A","Bb","B"];
 
 // Comfortable low MIDI note per instrument (WRITTEN pitch) for scale display
-var INST_LOW_MIDI={"Concert":60,"Alto Sax":58,"Soprano Sax":58,"Tenor Sax":58,"Baritone Sax":56,"Bb Trumpet":58,"Trumpet":58,"Clarinet":52,"Trombone":36,"Piano":60,"Guitar":52,"Bass":28,"Flute":60,"Vibes":53,"Violin":55,"Vocals":60};
-var INST_HIGH_MIDI={"Concert":84,"Alto Sax":82,"Soprano Sax":84,"Tenor Sax":82,"Baritone Sax":78,"Bb Trumpet":82,"Trumpet":82,"Clarinet":84,"Trombone":65,"Piano":84,"Guitar":76,"Bass":55,"Flute":96,"Vibes":89,"Violin":93,"Vocals":79};
+// Comfortable starting MIDI for one-octave scale display (written pitch)
+var INST_LOW_MIDI={"Concert":60,"Alto Sax":58,"Soprano Sax":58,"Tenor Sax":58,"Baritone Sax":58,"Bb Trumpet":58,"Trumpet":58,"Clarinet":52,"Trombone":48,"Piano":60,"Guitar":52,"Bass":36,"Flute":60,"Vibes":53,"Violin":55,"Vocals":60};
+// Actual instrument full range (written pitch) for full-range view
+var INST_RANGE_LOW={"Concert":48,"Alto Sax":58,"Soprano Sax":58,"Tenor Sax":58,"Baritone Sax":58,"Bb Trumpet":54,"Trumpet":54,"Clarinet":52,"Trombone":40,"Piano":36,"Guitar":40,"Bass":28,"Flute":60,"Vibes":53,"Violin":55,"Vocals":48};
+var INST_RANGE_HIGH={"Concert":96,"Alto Sax":90,"Soprano Sax":90,"Tenor Sax":90,"Baritone Sax":90,"Bb Trumpet":84,"Trumpet":84,"Clarinet":94,"Trombone":70,"Piano":96,"Guitar":88,"Bass":55,"Flute":96,"Vibes":89,"Violin":100,"Vocals":79};
 
 function buildScaleAbc(rootName,scaleDef,baseMidi,useBassClef){
   if(!scaleDef)return null;
@@ -6755,7 +6758,8 @@ function ScaleChordTrainer({th,userInst}){
   var instOff=INST_TRANS[transKey]||0;
   var isBassClef=BASS_CLEF_INSTS.has(userInst);
   var instLowMidi=INST_LOW_MIDI[userInst]||INST_LOW_MIDI[transKey]||48;
-  var instHighMidi=INST_HIGH_MIDI[userInst]||INST_HIGH_MIDI[transKey]||84;
+  var instRangeLow=INST_RANGE_LOW[userInst]||INST_RANGE_LOW[transKey]||48;
+  var instRangeHigh=INST_RANGE_HIGH[userInst]||INST_RANGE_HIGH[transKey]||84;
   var _sub=useState("scales"),sub=_sub[0],setSub=_sub[1];
   var _root=useState("C"),root=_root[0],setRoot=_root[1];
   var _cat=useState("modes"),cat=_cat[0],setCat=_cat[1];
@@ -6932,7 +6936,7 @@ function ScaleChordTrainer({th,userInst}){
       React.createElement("div",{style:{fontSize:12,color:t.muted,fontFamily:"'Inter',sans-serif"}},"Inversions, drop voicings & more — coming soon")),
 
     // Fullscreen range overlay
-    showFullRange&&scaleDef&&React.createElement(FullRangeScaleView,{rootName:root,scaleDef:scaleDef,scaleName:scaleName,lowMidi:instLowMidi,highMidi:instHighMidi,useBassClef:isBassClef,instOff:instOff,th:t,onClose:function(){setShowFullRange(false);}}));}
+    showFullRange&&scaleDef&&React.createElement(FullRangeScaleView,{rootName:root,scaleDef:scaleDef,scaleName:scaleName,lowMidi:instRangeLow,highMidi:instRangeHigh,useBassClef:isBassClef,instOff:instOff,th:t,onClose:function(){setShowFullRange(false);}}));}
 
 
 // ── Custom Select — matches key picker design ──
