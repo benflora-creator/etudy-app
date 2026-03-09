@@ -6595,7 +6595,8 @@ function buildScaleAbc(rootName,scaleDef,baseMidi,useBassClef){
     var sp=spellings[si];
     var interval2=si<noteCount?scaleDef.notes[si]:12;
     var midi=rootMidi+interval2;midis.push(midi);
-    var oct=Math.floor(midi/12)-1;
+    // Calculate octave from letter+acc: letter in oct has MIDI = LET_PC[letter]+acc+(oct+1)*12
+    var oct=Math.floor((midi-LET_PC[sp.letter]-sp.acc)/12)-1;
     var abcAcc=sp.acc>0?"^":sp.acc<0?"_":"=";
     if(sp.acc<-1)abcAcc="__";if(sp.acc>1)abcAcc="^^";
     var abcN="";
@@ -6658,7 +6659,7 @@ function ScaleChordTrainer({th,userInst}){
     if(!notRef.current||!scaleData||!scaleData.abc||!window.ABCJS)return;
     try{
       notRef.current.innerHTML="";
-      window.ABCJS.renderAbc(notRef.current,scaleData.abc,{paddingtop:4,paddingbottom:2,paddingleft:0,paddingright:0,add_classes:true,responsive:"resize",staffwidth:340,stretchlast:false});
+      window.ABCJS.renderAbc(notRef.current,scaleData.abc,{paddingtop:4,paddingbottom:20,paddingleft:0,paddingright:0,add_classes:true,responsive:"resize",staffwidth:340,stretchlast:false});
       var svg=notRef.current.querySelector("svg");
       if(svg){
         svg.style.maxWidth="100%";svg.style.overflow="visible";
@@ -6668,11 +6669,47 @@ function ScaleChordTrainer({th,userInst}){
         svg.querySelectorAll(".abcjs-staff-extra path").forEach(function(p){p.setAttribute("stroke",isStudio?t.staffStroke:t.muted);p.setAttribute("fill",isStudio?t.staffStroke:t.muted);p.setAttribute("stroke-width","0.6");});
         svg.querySelectorAll(".abcjs-bar path").forEach(function(p){p.setAttribute("stroke",t.barStroke);p.setAttribute("stroke-width","0.8");});
         svg.querySelectorAll("text.abcjs-chord,text.abcjs-title,.abcjs-meta-top").forEach(function(el){el.style.display="none";});
+        // Find staff bottom for label placement
+        var staffEls=svg.querySelectorAll(".abcjs-staff");
+        var staffBot=80;
+        staffEls.forEach(function(s){try{var sb=s.getBBox();var bot=sb.y+sb.height;if(bot>staffBot)staffBot=bot;}catch(e){}});
+        var labelY=staffBot+12;
         var noteEls=svg.querySelectorAll(".abcjs-note");
         noteEls.forEach(function(noteEl,ni){
           noteEl.style.cursor="pointer";
           noteEl.addEventListener("click",function(e){e.stopPropagation();tapNote(ni);});
+          // Inject interval label as SVG text below note
+          if(scaleData.intervals&&ni<scaleData.intervals.length){
+            try{
+              var bb=noteEl.getBBox();
+              var cx=bb.x+bb.width/2;
+              var iv=scaleData.intervals[ni];
+              var label=iv===0?(ni===0?"R":"R"):ivLabels[iv]||String(iv);
+              var isRoot=iv===0;
+              var lbl=document.createElementNS("http://www.w3.org/2000/svg","text");
+              lbl.setAttribute("class","scale-iv-label");
+              lbl.setAttribute("x",cx);
+              lbl.setAttribute("y",labelY);
+              lbl.setAttribute("text-anchor","middle");
+              lbl.setAttribute("dominant-baseline","hanging");
+              lbl.setAttribute("fill",isRoot?t.accent:stCol);
+              lbl.style.fontSize="10px";
+              lbl.style.fontFamily="'JetBrains Mono',monospace";
+              lbl.style.fontWeight=isRoot?"700":"500";
+              lbl.style.opacity=isRoot?"1":"0.75";
+              lbl.style.pointerEvents="none";
+              lbl.textContent=label;
+              svg.appendChild(lbl);
+            }catch(e){}
+          }
         });
+        // Expand SVG viewBox to fit labels
+        try{
+          var svgBB=svg.getBBox();
+          var newH=svgBB.y+svgBB.height+8;
+          var vb=svg.getAttribute("viewBox");
+          if(vb){var parts=vb.split(/\s+/);if(parts.length===4){parts[3]=String(Math.max(parseFloat(parts[3]),newH));svg.setAttribute("viewBox",parts.join(" "));}}
+        }catch(e){}
       }
     }catch(e){console.warn("ScaleChordTrainer render:",e);}
   },[scaleData]);
@@ -6681,6 +6718,7 @@ function ScaleChordTrainer({th,userInst}){
   useEffect(function(){
     if(!notRef.current)return;var svg=notRef.current.querySelector("svg");if(!svg)return;
     var noteEls=svg.querySelectorAll(".abcjs-note");
+    var labelEls=svg.querySelectorAll(".scale-iv-label");
     var activeIdx=tappedIdx>=0?tappedIdx:playIdx;
     var stCol=isStudio?"#F2F2FA":"#1A1A1A";
     noteEls.forEach(function(el,i){
@@ -6689,6 +6727,11 @@ function ScaleChordTrainer({th,userInst}){
       el.style.transition="opacity 0.15s";
       el.style.filter=isActive?"drop-shadow(0 0 8px "+t.accent+"90)":"none";
       el.querySelectorAll("path,circle,ellipse").forEach(function(p){p.setAttribute("fill",isActive?t.accent:stCol);p.setAttribute("stroke",isActive?t.accent:stCol);});
+    });
+    labelEls.forEach(function(el,i){
+      var isActive=i===activeIdx;
+      el.style.opacity=activeIdx>=0?(isActive?"1":"0.3"):"";
+      if(isActive)el.setAttribute("fill",t.accent);
     });
   },[playIdx,tappedIdx]);
 
@@ -6754,16 +6797,8 @@ function ScaleChordTrainer({th,userInst}){
           React.createElement("button",{onClick:playScale,style:{width:36,height:36,borderRadius:10,background:isStudio?t.playBg:t.accent,border:"none",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",boxShadow:"0 2px 12px "+t.accentGlow}},
             React.createElement("div",{style:{width:0,height:0,borderTop:"7px solid transparent",borderBottom:"7px solid transparent",borderLeft:"12px solid #fff",marginLeft:2}})))),
 
-      // Notation
-      React.createElement("div",{ref:notRef,style:{background:isStudio?t.noteBg:t.noteBg,borderRadius:10,padding:"8px 12px",border:"1px solid "+(isStudio?t.staffStroke+"30":t.borderSub||t.border),marginBottom:8,minHeight:60}}),
-
-      // Interval labels
-      scaleData&&React.createElement("div",{style:{display:"flex",gap:0,justifyContent:"space-around",padding:"0 8px"}},
-        scaleData.intervals.map(function(iv,idx){
-          var label=iv===0?(idx===0?"R":"R"):ivLabels[iv]||iv;
-          var isRoot=iv===0;
-          return React.createElement("div",{key:idx,onClick:function(){tapNote(idx);},style:{display:"flex",flexDirection:"column",alignItems:"center",cursor:"pointer",padding:"4px 6px",borderRadius:6,background:(tappedIdx===idx||playIdx===idx)?t.accent+"15":"transparent",transition:"all 0.15s"}},
-            React.createElement("span",{style:{fontSize:11,fontWeight:isRoot?700:500,color:isRoot?t.accent:t.text,fontFamily:"'JetBrains Mono',monospace"}},label));}))),
+      // Notation (interval labels are injected into SVG)
+      React.createElement("div",{ref:notRef,style:{background:isStudio?t.noteBg:t.noteBg,borderRadius:10,padding:"8px 12px",border:"1px solid "+(isStudio?t.staffStroke+"30":t.borderSub||t.border),marginBottom:8,minHeight:60}})),
 
     sub==="chords"&&React.createElement("div",{style:{background:t.card,borderRadius:14,padding:24,border:"1px solid "+t.border,textAlign:"center"}},
       IC.tabScales(32,t.subtle,false),
