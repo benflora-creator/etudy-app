@@ -6689,7 +6689,9 @@ function ScaleChordTrainer({th,userInst}){
         noteEls.forEach(function(noteEl,ni){
           noteEl.style.cursor="pointer";
           noteEl.addEventListener("click",function(e){e.stopPropagation();tapNote(ni);});
-          var r=noteEl.getBoundingClientRect();
+          // Find notehead (ellipse) to center on it, not on note+accidental
+          var head=noteEl.querySelector("ellipse")||noteEl.querySelector("circle");
+          var r=head?head.getBoundingClientRect():noteEl.getBoundingClientRect();
           var cx=r.left+r.width/2-wrapRect.left;
           positions.push(cx/wrapRect.width*100);
         });
