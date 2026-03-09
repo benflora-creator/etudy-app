@@ -6614,7 +6614,9 @@ function buildScaleAbc(rootName,scaleDef,baseMidi,useBassClef){
     abcNotes.push(abcN);
   }
   var clefStr=useBassClef?" clef=bass":"";
-  return{abc:"X:1\nM:free\nL:1\nK:C"+clefStr+"\n"+abcNotes.join(" ")+" |",midis:midis,intervals:scaleDef.notes.concat([0])};
+  var nNotes=abcNotes.length;
+  var abcHeader="X:1\n%%stretchlast true\n%%notespacingfactor 1.8\nM:"+nNotes+"/4\nL:1/4\nK:C"+clefStr+"\n";
+  return{abc:abcHeader+abcNotes.join(" ")+" |",midis:midis,intervals:scaleDef.notes.concat([0])};
 }
 
 function ScaleChordTrainer({th,userInst}){
@@ -6669,7 +6671,7 @@ function ScaleChordTrainer({th,userInst}){
     if(!notRef.current||!scaleData||!scaleData.abc||!window.ABCJS)return;
     try{
       notRef.current.innerHTML="";
-      window.ABCJS.renderAbc(notRef.current,scaleData.abc,{paddingtop:4,paddingbottom:2,paddingleft:0,paddingright:0,add_classes:true,responsive:"resize",staffwidth:340,stretchlast:false});
+      window.ABCJS.renderAbc(notRef.current,scaleData.abc,{paddingtop:4,paddingbottom:2,paddingleft:0,paddingright:0,add_classes:true,responsive:"resize",staffwidth:340,stretchlast:true});
       var svg=notRef.current.querySelector("svg");
       if(svg){
         svg.style.maxWidth="100%";svg.style.overflow="visible";
@@ -6677,8 +6679,8 @@ function ScaleChordTrainer({th,userInst}){
         svg.querySelectorAll("path").forEach(function(p){p.setAttribute("fill",stCol);p.setAttribute("stroke",stCol);});
         svg.querySelectorAll(".abcjs-staff path").forEach(function(p){p.setAttribute("stroke",t.staffStroke);p.setAttribute("fill","none");p.setAttribute("stroke-width","0.6");});
         svg.querySelectorAll(".abcjs-staff-extra path").forEach(function(p){p.setAttribute("stroke",isStudio?t.staffStroke:t.muted);p.setAttribute("fill",isStudio?t.staffStroke:t.muted);p.setAttribute("stroke-width","0.6");});
-        svg.querySelectorAll(".abcjs-bar path").forEach(function(p){p.setAttribute("stroke",t.barStroke);p.setAttribute("stroke-width","0.8");});
-        svg.querySelectorAll("text.abcjs-chord,text.abcjs-title,.abcjs-meta-top").forEach(function(el){el.style.display="none";});
+        svg.querySelectorAll(".abcjs-bar path").forEach(function(p){p.style.display="none";});
+        svg.querySelectorAll("text.abcjs-chord,text.abcjs-title,.abcjs-meta-top,.abcjs-time-signature").forEach(function(el){el.style.display="none";});
         var noteEls=svg.querySelectorAll(".abcjs-note");
         // Capture note center-x positions as percentages of wrapper width
         var wrapEl=wrapRef.current||notRef.current.parentElement;
