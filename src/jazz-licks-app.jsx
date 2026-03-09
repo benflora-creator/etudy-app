@@ -548,7 +548,7 @@ var SCALE_DEFS=[
   {name:"Aeolian",notes:[0,2,3,5,7,8,10],ctx:["m7"]},
   {name:"Lydian",notes:[0,2,4,6,7,9,11],ctx:["maj7","maj7#11"]},
   {name:"Lydian Dominant",notes:[0,2,4,6,7,9,10],ctx:["7","7#11"]},
-  {name:"Altered",notes:[0,1,3,4,6,8,10],ctx:["7alt","7b9","7#9","7b13"]},
+  {name:"Altered",notes:[0,1,3,4,6,8,10],ctx:["7","7alt","7b9","7#9","7b13"]},
   {name:"HW Diminished",notes:[0,1,3,4,6,7,9,10],ctx:["7","7b9","dim"]},
   {name:"WH Diminished",notes:[0,2,3,5,6,8,9,11],ctx:["dim","dim7"]},
   {name:"Melodic Minor",notes:[0,2,3,5,7,9,11],ctx:["m","m6","m7"]},
@@ -561,7 +561,7 @@ var SCALE_DEFS=[
   {name:"Bebop Major",notes:[0,2,4,5,7,8,9,11],ctx:["maj7","6"]},
   {name:"Phrygian",notes:[0,1,3,5,7,8,10],ctx:["m7"]},
   {name:"Locrian",notes:[0,1,3,5,6,8,10],ctx:["m7b5"]},
-  {name:"Super Locrian",notes:[0,1,3,4,6,8,10],ctx:["7alt"]},
+  {name:"Super Locrian",notes:[0,1,3,4,6,8,10],ctx:["7","7alt"]},
   {name:"Mixolydian b9 b13",notes:[0,1,4,5,7,8,10],ctx:["7","7b9"]},
 ];
 
@@ -676,18 +676,42 @@ function getIntervalLabel(semi,chordParsed){
 // Detect scale from notes over a chord
 function detectScale(noteSet,chordParsed){
   if(!noteSet||noteSet.size<3||!chordParsed)return null;
+  // Chord tones (reduced to 0-11)
+  var ctArr=CHORD_TONE_MAP[chordParsed.quality]||CHORD_TONE_MAP[""]||[0,4,7];
+  var ctSet=new Set(ctArr.map(function(ct){return ct%12;}));
+  // Separate played notes into chord tones vs color tones
+  var colorNotes=[];var chordToneNotes=[];
+  noteSet.forEach(function(n){if(ctSet.has(n))chordToneNotes.push(n);else colorNotes.push(n);});
+  // 3rd/7th character of chord
+  var hasMaj3=ctSet.has(4),hasMin3=ctSet.has(3);
+  var hasb7=ctSet.has(10),hasMaj7=ctSet.has(11);
   var best=null,bestScore=-1;
   for(var si=0;si<SCALE_DEFS.length;si++){
     var sd=SCALE_DEFS[si];
     var scaleSet=new Set(sd.notes);
-    var match=0,miss=0;
-    noteSet.forEach(function(n){
-      if(scaleSet.has(n))match++;else miss++;
-    });
-    // Bonus for context match
+    // Color tones (tensions/chromatics) count DOUBLE — they reveal the scale
+    var colorMatch=0,colorMiss=0;
+    for(var ci2=0;ci2<colorNotes.length;ci2++){
+      if(scaleSet.has(colorNotes[ci2]))colorMatch++;else colorMiss++;
+    }
+    // Chord tones: normal weight (most scales contain them anyway)
+    var ctMatch=0,ctMiss=0;
+    for(var ti=0;ti<chordToneNotes.length;ti++){
+      if(scaleSet.has(chordToneNotes[ti]))ctMatch++;else ctMiss++;
+    }
+    // Weighted score: color tones 2x, chord tones 1x
+    var matchScore=colorMatch*2+ctMatch;
+    var missScore=colorMiss*2.5+ctMiss*1.5;
+    // Context bonus (chord quality matches scale's typical usage)
     var ctxBonus=0;
-    for(var ci=0;ci<sd.ctx.length;ci++){if(sd.ctx[ci]===chordParsed.quality){ctxBonus=2;break;}}
-    var score=match-miss*1.5+ctxBonus;
+    for(var ci=0;ci<sd.ctx.length;ci++){if(sd.ctx[ci]===chordParsed.quality){ctxBonus=3;break;}}
+    // Quality conflict penalty: scale's 3rd/7th contradicts chord
+    var conflictPenalty=0;
+    if(hasMaj3&&!hasMin3&&scaleSet.has(3)&&!scaleSet.has(4))conflictPenalty+=5;
+    if(hasMin3&&!hasMaj3&&scaleSet.has(4)&&!scaleSet.has(3))conflictPenalty+=5;
+    if(hasb7&&!hasMaj7&&scaleSet.has(11)&&!scaleSet.has(10))conflictPenalty+=4;
+    if(hasMaj7&&!hasb7&&scaleSet.has(10)&&!scaleSet.has(11))conflictPenalty+=4;
+    var score=matchScore-missScore+ctxBonus-conflictPenalty;
     if(score>bestScore){bestScore=score;best=sd;}
   }
   if(best&&bestScore>0)return best.name;
