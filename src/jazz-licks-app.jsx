@@ -6521,8 +6521,8 @@ var SCALE_ROOTS=["C","Db","D","Eb","E","F","F#","G","Ab","A","Bb","B"];
 var SCALE_ROOT_ROW1=["C","Db","D","Eb","E","F"];
 var SCALE_ROOT_ROW2=["F#","G","Ab","A","Bb","B"];
 
-// Comfortable low MIDI note per instrument (concert pitch) for scale display
-var INST_LOW_MIDI={"Concert":48,"Alto Sax":49,"Soprano Sax":56,"Tenor Sax":44,"Baritone Sax":37,"Bb Trumpet":54,"Clarinet":50,"Trombone":40,"Piano":48,"Guitar":40,"Bass":28,"Flute":60,"Vibes":53,"Violin":55,"Vocals":48};
+// Comfortable low MIDI note per instrument (WRITTEN pitch) for scale display
+var INST_LOW_MIDI={"Concert":48,"Alto Sax":56,"Soprano Sax":56,"Tenor Sax":56,"Baritone Sax":56,"Bb Trumpet":55,"Trumpet":55,"Clarinet":50,"Trombone":36,"Piano":48,"Guitar":48,"Bass":28,"Flute":60,"Vibes":53,"Violin":55,"Vocals":48};
 
 function buildScaleAbc(rootName,scaleDef,baseMidi,useBassClef){
   if(!scaleDef)return null;
@@ -6563,8 +6563,8 @@ function ScaleChordTrainer({th,userInst}){
   var transKey=instToTransKey(userInst);
   var instOff=INST_TRANS[transKey]||0;
   var isBassClef=BASS_CLEF_INSTS.has(userInst);
-  var instLowMidi=INST_LOW_MIDI[transKey]||INST_LOW_MIDI[userInst]||48;
-  var _sub=useState("scales"),sub=_sub[0],setSub=_sub[1];// scales | chords
+  var instLowMidi=INST_LOW_MIDI[userInst]||INST_LOW_MIDI[transKey]||48;
+  var _sub=useState("scales"),sub=_sub[0],setSub=_sub[1];
   var _root=useState("C"),root=_root[0],setRoot=_root[1];
   var _cat=useState("modes"),cat=_cat[0],setCat=_cat[1];
   var _scale=useState("Ionian"),scaleName=_scale[0],setScaleName=_scale[1];
@@ -6575,24 +6575,20 @@ function ScaleChordTrainer({th,userInst}){
 
   useEffect(function(){mountedRef.current=true;return function(){mountedRef.current=false;playingRef.current=false;if(timerRef.current)clearTimeout(timerRef.current);};},[]);
 
-  // When category changes, pick first scale in that category
   useEffect(function(){
     for(var i=0;i<SCALE_CATS.length;i++){if(SCALE_CATS[i].id===cat){setScaleName(SCALE_CATS[i].scales[0]);break;}}
   },[cat]);
 
-  // Reset octave offset when instrument changes
   useEffect(function(){setOctOff(0);},[userInst]);
-
-  // Compute written root for transposing instruments
-  var writtenRoot=instOff?trKeyName(root,instOff):root;
 
   // Find scale def
   var scaleDef=null;
   for(var si=0;si<SCALE_DEFS.length;si++){if(SCALE_DEFS[si].name===scaleName){scaleDef=SCALE_DEFS[si];break;}}
 
-  // Build scale in written key, at instrument range + octave offset
+  // Root = written key (what the player reads). Notation shows this directly.
+  // Playback transposes to concert pitch by subtracting instOff from MIDI.
   var baseMidi=instLowMidi+octOff*12;
-  var scaleData=useMemo(function(){return buildScaleAbc(writtenRoot,scaleDef,baseMidi,isBassClef);},[writtenRoot,scaleDef,baseMidi,isBassClef]);
+  var scaleData=useMemo(function(){return buildScaleAbc(root,scaleDef,baseMidi,isBassClef);},[root,scaleDef,baseMidi,isBassClef]);
 
   // Interval labels
   var ivLabels=["R","b2","2","b3","3","4","b5","5","b5+","6","b7","7","R"];
@@ -6601,11 +6597,11 @@ function ScaleChordTrainer({th,userInst}){
   var getAudioCtx=function(){if(!audioCtxRef.current)audioCtxRef.current=new(window.AudioContext||window.webkitAudioContext)();return audioCtxRef.current;};
   var playMidi=function(midi,dur){try{var ctx=getAudioCtx();if(ctx.state==="suspended")ctx.resume();var osc=ctx.createOscillator();var gain=ctx.createGain();osc.type="triangle";osc.frequency.value=440*Math.pow(2,(midi-69)/12);gain.gain.setValueAtTime(0.25,ctx.currentTime);gain.gain.exponentialRampToValueAtTime(0.01,ctx.currentTime+(dur||0.5));osc.connect(gain);gain.connect(ctx.destination);osc.start();osc.stop(ctx.currentTime+(dur||0.5));}catch(e){}};
   var tapNote=function(ni){
-    if(scaleData&&scaleData.midis&&scaleData.midis[ni]){var m=scaleData.midis[ni];if(instOff)m-=instOff;playMidi(m,0.5);}
+    if(scaleData&&scaleData.midis&&scaleData.midis[ni]){var m=scaleData.midis[ni]-instOff;playMidi(m,0.5);}
     setTappedIdx(ni);if(tapTimerRef.current)clearTimeout(tapTimerRef.current);
     tapTimerRef.current=setTimeout(function(){if(mountedRef.current)setTappedIdx(-1);},600);
   };
-  var playScale=function(){if(playingRef.current||!scaleData||!scaleData.midis)return;playingRef.current=true;var midis=scaleData.midis.map(function(m){return instOff?m-instOff:m;});var i=0;
+  var playScale=function(){if(playingRef.current||!scaleData||!scaleData.midis)return;playingRef.current=true;var midis=scaleData.midis.map(function(m){return m-instOff;});var i=0;
     var step=function(){if(!mountedRef.current||i>=midis.length){playingRef.current=false;if(mountedRef.current)setPlayIdx(-1);return;}if(mountedRef.current)setPlayIdx(i);playMidi(midis[i],0.35);i++;timerRef.current=setTimeout(step,400);};step();};
 
   // Render notation
@@ -6696,12 +6692,11 @@ function ScaleChordTrainer({th,userInst}){
               background:active?(isStudio?t.accent+"25":t.accent+"12"):(isStudio?"#ffffff08":t.filterBg),
               color:active?t.accent:t.text,cursor:"pointer",transition:"all 0.15s"}},sn);}))),
 
-      // Title + Written key + Play
+      // Title + Octave controls + Play
       React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6,marginTop:4}},
         React.createElement("div",{style:{minWidth:0,flex:1}},
           React.createElement("span",{style:{fontSize:16,fontWeight:700,color:t.text,fontFamily:t.titleFont}},root+" "+scaleName),
-          scaleDef&&React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace",marginLeft:8}},scaleDef.notes.length+" notes"),
-          instOff&&React.createElement("div",{style:{fontSize:10,color:t.accent,fontFamily:"'JetBrains Mono',monospace",marginTop:2}},"Written: "+writtenRoot+" "+scaleName+(userInst?" \u00B7 "+userInst:""))),
+          scaleDef&&React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace",marginLeft:8}},scaleDef.notes.length+" notes")),
         // Octave controls + Play
         React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4,flexShrink:0}},
           React.createElement("button",{onClick:function(){setOctOff(octOff-1);},disabled:baseMidi-12<24,style:{width:28,height:28,borderRadius:7,border:"1px solid "+t.border,background:t.filterBg,color:baseMidi-12<24?t.subtle:t.text,fontSize:11,cursor:baseMidi-12<24?"default":"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'JetBrains Mono',monospace",opacity:baseMidi-12<24?0.4:1}},"\u2212"),
