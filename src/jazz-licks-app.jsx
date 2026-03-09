@@ -6695,17 +6695,25 @@ function buildFullRangeScaleAbc(rootName,scaleDef,lowMidi,highMidi,useBassClef){
   // Ascending from bottom+1 back to start
   for(var i4=1;i4<=startIdx;i4++)path.push(allAsc[i4]);
 
-  // 4. Generate ABC: 4/4, 8th notes, bar lines every 8 notes
-  var usedAcc2={};var abcParts=[];var nc=0;
+  // 4. Generate ABC: 4/4, 8th notes, beamed in 4s, bar lines every 8 notes
+  var usedAcc2={};var noteStrs=[];var nc=0;
   for(var i5=0;i5<path.length;i5++){
     var abcN=midiToAbc(path[i5],usedAcc2);
     if(!abcN)continue;
-    abcParts.push(abcN);nc++;
-    if(nc%8===0&&i5<path.length-1){abcParts.push("|");usedAcc2={};}
+    noteStrs.push(abcN);nc++;
+    if(nc%8===0&&i5<path.length-1){noteStrs.push("|");usedAcc2={};}
+  }
+  // Join: no space within 4-note beam groups, space between groups, space around barlines
+  var abcBody="";var beamCount=0;
+  for(var j=0;j<noteStrs.length;j++){
+    if(noteStrs[j]==="|"){abcBody+=" | ";beamCount=0;continue;}
+    if(beamCount>0&&beamCount%4===0)abcBody+=" ";
+    abcBody+=noteStrs[j];
+    beamCount++;
   }
 
   var clefStr=useBassClef?" clef=bass":"";
-  var abc="X:1\nM:4/4\nL:1/8\nK:C"+clefStr+"\n"+abcParts.join(" ")+" |";
+  var abc="X:1\nM:4/4\nL:1/8\nK:C"+clefStr+"\n"+abcBody+" |";
   return{abc:abc,midis:path,intervals:path.map(function(m){return((m-rootPc)%12+12)%12;})};
 }
 
@@ -6727,7 +6735,7 @@ function FullRangeScaleView({rootName,scaleDef,scaleName,lowMidi,highMidi,useBas
     if(!notRef.current||!data||!data.abc||!window.ABCJS)return;
     try{
       notRef.current.innerHTML="";
-      window.ABCJS.renderAbc(notRef.current,data.abc,{paddingtop:6,paddingbottom:6,paddingleft:0,paddingright:0,add_classes:true,responsive:"resize",staffwidth:500,wrap:{minSpacing:1.0,maxSpacing:1.8,preferredMeasuresPerLine:4}});
+      window.ABCJS.renderAbc(notRef.current,data.abc,{paddingtop:6,paddingbottom:6,paddingleft:0,paddingright:0,add_classes:true,responsive:"resize",staffwidth:500,wrap:{minSpacing:1.0,maxSpacing:1.8,preferredMeasuresPerLine:2}});
       var svg=notRef.current.querySelector("svg");
       if(svg){
         svg.style.maxWidth="100%";svg.style.overflow="visible";
