@@ -6523,6 +6523,7 @@ var SCALE_ROOT_ROW2=["F#","G","Ab","A","Bb","B"];
 
 // Comfortable low MIDI note per instrument (WRITTEN pitch) for scale display
 var INST_LOW_MIDI={"Concert":60,"Alto Sax":58,"Soprano Sax":58,"Tenor Sax":58,"Baritone Sax":56,"Bb Trumpet":58,"Trumpet":58,"Clarinet":52,"Trombone":36,"Piano":60,"Guitar":52,"Bass":28,"Flute":60,"Vibes":53,"Violin":55,"Vocals":60};
+var INST_HIGH_MIDI={"Concert":84,"Alto Sax":82,"Soprano Sax":84,"Tenor Sax":82,"Baritone Sax":78,"Bb Trumpet":82,"Trumpet":82,"Clarinet":84,"Trombone":65,"Piano":84,"Guitar":76,"Bass":55,"Flute":96,"Vibes":89,"Violin":93,"Vocals":79};
 
 function buildScaleAbc(rootName,scaleDef,baseMidi,useBassClef){
   if(!scaleDef)return null;
@@ -6619,17 +6620,148 @@ function buildScaleAbc(rootName,scaleDef,baseMidi,useBassClef){
   return{abc:abcHeader+abcNotes.join(" ")+" |",midis:midis,intervals:scaleDef.notes.concat([0])};
 }
 
+// Build scale across full instrument range (multi-octave)
+function buildFullRangeScaleAbc(rootName,scaleDef,lowMidi,highMidi,useBassClef){
+  if(!scaleDef)return null;
+  var LETTERS=["C","D","E","F","G","A","B"];
+  var LET_PC={C:0,D:2,E:4,F:5,G:7,A:9,B:11};
+  var rootLetter=rootName[0];
+  var rootAcc=0;
+  if(rootName.includes("b"))rootAcc=-1;if(rootName.includes("#"))rootAcc=1;
+  var rootPc=((LET_PC[rootLetter]+rootAcc)%12+12)%12;
+  var rootLetIdx=LETTERS.indexOf(rootLetter);
+  var is7=scaleDef.notes.length===7;
+
+  // Build spelling map: interval → {letter, acc}
+  var spellMap={};
+  for(var ni=0;ni<scaleDef.notes.length;ni++){
+    var pc=(rootPc+scaleDef.notes[ni])%12;
+    if(is7){
+      var li=(rootLetIdx+ni)%7;var letter=LETTERS[li];
+      var acc=((pc-LET_PC[letter])%12+12)%12;if(acc>6)acc=acc-12;
+      spellMap[scaleDef.notes[ni]%12]=spellMap[scaleDef.notes[ni]%12]||{letter:letter,acc:acc};
+    }else{
+      var bestL=null,bestA=0,bestD=99;
+      for(var li2=0;li2<7;li2++){var l2=LETTERS[li2];var n2=LET_PC[l2];var a2=((pc-n2)%12+12)%12;if(a2>6)a2=a2-12;if(Math.abs(a2)<=1&&Math.abs(a2)<bestD){bestD=Math.abs(a2);bestL=l2;bestA=a2;}}
+      spellMap[scaleDef.notes[ni]%12]=spellMap[scaleDef.notes[ni]%12]||{letter:bestL||"C",acc:bestA};
+    }
+  }
+  // Also root
+  spellMap[0]=spellMap[0]||{letter:rootLetter,acc:rootAcc};
+
+  // Find lowest root at or above lowMidi
+  var startMidi=rootPc+Math.floor(lowMidi/12)*12;
+  if(startMidi<lowMidi)startMidi+=12;
+  // Go one octave lower if possible to start scale from root
+  if(startMidi-12>=lowMidi)startMidi-=12;
+
+  var abcNotes=[];var midis=[];var intervals=[];var usedAcc={};
+  var midi=startMidi;
+  while(midi<=highMidi){
+    for(var si=0;si<scaleDef.notes.length;si++){
+      var m=midi+scaleDef.notes[si];
+      if(m<lowMidi)continue;if(m>highMidi)break;
+      var iv=scaleDef.notes[si]%12;
+      var sp=spellMap[iv];if(!sp)continue;
+      midis.push(m);intervals.push(scaleDef.notes[si]%12);
+      var oct=Math.floor((m-LET_PC[sp.letter]-sp.acc)/12)-1;
+      var needsAcc=false;var abcAcc="";
+      if(sp.acc!==0){abcAcc=sp.acc>1?"^^":sp.acc===1?"^":sp.acc===-1?"_":"__";needsAcc=true;}
+      else if(usedAcc[sp.letter]!==undefined&&usedAcc[sp.letter]!==0){abcAcc="=";needsAcc=true;}
+      usedAcc[sp.letter]=sp.acc;
+      var abcN="";
+      if(oct>=5){abcN=(needsAcc?abcAcc:"")+sp.letter.toLowerCase();for(var oi=6;oi<=oct;oi++)abcN+="'";}
+      else{abcN=(needsAcc?abcAcc:"")+sp.letter.toUpperCase();for(var oi2=3;oi2>=oct;oi2--)abcN+=",";}
+      abcNotes.push(abcN);
+    }
+    midi+=12;
+  }
+  if(!abcNotes.length)return null;
+  var clefStr=useBassClef?" clef=bass":"";
+  // Use quarter notes for compact multi-octave display
+  var abc="X:1\n%%stretchlast true\nM:free\nL:1/4\nK:C"+clefStr+"\n"+abcNotes.join(" ")+" |";
+  return{abc:abc,midis:midis,intervals:intervals};
+}
+
+// Fullscreen scale range viewer
+function FullRangeScaleView({rootName,scaleDef,scaleName,lowMidi,highMidi,useBassClef,instOff,th,onClose}){
+  var t=th||TH.classic;var isStudio=t===TH.studio;
+  var notRef=useRef(null);var audioCtxRef=useRef(null);var playingRef=useRef(false);var timerRef=useRef(null);var mountedRef=useRef(true);
+  var _playIdx=useState(-1),playIdx=_playIdx[0],setPlayIdx=_playIdx[1];
+  useEffect(function(){mountedRef.current=true;return function(){mountedRef.current=false;playingRef.current=false;if(timerRef.current)clearTimeout(timerRef.current);};},[]);
+  var data=useMemo(function(){return buildFullRangeScaleAbc(rootName,scaleDef,lowMidi,highMidi,useBassClef);},[rootName,scaleDef,lowMidi,highMidi,useBassClef]);
+
+  var getAudioCtx=function(){if(!audioCtxRef.current)audioCtxRef.current=new(window.AudioContext||window.webkitAudioContext)();return audioCtxRef.current;};
+  var playMidi=function(midi,dur){try{var ctx=getAudioCtx();if(ctx.state==="suspended")ctx.resume();var osc=ctx.createOscillator();var gain=ctx.createGain();osc.type="triangle";osc.frequency.value=440*Math.pow(2,(midi-69)/12);gain.gain.setValueAtTime(0.25,ctx.currentTime);gain.gain.exponentialRampToValueAtTime(0.01,ctx.currentTime+(dur||0.4));osc.connect(gain);gain.connect(ctx.destination);osc.start();osc.stop(ctx.currentTime+(dur||0.4));}catch(e){}};
+  var playAll=function(){if(playingRef.current||!data||!data.midis)return;playingRef.current=true;var midis=data.midis.map(function(m){return m-instOff;});var i=0;
+    var step=function(){if(!mountedRef.current||i>=midis.length){playingRef.current=false;if(mountedRef.current)setPlayIdx(-1);return;}if(mountedRef.current)setPlayIdx(i);playMidi(midis[i],0.25);i++;timerRef.current=setTimeout(step,280);};step();};
+
+  // Render notation
+  useEffect(function(){
+    if(!notRef.current||!data||!data.abc||!window.ABCJS)return;
+    try{
+      notRef.current.innerHTML="";
+      window.ABCJS.renderAbc(notRef.current,data.abc,{paddingtop:6,paddingbottom:6,paddingleft:0,paddingright:0,add_classes:true,responsive:"resize",staffwidth:600,wrap:{minSpacing:1.4,maxSpacing:2.2,preferredMeasuresPerLine:1}});
+      var svg=notRef.current.querySelector("svg");
+      if(svg){
+        svg.style.maxWidth="100%";svg.style.overflow="visible";
+        var stCol=isStudio?"#F2F2FA":"#1A1A1A";
+        svg.querySelectorAll("path").forEach(function(p){p.setAttribute("fill",stCol);p.setAttribute("stroke",stCol);});
+        svg.querySelectorAll(".abcjs-staff path").forEach(function(p){p.setAttribute("stroke",t.staffStroke);p.setAttribute("fill","none");p.setAttribute("stroke-width","0.6");});
+        svg.querySelectorAll(".abcjs-staff-extra path").forEach(function(p){p.setAttribute("stroke",isStudio?t.staffStroke:t.muted);p.setAttribute("fill",isStudio?t.staffStroke:t.muted);p.setAttribute("stroke-width","0.6");});
+        svg.querySelectorAll(".abcjs-bar path").forEach(function(p){p.style.display="none";});
+        svg.querySelectorAll("text.abcjs-chord,text.abcjs-title,.abcjs-meta-top,.abcjs-time-signature").forEach(function(el){el.style.display="none";});
+        var noteEls=svg.querySelectorAll(".abcjs-note");
+        noteEls.forEach(function(noteEl,ni){
+          noteEl.style.cursor="pointer";
+          noteEl.addEventListener("click",function(e){e.stopPropagation();if(data.midis[ni])playMidi(data.midis[ni]-instOff,0.5);});
+        });
+      }
+    }catch(e){}
+  },[data]);
+
+  // Highlight
+  useEffect(function(){
+    if(!notRef.current)return;var svg=notRef.current.querySelector("svg");if(!svg)return;
+    var noteEls=svg.querySelectorAll(".abcjs-note");
+    var stCol=isStudio?"#F2F2FA":"#1A1A1A";
+    noteEls.forEach(function(el,i){
+      var isActive=i===playIdx;
+      el.style.opacity=playIdx>=0?(isActive?"1":"0.3"):"1";
+      el.style.transition="opacity 0.1s";
+      el.style.filter=isActive?"drop-shadow(0 0 6px "+t.accent+"90)":"none";
+      el.querySelectorAll("path,circle,ellipse").forEach(function(p){p.setAttribute("fill",isActive?t.accent:stCol);p.setAttribute("stroke",isActive?t.accent:stCol);});
+    });
+  },[playIdx]);
+
+  return React.createElement("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:2000,background:t.bg,display:"flex",flexDirection:"column"}},
+    // Header
+    React.createElement("div",{style:{padding:"10px 16px",paddingTop:"calc(env(safe-area-inset-top, 0px) + 10px)",display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:"1px solid "+t.border,flexShrink:0}},
+      React.createElement("div",null,
+        React.createElement("div",{style:{fontSize:16,fontWeight:700,color:t.text,fontFamily:t.titleFont}},rootName+" "+scaleName),
+        React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace"}},data?data.midis.length+" notes · full range":"...")),
+      React.createElement("div",{style:{display:"flex",gap:8,alignItems:"center"}},
+        React.createElement("button",{onClick:playAll,style:{width:36,height:36,borderRadius:10,background:isStudio?t.playBg:t.accent,border:"none",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",boxShadow:"0 2px 10px "+t.accentGlow}},
+          React.createElement("div",{style:{width:0,height:0,borderTop:"7px solid transparent",borderBottom:"7px solid transparent",borderLeft:"12px solid #fff",marginLeft:2}})),
+        React.createElement("button",{onClick:onClose,style:{width:30,height:30,borderRadius:8,background:t.filterBg,border:"1px solid "+t.border,color:t.muted,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"\u00D7"))),
+    // Scrollable notation
+    React.createElement("div",{style:{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",padding:16}},
+      React.createElement("div",{ref:notRef,style:{background:t.noteBg,borderRadius:12,padding:"12px 16px",border:"1px solid "+(isStudio?t.staffStroke+"30":t.borderSub||t.border)}})));
+}
+
 function ScaleChordTrainer({th,userInst}){
   var t=th||TH.classic;var isStudio=t===TH.studio;
   var transKey=instToTransKey(userInst);
   var instOff=INST_TRANS[transKey]||0;
   var isBassClef=BASS_CLEF_INSTS.has(userInst);
   var instLowMidi=INST_LOW_MIDI[userInst]||INST_LOW_MIDI[transKey]||48;
+  var instHighMidi=INST_HIGH_MIDI[userInst]||INST_HIGH_MIDI[transKey]||84;
   var _sub=useState("scales"),sub=_sub[0],setSub=_sub[1];
   var _root=useState("C"),root=_root[0],setRoot=_root[1];
   var _cat=useState("modes"),cat=_cat[0],setCat=_cat[1];
   var _scale=useState("Ionian"),scaleName=_scale[0],setScaleName=_scale[1];
   var _octOff=useState(0),octOff=_octOff[0],setOctOff=_octOff[1];
+  var _fullRange=useState(false),showFullRange=_fullRange[0],setShowFullRange=_fullRange[1];
   var notRef=useRef(null);var wrapRef=useRef(null);var audioCtxRef=useRef(null);var playingRef=useRef(false);var timerRef=useRef(null);var mountedRef=useRef(true);
   var _playIdx=useState(-1),playIdx=_playIdx[0],setPlayIdx=_playIdx[1];
   var _tapped=useState(-1),tappedIdx=_tapped[0],setTappedIdx=_tapped[1];var tapTimerRef=useRef(null);
@@ -6789,11 +6921,17 @@ function ScaleChordTrainer({th,userInst}){
             var isActive=tappedIdx===idx||playIdx===idx;
             return React.createElement("div",{key:idx,onClick:function(){tapNote(idx);},style:{position:"absolute",left:notePositions[idx]+"%",transform:"translateX(-50%)",cursor:"pointer",padding:"3px 5px",borderRadius:6,background:isActive?t.accent+"15":"transparent",transition:"all 0.15s"}},
               React.createElement("span",{style:{fontSize:11,fontWeight:isRoot?700:500,color:isActive?t.accent:isRoot?t.accent:t.text,fontFamily:"'JetBrains Mono',monospace"}},label));})))),
+      // Full Range button
+      scaleDef&&React.createElement("button",{onClick:function(){setShowFullRange(true);},style:{width:"100%",padding:"10px",borderRadius:10,border:"1px solid "+(isStudio?t.accent+"30":t.accentBorder),background:isStudio?t.accent+"08":t.accentBg,color:t.accent,fontSize:12,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer",marginTop:4,display:"flex",alignItems:"center",justifyContent:"center",gap:6,transition:"all 0.15s"}},
+        IC.tabScales(14,t.accent,false),"Full Range")),
 
     sub==="chords"&&React.createElement("div",{style:{background:t.card,borderRadius:14,padding:24,border:"1px solid "+t.border,textAlign:"center"}},
       IC.tabScales(32,t.subtle,false),
       React.createElement("div",{style:{fontSize:14,fontWeight:600,color:t.text,fontFamily:"'Inter',sans-serif",marginBottom:6,marginTop:10}},"Chord Voicings"),
-      React.createElement("div",{style:{fontSize:12,color:t.muted,fontFamily:"'Inter',sans-serif"}},"Inversions, drop voicings & more — coming soon")));}
+      React.createElement("div",{style:{fontSize:12,color:t.muted,fontFamily:"'Inter',sans-serif"}},"Inversions, drop voicings & more — coming soon")),
+
+    // Fullscreen range overlay
+    showFullRange&&scaleDef&&React.createElement(FullRangeScaleView,{rootName:root,scaleDef:scaleDef,scaleName:scaleName,lowMidi:instLowMidi,highMidi:instHighMidi,useBassClef:isBassClef,instOff:instOff,th:t,onClose:function(){setShowFullRange(false);}}));}}
 
 
 // ── Custom Select — matches key picker design ──
