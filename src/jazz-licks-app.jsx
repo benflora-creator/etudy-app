@@ -4334,12 +4334,12 @@ function DailyLickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:user
           React.createElement("span",{onClick:function(e){e.stopPropagation();if(onArtistSearch)onArtistSearch(lick.artist);},style:{cursor:"pointer",borderBottom:"1px solid transparent",transition:"border-color 0.15s"},"onMouseEnter":function(e){e.currentTarget.style.borderBottomColor=isStudio?t.accent+"60":t.accent+"40";},"onMouseLeave":function(e){e.currentTarget.style.borderBottomColor="transparent";}},titleParts[0]),
           React.createElement("span",{style:{color:t.text,fontWeight:400}}," \u2014 "+titleParts.slice(1).join(" \u2014 ")))
         :lick.title),
-      // LINE 2: Tune · Key (Major/Minor) · Category
+      // LINE 2: Tune · Key · Instrument · Category
       React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:isStudio?12:10,flexWrap:"wrap"}},
         lick.tune&&React.createElement("span",{style:{fontSize:10,color:t.text,fontFamily:"'Inter',sans-serif",fontWeight:500,opacity:0.75}},lick.tune),
         lick.tune&&React.createElement("span",{style:{fontSize:8,color:t.muted}},"\u00B7"),
         React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace"}},keyLabel),
-        React.createElement("span",{style:{fontSize:8,color:t.muted}},"\u00B7"),
+        lick.instrument&&React.createElement("span",{style:{fontSize:9,color:instBorderC,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,background:instBorderC+"12",padding:"2px 7px",borderRadius:5,border:"1px solid "+instBorderC+"20"}},lick.instrument),
         React.createElement("span",{style:{fontSize:10,color:isStudio?catC:t.muted,fontFamily:"'JetBrains Mono',monospace",fontWeight:isStudio?600:400}},lick.category)),
       // NOTATION
       React.createElement("div",{style:{marginTop:6,display:"flex",justifyContent:"center",overflow:"hidden"}},
@@ -4531,11 +4531,12 @@ function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst,
             React.createElement("span",{onClick:function(e){e.stopPropagation();if(onArtistSearch)onArtistSearch(lick.artist);},style:{cursor:"pointer",borderBottom:"1px solid transparent",transition:"border-color 0.15s"},"onMouseEnter":function(e){e.currentTarget.style.borderBottomColor=isStudio?t.accent+"60":t.accent+"40";},"onMouseLeave":function(e){e.currentTarget.style.borderBottomColor="transparent";}},titleParts[0]),
             React.createElement("span",{style:{color:t.text,fontWeight:isStudio?500:400}}," \u2014 "+titleParts.slice(1).join(" \u2014 ")))
           :lick.title),
-        // LINE 2: Tune · Key (Major/Minor) · Category chip · Private · ... @user (right)
+        // LINE 2: Tune · Key · Instrument · Category chip · Private · ... @user (right)
         React.createElement("div",{style:{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}},
           lick.tune&&React.createElement("span",{style:{fontSize:10,color:t.text,fontFamily:"'Inter',sans-serif",fontWeight:500,opacity:0.75}},lick.tune),
           lick.tune&&React.createElement("span",{style:{fontSize:8,color:t.muted}},"\u00B7"),
           React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace"}},keyLabel),
+          lick.instrument&&React.createElement("span",{style:{fontSize:9,color:instBorderC,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,background:instBorderC+"12",padding:"2px 7px",borderRadius:5,border:"1px solid "+instBorderC+"20"}},lick.instrument),
           isStudio&&React.createElement("span",{style:{fontSize:9,color:catC,fontFamily:"'JetBrains Mono',monospace",background:catC+"15",padding:"2px 8px",borderRadius:6,fontWeight:600,border:"1px solid "+catC+"20"}},lick.category),
           lick.private&&React.createElement("span",{style:{fontSize:8,color:isStudio?"#22D89E":"#2E7D32",fontFamily:"'Inter',sans-serif",fontWeight:600,background:isStudio?"rgba(34,216,158,0.15)":"#E8F5E9",padding:"2px 6px",borderRadius:4}},"\uD83D\uDD12 Private"),
           lick.user&&lick.user!=="Anonymous"&&React.createElement("div",{style:{flex:1}}),
