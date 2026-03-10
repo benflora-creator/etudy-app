@@ -1915,6 +1915,9 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
       }
       aR.current=requestAnimationFrame(an);};aR.current=requestAnimationFrame(an);
   },[]);
+  // Auto-restart when tempo prop changes while playing (for editor BPM changes)
+  var prevTempoRef=useRef(tempo);
+  useEffect(function(){var newT=pT||tempo;if(newT!==prevTempoRef.current&&!sT.current){liveRestart(newT);}prevTempoRef.current=newT;},[pT,tempo]);
   useEffect(()=>()=>clr(),[]);
   const sch=(parsed,doCi,refNow)=>{disposeBag();const bag=[];const gen=playGenRef.current;const sw=fR.current==="straight"?0:fR.current==="swing"?1:2;
     // Master gate — ALL audio routes through this. disposeBag() sets gain=0 for instant silence.
