@@ -4372,7 +4372,7 @@ function DailyLickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:user
         lick.instrument&&React.createElement("span",{style:{fontSize:9,color:instBorderC,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,background:instBorderC+"12",padding:"2px 7px",borderRadius:5,border:"1px solid "+instBorderC+"20"}},lick.instrument),
         React.createElement("span",{style:{fontSize:10,color:isStudio?catC:t.muted,fontFamily:"'JetBrains Mono',monospace",fontWeight:isStudio?600:400}},lick.category)),
       // NOTATION — ≤4 bars: single line. >4 bars: clipped at 1 line with more/less
-      React.createElement("div",{style:{marginTop:6,position:"relative",maxHeight:(isLong&&!expanded)?80:2000,overflow:"hidden",transition:"max-height 0.35s ease"}},
+      React.createElement("div",{style:{marginTop:6,position:"relative",maxHeight:(isLong&&!expanded)?105:2000,overflow:"hidden",transition:"max-height 0.35s ease"}},
         React.createElement("div",{style:{display:"flex",justifyContent:"center"}},
           React.createElement(Notation,{abc:cardAbc,compact:true,th:t,curNoteRef:prevCurNote,bassClef:BASS_CLEF_INSTS.has(userInst)})),
         isLong&&!expanded&&React.createElement("div",{style:{position:"absolute",left:0,right:0,bottom:0,height:36,background:"linear-gradient(to bottom, transparent, "+(isStudio?t.cardRaised||t.card:t.card)+")",display:"flex",alignItems:"flex-end",justifyContent:"center",paddingBottom:2}},
@@ -4584,7 +4584,7 @@ function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst,
           lick.user&&lick.user!=="Anonymous"&&React.createElement("button",{onClick:function(e){e.stopPropagation();if(onUserClick)onUserClick(lick.user);},style:{background:"none",border:"none",cursor:"pointer",padding:0,display:"flex",alignItems:"center"}},
             React.createElement("span",{style:{fontSize:9,color:isStudio?t.accent+"99":t.accent,fontFamily:"'Inter',sans-serif",fontWeight:600,background:isStudio?t.accent+"10":"transparent",padding:isStudio?"2px 6px":"0",borderRadius:5}},"\u0040"+lick.user)))),
       // NOTATION — ≤4 bars: single line. >4 bars: clipped with more/less
-      React.createElement("div",{style:{marginTop:4,position:"relative",maxHeight:(isLong&&!expanded)?80:2000,overflow:"hidden",transition:"max-height 0.35s ease"}},
+      React.createElement("div",{style:{marginTop:4,position:"relative",maxHeight:(isLong&&!expanded)?105:2000,overflow:"hidden",transition:"max-height 0.35s ease"}},
         React.createElement("div",{style:{display:"flex",justifyContent:"center"}},
           React.createElement(Notation,{abc:cardAbc,compact:true,th:t,curNoteRef:prevCurNote,onReady:function(){setNotationReady(true);},bassClef:BASS_CLEF_INSTS.has(userInst)})),
         isLong&&!expanded&&React.createElement("div",{style:{position:"absolute",left:0,right:0,bottom:0,height:36,background:"linear-gradient(to bottom, transparent, "+(isStudio?t.cardRaised||t.card:t.card)+")",display:"flex",alignItems:"flex-end",justifyContent:"center",paddingBottom:2}},
