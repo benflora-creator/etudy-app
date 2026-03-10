@@ -4574,10 +4574,10 @@ function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst,
           lick.user&&lick.user!=="Anonymous"&&React.createElement("div",{style:{flex:1}}),
           lick.user&&lick.user!=="Anonymous"&&React.createElement("button",{onClick:function(e){e.stopPropagation();if(onUserClick)onUserClick(lick.user);},style:{background:"none",border:"none",cursor:"pointer",padding:0,display:"flex",alignItems:"center"}},
             React.createElement("span",{style:{fontSize:9,color:isStudio?t.accent+"99":t.accent,fontFamily:"'Inter',sans-serif",fontWeight:600,background:isStudio?t.accent+"10":"transparent",padding:isStudio?"2px 6px":"0",borderRadius:5}},"\u0040"+lick.user)))),
-      // NOTATION — horizontal scroll for long licks
+      // NOTATION — horizontal scroll for long licks (Option B)
       React.createElement("div",{onClick:function(e){if(needsScroll)e.stopPropagation();},style:{marginTop:4,overflowX:needsScroll?"auto":"hidden",overflowY:"hidden",WebkitOverflowScrolling:"touch",scrollbarWidth:"none",msOverflowStyle:"none"}},
-        React.createElement("div",{style:{minWidth:needsScroll?(cardNBars*120)+"px":"auto",display:"flex",justifyContent:needsScroll?"flex-start":"center"}},
-          React.createElement(Notation,{abc:cardAbc,compact:!needsScroll,th:t,curNoteRef:prevCurNote,onReady:function(){setNotationReady(true);},bassClef:BASS_CLEF_INSTS.has(userInst)}))),
+        React.createElement("div",{style:{width:needsScroll?(cardNBars*140)+"px":"auto"}},
+          React.createElement(Notation,{abc:cardAbc,compact:true,th:t,curNoteRef:prevCurNote,onReady:function(){setNotationReady(true);},bassClef:BASS_CLEF_INSTS.has(userInst)}))),
       // ACTION ROW — Instagram style
       React.createElement("div",{style:{marginTop:isStudio?12:8,paddingTop:isStudio?10:6,borderTop:"1px solid "+t.border}},
         React.createElement("div",{style:{display:"flex",alignItems:"center",gap:2}},
