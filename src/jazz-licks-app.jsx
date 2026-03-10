@@ -4344,10 +4344,6 @@ function DailyLickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:user
   const hasArtistInTitle=titleParts&&titleParts.length>1&&lick.artist&&titleParts[0].trim()===lick.artist.trim();
   
   const catC=getCatColor(lick.category,t);const instC=getInstColor(lick.instrument,t);const instBorderC=INST_COL[lick.instrument]||t.accent;
-  // Option A: truncate to first 2 bars for preview
-  var barInfo=getBarInfo(cardAbc);
-  var previewAbc=barInfo.nBars>2?truncateAbcBars(cardAbc,2):cardAbc;
-  var isTruncated=barInfo.nBars>2;
   return React.createElement("div",{"data-coach":"daily",onClick:()=>onSelect(lick),style:{background:isStudio?(t.cardRaised||t.card):t.card,borderRadius:isStudio?20:16,padding:0,marginBottom:isStudio?18:14,border:"1px solid "+(isStudio?catC+"25":t.border),borderLeft:isStudio?"none":("3px solid "+instBorderC),cursor:"pointer",boxShadow:isStudio?"0 4px 24px "+catC+"20, 0 1px 8px rgba(0,0,0,0.4), inset 0 1px 0 "+catC+"10":"0 2px 12px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.03)",transition:"box-shadow 0.2s, transform 0.15s",overflow:"hidden",display:"flex"}},
     isStudio&&React.createElement("div",{style:{width:5,flexShrink:0,background:"linear-gradient(180deg,"+catC+","+instC+")",boxShadow:"2px 0 12px "+catC+"30"}}),
     React.createElement("div",{style:{flex:1,padding:isStudio?18:16}},
@@ -4370,11 +4366,9 @@ function DailyLickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:user
         React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace"}},keyLabel),
         lick.instrument&&React.createElement("span",{style:{fontSize:9,color:instBorderC,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,background:instBorderC+"12",padding:"2px 7px",borderRadius:5,border:"1px solid "+instBorderC+"20"}},lick.instrument),
         React.createElement("span",{style:{fontSize:10,color:isStudio?catC:t.muted,fontFamily:"'JetBrains Mono',monospace",fontWeight:isStudio?600:400}},lick.category)),
-      // NOTATION — truncated preview
-      React.createElement("div",{style:{marginTop:6,position:"relative",overflow:"hidden"}},
-        React.createElement("div",{style:{display:"flex",justifyContent:"center"}},
-          React.createElement(Notation,{abc:previewAbc,compact:true,th:t,curNoteRef:prevCurNote,bassClef:BASS_CLEF_INSTS.has(userInst)})),
-        isTruncated&&React.createElement("div",{style:{position:"absolute",top:0,right:0,bottom:0,width:40,background:"linear-gradient(to right, transparent, "+(isStudio?t.cardRaised||t.card:t.card)+")",pointerEvents:"none"}})),
+      // NOTATION
+      React.createElement("div",{style:{marginTop:6,display:"flex",justifyContent:"center",overflow:"hidden"}},
+        React.createElement(Notation,{abc:cardAbc,compact:true,th:t,curNoteRef:prevCurNote,bassClef:BASS_CLEF_INSTS.has(userInst)})),
       // ACTION ROW — Instagram style
       React.createElement("div",{"data-coach":"flame",style:{display:"flex",alignItems:"center",gap:2,marginTop:isStudio?14:10,paddingTop:isStudio?12:8,borderTop:"1px solid "+t.border}},
         React.createElement(PreviewBtn,{lickId:lick.id,abc:lick.abc,tempo:lick.tempo,feel:lick.feel,th:t,size:30}),
@@ -4525,7 +4519,6 @@ function FlamesPopup({lickId,lickTitle,likeCount,th,onClose,onUserClick}){
 function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst,onUserClick,onArtistSearch,animIdx}){
   const t=th||TH.classic;const isStudio=t===TH.studio;
   const uOff=INST_TRANS[userInst]||0;const cardAbc=uOff?transposeAbc(lick.abc,uOff):lick.abc;
-  var cardNBars=getBarInfo(cardAbc).nBars;var needsScroll=cardNBars>2;
   const keyRoot=uOff?trKeyName(lick.key.split(" ")[0],uOff):lick.key.split(" ")[0];
   const keyQualLabel=lick.key&&lick.key.toLowerCase().includes("minor")?" Minor":" Major";
   const keyLabel=keyRoot+keyQualLabel;
@@ -4574,10 +4567,9 @@ function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst,
           lick.user&&lick.user!=="Anonymous"&&React.createElement("div",{style:{flex:1}}),
           lick.user&&lick.user!=="Anonymous"&&React.createElement("button",{onClick:function(e){e.stopPropagation();if(onUserClick)onUserClick(lick.user);},style:{background:"none",border:"none",cursor:"pointer",padding:0,display:"flex",alignItems:"center"}},
             React.createElement("span",{style:{fontSize:9,color:isStudio?t.accent+"99":t.accent,fontFamily:"'Inter',sans-serif",fontWeight:600,background:isStudio?t.accent+"10":"transparent",padding:isStudio?"2px 6px":"0",borderRadius:5}},"\u0040"+lick.user)))),
-      // NOTATION — horizontal scroll for long licks (Option B)
-      React.createElement("div",{onClick:function(e){if(needsScroll)e.stopPropagation();},style:{marginTop:4,overflowX:needsScroll?"auto":"hidden",overflowY:"hidden",WebkitOverflowScrolling:"touch",scrollbarWidth:"none",msOverflowStyle:"none"}},
-        React.createElement("div",{style:{width:needsScroll?(cardNBars*140)+"px":"auto"}},
-          React.createElement(Notation,{abc:cardAbc,compact:true,th:t,curNoteRef:prevCurNote,onReady:function(){setNotationReady(true);},bassClef:BASS_CLEF_INSTS.has(userInst)}))),
+      // NOTATION
+      React.createElement("div",{style:{marginTop:4,display:"flex",justifyContent:"center",overflow:"hidden"}},
+        React.createElement(Notation,{abc:cardAbc,compact:true,th:t,curNoteRef:prevCurNote,onReady:function(){setNotationReady(true);},bassClef:BASS_CLEF_INSTS.has(userInst)})),
       // ACTION ROW — Instagram style
       React.createElement("div",{style:{marginTop:isStudio?12:8,paddingTop:isStudio?10:6,borderTop:"1px solid "+t.border}},
         React.createElement("div",{style:{display:"flex",alignItems:"center",gap:2}},
