@@ -1526,7 +1526,7 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
       renderAbc=renderAbc.replace(/(K:[^\n]*)/,"%%barsperstaff 2\n$1");
     }
     const opts={responsive:"resize",paddingtop:editorMode?28:(focus?14:theoryMode?14:2),paddingbottom:theoryMode?34:(focus?14:2),paddingleft:0,paddingright:0,add_classes:true};
-    if(compact){opts.staffwidth=380;opts.scale=0.72;var cBars=barInfo.nBars;if(cBars>2)opts.wrap={minSpacing:1.0,maxSpacing:2.2,preferredMeasuresPerLine:2};}
+    if(compact){opts.staffwidth=380;opts.scale=0.72;var cBars=barInfo.nBars;if(cBars>3)opts.wrap={minSpacing:1.0,maxSpacing:2.0,preferredMeasuresPerLine:3};}
     else if(editorMode&&hasContent){opts.staffwidth=460;opts.scale=1.1;opts.wrap={minSpacing:1.0,maxSpacing:2.8,preferredMeasuresPerLine:2};}
     else if(editorMode){opts.staffwidth=460;opts.scale=1.1;}
     else if(focus){opts.staffwidth=500;opts.scale=1.5;opts.wrap={minSpacing:1.0,maxSpacing:2.0,preferredMeasuresPerLine:2};}
@@ -4347,7 +4347,7 @@ function DailyLickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:user
   const hasArtistInTitle=titleParts&&titleParts.length>1&&lick.artist&&titleParts[0].trim()===lick.artist.trim();
   
   const catC=getCatColor(lick.category,t);const instC=getInstColor(lick.instrument,t);const instBorderC=INST_COL[lick.instrument]||t.accent;
-  var cardNBars=getBarInfo(cardAbc).nBars;var hasFade=cardNBars>4;
+  var cardNBars=getBarInfo(cardAbc).nBars;var hasFade=cardNBars>6;
   var _exp=useState(false),expanded=_exp[0],setExpanded=_exp[1];
   return React.createElement("div",{"data-coach":"daily",onClick:()=>onSelect(lick),style:{background:isStudio?(t.cardRaised||t.card):t.card,borderRadius:isStudio?20:16,padding:0,marginBottom:isStudio?18:14,border:"1px solid "+(isStudio?catC+"25":t.border),borderLeft:isStudio?"none":("3px solid "+instBorderC),cursor:"pointer",boxShadow:isStudio?"0 4px 24px "+catC+"20, 0 1px 8px rgba(0,0,0,0.4), inset 0 1px 0 "+catC+"10":"0 2px 12px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.03)",transition:"box-shadow 0.2s, transform 0.15s",overflow:"hidden",display:"flex"}},
     isStudio&&React.createElement("div",{style:{width:5,flexShrink:0,background:"linear-gradient(180deg,"+catC+","+instC+")",boxShadow:"2px 0 12px "+catC+"30"}}),
@@ -4546,7 +4546,7 @@ function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst,
   const catC=getCatColor(lick.category,t);
   const instC=getInstColor(lick.instrument,t);
   const instBorderC=INST_COL[lick.instrument]||t.accent;
-  var cardNBars=getBarInfo(cardAbc).nBars;var hasFade=cardNBars>4;
+  var cardNBars=getBarInfo(cardAbc).nBars;var hasFade=cardNBars>6;
   var _exp2=useState(false),expanded=_exp2[0],setExpanded=_exp2[1];
   // Split title: "Artist — Rest" → clickable artist + rest
   const titleParts=lick.title?lick.title.split(" \u2014 "):null;
