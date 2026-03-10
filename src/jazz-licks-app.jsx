@@ -9285,7 +9285,7 @@ export default function Etudy(){
                 React.createElement("div",{style:{fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",marginTop:1}},"Sight-read and clap rhythmic patterns")),
               React.createElement("span",{style:{fontSize:14,color:t.muted,transform:rhythmSub==="reading"?"rotate(90deg)":"none",transition:"transform 0.2s"}},"\u203A")),
             rhythmSub==="reading"&&React.createElement("div",{style:{padding:"0 16px 16px"}},
-              React.createElement(RhythmGame,{th:t,sharedInput:"tap",sharedMicSilent:true})))),
+              React.createElement(RhythmGame,{th:t,sharedInput:"tap",sharedMicSilent:true}))))),
 
       // ─── SESSIONS TAB ───
       view==="sessions"&&React.createElement("div",{style:{padding:"8px 0"}},
