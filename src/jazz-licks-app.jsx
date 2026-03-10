@@ -9290,7 +9290,7 @@ export default function Etudy(){
                   [["tap","Tap"],["mic","Mic"]].map(function(m){
                     return React.createElement("button",{key:m[0],onClick:function(){setRhythmInput(m[0]);},style:{flex:1,padding:"5px 10px",borderRadius:6,border:"none",background:rhythmInput===m[0]?t.card:"transparent",color:rhythmInput===m[0]?t.text:t.subtle,fontSize:10,fontWeight:rhythmInput===m[0]?600:400,fontFamily:"'Inter',sans-serif",cursor:"pointer",boxShadow:rhythmInput===m[0]?"0 1px 3px rgba(0,0,0,0.06)":"none"}},m[1]);})),
                 rhythmInput==="mic"&&React.createElement("button",{onClick:function(){setRhythmMicSilent(!rhythmMicSilent);},style:{padding:"5px 10px",borderRadius:6,border:"1px solid "+(isStudio?"#F59E0B30":"#FDE68A"),background:isStudio?"#F59E0B10":"#FEF9C3",color:isStudio?"#F59E0B":"#92400E",fontSize:9,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer",whiteSpace:"nowrap"}},rhythmMicSilent?"Silent":"Audio")),
-              React.createElement(PolyrhythmTrainer,{th:t,sharedInput:rhythmInput,sharedMicSilent:rhythmMicSilent})))),
+              React.createElement(PolyrhythmTrainer,{th:t,sharedInput:rhythmInput,sharedMicSilent:rhythmMicSilent}))))),
 
       // ─── SESSIONS TAB ───
       view==="sessions"&&React.createElement("div",{style:{padding:"8px 0"}},
