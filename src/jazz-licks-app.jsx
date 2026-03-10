@@ -2848,9 +2848,11 @@ function NoteBuilder({onAbcChange,keySig,keyQual,timeSig,tempo,previewEl,playerE
 
   const[tsN,tsD]=timeSig.split("/").map(Number);const bE=tsN*(8/tsD);const beatE=8/tsD;
   var tE=0;for(var ii=0;ii<items.length;ii++){var it=items[ii];if(it.type==="note"||it.type==="rest")tE+=DURS[it.dur].eighths*(it.dotted?1.5:1)*(it.tri?2/3:1);}
+  tE=Math.round(tE*1200)/1200;// fix float accumulation (1200 = LCM-friendly for 1/2, 1/3, 1/4)
   // Expose bar completeness
-  var barRem=tE>0?(bE-tE%bE)%bE:0;
-  if(barInfoRef)barInfoRef.current={complete:tE===0||barRem===0,remaining:barRem,bE:bE,tE:tE};
+  var barRem=tE>0?Math.round((bE-tE%bE)%bE*1200)/1200:0;
+  if(barRem>bE-0.01)barRem=0;// nearly full bar → treat as complete
+  if(barInfoRef)barInfoRef.current={complete:tE===0||barRem<0.01,remaining:barRem,bE:bE,tE:tE};
   // Min bars: consider both notes AND chord positions
   var maxChordBeat=0;
   var chordKeys=Object.keys(chords);
@@ -2864,14 +2866,15 @@ function NoteBuilder({onAbcChange,keySig,keyQual,timeSig,tempo,previewEl,playerE
   var edMinBars=hasContent?Math.max(1,rawBars):0;
   // Fill bar with rests — returns new ABC for immediate use
   if(fillBarRef)fillBarRef.current=function(){
-    if(barRem<=0)return null;
+    if(barRem<0.01)return null;
     var rem=barRem;var newItems=items.slice();
     var restVals=[{dur:0,e:8},{dur:1,e:4},{dur:2,e:2},{dur:3,e:1},{dur:4,e:0.5}];
     for(var rv=0;rv<restVals.length;rv++){
-      while(rem>=restVals[rv].e){newItems.push({type:"rest",dur:restVals[rv].dur});rem-=restVals[rv].e;}
+      while(rem>=restVals[rv].e-0.01){newItems.push({type:"rest",dur:restVals[rv].dur});rem=Math.round((rem-restVals[rv].e)*1200)/1200;}
     }
     mutate(newItems,chords);
     var newTE=0;for(var fi=0;fi<newItems.length;fi++){var ft=newItems[fi];if(ft.type==="note"||ft.type==="rest")newTE+=DURS[ft.dur].eighths*(ft.dotted?1.5:1)*(ft.tri?2/3:1);}
+    newTE=Math.round(newTE*1200)/1200;
     var newBarsN=Math.ceil(newTE/bE)||0;
     var newRaw=Math.max(newBarsN,barsFromChords);
     var newMinBars=Math.max(1,newRaw);
