@@ -4,6 +4,7 @@ import { supabase, signInWithGoogle, signInWithMagicLink, verifyOtp, signOut, ge
 
 
 const ABCJS_CDN = "https://cdnjs.cloudflare.com/ajax/libs/abcjs/6.4.1/abcjs-basic-min.js";
+const VEXFLOW_CDN = "https://cdn.jsdelivr.net/npm/vexflow@4.2.5/build/cjs/vexflow.js";
 const INST_LIST = ["All","Alto Sax","Soprano Sax","Tenor Sax","Baritone Sax","Trumpet","Piano","Guitar","Bass","Trombone","Flute","Clarinet","Vibes","Violin","Vocals"];
 const CAT_LIST = ["All","ii-V-I","Minor ii-V-I","Blues","Bebop","Modal","Pentatonic","Chromatic","Enclosure","Turnaround"];
 
@@ -1487,6 +1488,231 @@ function PreviewBtn({lickId,abc,tempo,feel,th,size}){
 // ABCjs
 // ============================================================
 function useAbcjs(){const[ok,s]=useState(false);useEffect(()=>{if(window.ABCJS){s(true);return;}const sc=document.createElement("script");sc.src=ABCJS_CDN;sc.onload=()=>s(true);document.head.appendChild(sc);},[]);return ok;}
+
+// ============================================================
+// VEXFLOW — professional notation rendering
+// ============================================================
+var _vexLoading=false,_vexReady=false;
+function useVexflow(){
+  var _s=useState(_vexReady),ok=_s[0],setOk=_s[1];
+  useEffect(function(){
+    if(window.Vex){setOk(true);return;}
+    if(_vexLoading){var iv=setInterval(function(){if(window.Vex){_vexReady=true;setOk(true);clearInterval(iv);}},100);return function(){clearInterval(iv);};}
+    _vexLoading=true;
+    var sc=document.createElement("script");sc.src=VEXFLOW_CDN;
+    sc.onload=function(){_vexReady=true;_vexLoading=false;setOk(true);};
+    sc.onerror=function(){_vexLoading=false;};
+    document.head.appendChild(sc);
+  },[]);
+  return ok;
+}
+
+// Parse tone string "C#4" → {note:"c",acc:"#",oct:4} or "Eb5" → {note:"e",acc:"b",oct:5}
+function parseToneForVex(t){
+  if(!t)return null;
+  var note=t[0].toLowerCase(),acc=null,rest=t.substring(1);
+  if(rest[0]==="#"||rest[0]==="b"){acc=rest[0];if(rest[1]==="#"||rest[1]==="b"){acc+=rest[1];rest=rest.substring(2);}else rest=rest.substring(1);}
+  return{note:note,acc:acc,oct:parseInt(rest)||4};
+}
+
+// Map rL (fraction of whole note) → VexFlow duration string
+function rlToVexDur(rL){
+  var r=Math.round(rL*10000)/10000;
+  if(r>=0.9375)return"w";if(r>=0.7)return"hd";if(r>=0.46)return"h";
+  if(r>=0.34)return"qd";if(r>=0.23)return"q";
+  if(r>=0.17)return"8d";if(r>=0.11)return"8";
+  if(r>=0.085)return"16d";if(r>=0.055)return"16";
+  return"32";
+}
+
+// Split parseAbc events into measures for VexFlow
+function abcToVexMeasures(abc,bassClef){
+  var parsed=parseAbc(abc);
+  var ev=parsed.events;var chords=parsed.chords;var tsN=parsed.tsNum||4;
+  // Parse time sig denominator
+  var tsD=4;var tmMatch=abc.match(/M:(\d+)\/(\d+)/);if(tmMatch)tsD=parseInt(tmMatch[2]);
+  var barRL=tsN/tsD;// bar length in whole-note fractions
+
+  // Split events into measures
+  var measures=[];var curMeasure=[];var curRL=0;var evIdx=0;
+  var chordIdx=0;var totalRL=0;var curChords=[];
+
+  for(var i=0;i<ev.length;i++){
+    var e=ev[i];
+    // Collect chords at this position
+    while(chordIdx<chords.length&&chords[chordIdx].pos<=totalRL+0.001){
+      curChords.push({name:chords[chordIdx].name,beatPos:curRL});
+      chordIdx++;
+    }
+
+    curMeasure.push(e);
+    curRL+=e.rL;
+    totalRL+=e.rL;
+
+    // Check if measure is full
+    if(curRL>=barRL-0.001){
+      measures.push({events:curMeasure,chords:curChords});
+      curMeasure=[];curChords=[];curRL=curRL-barRL;
+      // Carry over remaining chords
+      while(chordIdx<chords.length&&chords[chordIdx].pos<=totalRL+0.001){
+        curChords.push({name:chords[chordIdx].name,beatPos:0});
+        chordIdx++;
+      }
+    }
+  }
+  // Remaining partial measure
+  if(curMeasure.length>0){
+    while(chordIdx<chords.length){curChords.push({name:chords[chordIdx].name,beatPos:curRL-(chords[chordIdx].pos-totalRL+curRL)});chordIdx++;}
+    measures.push({events:curMeasure,chords:curChords});
+  }
+
+  return{measures:measures,tsN:tsN,tsD:tsD,clef:bassClef?"bass":"treble"};
+}
+
+function VexNotation({abc,compact,th,bassClef,curNoteRef,onReady}){
+  var t=th||TH.classic;var isStudio=t===TH.studio;
+  var ref=useRef(null);
+  var vexOk=useVexflow();
+  var onReadyRef=useRef(onReady);onReadyRef.current=onReady;
+
+  useEffect(function(){
+    if(!vexOk||!ref.current||!window.Vex||!abc)return;
+    ref.current.innerHTML="";
+    try{
+      var VF=Vex.Flow;
+      var data=abcToVexMeasures(abc,bassClef);
+      if(!data.measures.length)return;
+
+      var renderer=new VF.Renderer(ref.current,VF.Renderer.Backends.SVG);
+      var measPerLine=compact?4:2;
+      var staveWidth=compact?92:200;
+      var staveH=compact?70:90;
+      var leftPad=compact?32:40;
+      var topPad=compact?8:14;
+      var nMeasures=data.measures.length;
+      var nLines=Math.ceil(nMeasures/measPerLine);
+      var totalW=leftPad+staveWidth*Math.min(nMeasures,measPerLine)+10;
+      var totalH=topPad+nLines*staveH+10;
+
+      renderer.resize(totalW,totalH);
+      var ctx=renderer.getContext();
+      ctx.scale(compact?0.85:1.0,compact?0.85:1.0);
+
+      var globalNoteIdx=0;
+      for(var li=0;li<nLines;li++){
+        var measStart=li*measPerLine;
+        var measEnd=Math.min(measStart+measPerLine,nMeasures);
+        var x=leftPad;
+        var y=topPad+li*staveH;
+
+        for(var mi=measStart;mi<measEnd;mi++){
+          var meas=data.measures[mi];
+          var w=staveWidth;
+          var stave=new VF.Stave(x,y,w);
+          if(mi===0){stave.addClef(data.clef).addTimeSignature(data.tsN+"/"+data.tsD);}
+          if(mi===nMeasures-1)stave.setEndBarType(VF.Barline.type.END);
+          stave.setContext(ctx).draw();
+
+          // Build VexFlow notes
+          var vNotes=[];
+          for(var ei=0;ei<meas.events.length;ei++){
+            var ev=meas.events[ei];
+            var dur=rlToVexDur(ev.rL);
+            var isDot=dur.endsWith("d");
+            var baseDur=isDot?dur.slice(0,-1):dur;
+
+            if(!ev.tn){
+              // Rest
+              var rn=new VF.StaveNote({keys:[data.clef==="bass"?"d/3":"b/4"],duration:baseDur+"r"});
+              if(isDot)try{rn.addDotToAll();}catch(e){try{rn.addModifier(new VF.Dot());}catch(e2){}}
+              rn._etuIdx=globalNoteIdx++;
+              vNotes.push(rn);
+            }else{
+              // Note(s)
+              var keys=[];var accs=[];
+              for(var ti=0;ti<ev.tn.length;ti++){
+                var p=parseToneForVex(ev.tn[ti]);
+                if(!p)continue;
+                var key=p.note+(p.acc||"")+"/"+p.oct;
+                keys.push(key);
+                if(p.acc)accs.push({idx:ti,acc:p.acc});
+              }
+              if(!keys.length){globalNoteIdx++;continue;}
+              var sn=new VF.StaveNote({keys:keys,duration:baseDur,auto_stem:true});
+              for(var ai=0;ai<accs.length;ai++){
+                try{sn.addModifier(new VF.Accidental(accs[ai].acc),accs[ai].idx);}catch(e){}
+              }
+              if(isDot)try{sn.addDotToAll();}catch(e){try{sn.addModifier(new VF.Dot());}catch(e2){}}
+              sn._etuIdx=globalNoteIdx++;
+              vNotes.push(sn);
+            }
+          }
+
+          if(!vNotes.length){x+=w;continue;}
+
+          // Add chord symbols as annotations on first note of chord
+          for(var ci=0;ci<meas.chords.length;ci++){
+            var ch=meas.chords[ci];
+            // Find nearest note
+            var nearIdx=0;var nearDist=Infinity;var pos=0;
+            for(var ni=0;ni<meas.events.length;ni++){
+              var d=Math.abs(pos-ch.beatPos);
+              if(d<nearDist){nearDist=d;nearIdx=ni;}
+              pos+=meas.events[ni].rL;
+            }
+            if(nearIdx<vNotes.length){
+              try{
+                var ann=new VF.Annotation(ch.name).setFont("JetBrains Mono",compact?9:12,"bold").setVerticalJustification(VF.Annotation.VerticalJustify.TOP);
+                vNotes[nearIdx].addModifier(ann);
+              }catch(e){}
+            }
+          }
+
+          // Voice + format
+          try{
+            var voice=new VF.Voice({num_beats:data.tsN,beat_value:data.tsD}).setStrict(false);
+            voice.addTickables(vNotes);
+            new VF.Formatter().joinVoices([voice]).format([voice],w-20);
+            voice.draw(ctx,stave);
+
+            // Auto-beam eighth notes and shorter
+            try{
+              var beamable=vNotes.filter(function(n){return!n.isRest()&&n.getDuration()!=="w"&&n.getDuration()!=="h"&&n.getDuration()!=="q";});
+              if(beamable.length>=2){
+                var beams=VF.Beam.generateBeams(beamable,{groups:[new VF.Fraction(2,8)]});
+                beams.forEach(function(b){b.setContext(ctx).draw();});
+              }
+            }catch(e){}
+          }catch(e){console.warn("[etudy] VexFlow voice error:",e);}
+
+          x+=w;
+        }
+      }
+
+      // Style the SVG to match theme
+      var svg=ref.current.querySelector("svg");
+      if(svg){
+        svg.style.maxWidth="100%";svg.style.height="auto";
+        var noteCol=isStudio?"#E8E8F0":"#1A1A1A";
+        var staffCol=isStudio?"rgba(255,255,255,0.12)":"rgba(0,0,0,0.12)";
+        svg.querySelectorAll(".vf-stave path,.vf-stave line").forEach(function(p){
+          p.setAttribute("stroke",staffCol);p.setAttribute("fill","none");
+        });
+        svg.querySelectorAll(".vf-stavenote path,.vf-stem path,.vf-beam path,.vf-flag path").forEach(function(p){
+          p.setAttribute("stroke",noteCol);p.setAttribute("fill",noteCol);
+        });
+        svg.querySelectorAll("text").forEach(function(t2){t2.setAttribute("fill",noteCol);});
+        // Chord text styling
+        svg.querySelectorAll(".vf-annotation text").forEach(function(t2){
+          t2.setAttribute("fill",isStudio?"#A0A0CC":"#555");
+        });
+      }
+    }catch(e){console.warn("[etudy] VexNotation render error:",e);}
+    if(onReadyRef.current)requestAnimationFrame(function(){if(onReadyRef.current)onReadyRef.current();});
+  },[abc,vexOk,compact,bassClef,th]);
+
+  return React.createElement("div",{ref:ref,style:{minHeight:compact?50:80}});
+}
 // Get time fractions for each sounding event (notes only, not rests)
 function getNoteTimeFracs(abc){try{const p=parseAbc(abc);let total=0;for(const e of p.events)total+=e.rL;if(total===0)return[];let pos=0;const fracs=[];for(const e of p.events){if(e.tn)fracs.push({frac:pos/total,endFrac:(pos+e.rL)/total});pos+=e.rL;}return fracs;}catch(e){return[];}}
 function getAllEventFracs(abc){try{const p=parseAbc(abc);let total=0;for(const e of p.events)total+=e.rL;if(total===0)return[];let pos=0;const fracs=[];for(const e of p.events){fracs.push({frac:pos/total,endFrac:(pos+e.rL)/total,isNote:!!e.tn});pos+=e.rL;}return fracs;}catch(e){return[];}}
@@ -4394,7 +4620,7 @@ function DailyLickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:user
       // NOTATION — ≤4 bars: single line. >4 bars: clipped at 1 line with more/less
       React.createElement("div",{style:{marginTop:6,position:"relative",maxHeight:(isLong&&!expanded)?105:notFullH,overflow:"hidden",transition:"max-height 0.4s cubic-bezier(0.4,0,0.2,1)"}},
         React.createElement("div",{ref:notInnerRef,style:{display:"flex",justifyContent:"center"}},
-          React.createElement(Notation,{abc:cardAbc,compact:true,th:t,curNoteRef:prevCurNote,bassClef:BASS_CLEF_INSTS.has(userInst)})),
+          React.createElement(VexNotation,{abc:cardAbc,compact:true,th:t,bassClef:BASS_CLEF_INSTS.has(userInst)})),
         isLong&&!expanded&&React.createElement("div",{style:{position:"absolute",left:0,right:0,bottom:0,height:36,background:"linear-gradient(to bottom, transparent, "+(isStudio?t.cardRaised||t.card:t.card)+")",display:"flex",alignItems:"flex-end",justifyContent:"center",paddingBottom:2}},
           React.createElement("button",{onClick:function(e){e.stopPropagation();setExpanded(true);},style:{background:isStudio?t.card+"E0":t.card+"E0",border:"1px solid "+t.border,borderRadius:12,padding:"2px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:4,boxShadow:"0 -2px 8px "+(isStudio?"rgba(0,0,0,0.3)":"rgba(0,0,0,0.08)")}},
             React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:500}},"more"),
