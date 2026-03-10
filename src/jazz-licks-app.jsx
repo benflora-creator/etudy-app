@@ -17,7 +17,7 @@ const TH={
     bg:"#EEEDE6",card:"#fff",border:"#E0DFD8",borderSub:"#E8E7E3",
     text:"#1A1A1A",muted:"#8E8E93",subtle:"#B0AFA8",dimBorder:"#C5C4BE",
     accent:"#6366F1",accentBg:"rgba(99,102,241,0.08)",accentBorder:"rgba(99,102,241,0.2)",accentGlow:"rgba(99,102,241,0.2)",
-    noteBg:"#FAFAF6",noteStroke:"#1A1A1A",staffStroke:"#D5D4CE",barStroke:"#C5C4BE",chordFill:"#6366F1",metaFill:"#8E8E93",
+    noteBg:"#FAFAF6",noteStroke:"#1C1C1C",staffStroke:"#D0CFC8",barStroke:"#B8B7B0",chordFill:"#6366F1",metaFill:"#8E8E93",
     headerBg:"rgba(238,237,230,0.88)",filterBg:"#E8E7E0",inputBg:"#FAFAF6",inputBorder:"#E0DFD8",
     titleFont:"'Instrument Serif',Georgia,serif",
     playBg:"#6366F1",progressBg:"#E8E7E3",pillBg:"#fff",pillBorder:"#E8E7E3",
@@ -28,7 +28,7 @@ const TH={
     bg:"#08080F",card:"#12121E",cardRaised:"#16162A",border:"#1C1C30",borderSub:"#252540",
     text:"#F2F2FA",muted:"#8888A0",subtle:"#55556A",dimBorder:"#333348",
     accent:"#22D89E",accentBg:"rgba(34,216,158,0.12)",accentBorder:"rgba(34,216,158,0.35)",accentGlow:"rgba(34,216,158,0.3)",
-    noteBg:"#14142A",noteStroke:"#F2F2FA",staffStroke:"#6A6A84",barStroke:"#8585A0",chordFill:"#22D89E",metaFill:"#9898B0",
+    noteBg:"#14142A",noteStroke:"#E8E8F4",staffStroke:"#3A3A54",barStroke:"#50506A",chordFill:"#22D89E",metaFill:"#9898B0",
     headerBg:"rgba(14,14,26,0.97)",tabBarBg:"rgba(14,14,26,0.97)",filterBg:"#10101A",inputBg:"#10101A",inputBorder:"#1C1C30",
     titleFont:"'Inter',sans-serif",
     playBg:"linear-gradient(135deg,#22D89E,#1AB87A)",playFlat:"#22D89E",progressBg:"#1A1A28",pillBg:"#10101A",pillBorder:"#252540",
@@ -1765,8 +1765,9 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
     if(editorMode&&hasContent){
       renderAbc=renderAbc.replace(/(K:[^\n]*)/,"%%barsperstaff 2\n$1");
     }
-    const opts={responsive:"resize",paddingtop:editorMode?28:(focus?14:theoryMode?14:2),paddingbottom:theoryMode?34:(focus?14:2),paddingleft:0,paddingright:0,add_classes:true};
-    if(compact){opts.staffwidth=400;opts.scale=0.85;var cBars=barInfo.nBars;if(cBars>4)opts.wrap={minSpacing:1.0,maxSpacing:2.0,preferredMeasuresPerLine:4};}
+    const opts={responsive:"resize",paddingtop:editorMode?28:(focus?16:theoryMode?16:6),paddingbottom:theoryMode?34:(focus?16:6),paddingleft:0,paddingright:0,add_classes:true,
+      format:{notespacingfactor:1.4,staffsep:28}};
+    if(compact){opts.staffwidth=420;opts.scale=0.85;var cBars=barInfo.nBars;if(cBars>4)opts.wrap={minSpacing:1.2,maxSpacing:2.2,preferredMeasuresPerLine:4};}
     else if(editorMode&&hasContent){opts.staffwidth=460;opts.scale=1.1;opts.wrap={minSpacing:1.0,maxSpacing:2.8,preferredMeasuresPerLine:2};}
     else if(editorMode){opts.staffwidth=460;opts.scale=1.1;}
     else if(focus){opts.staffwidth=500;opts.scale=1.5;opts.wrap={minSpacing:1.0,maxSpacing:2.0,preferredMeasuresPerLine:2};}
@@ -1777,11 +1778,29 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
     if(!ref.current)return;const svg=ref.current.querySelector("svg");if(!svg)return;
     const isStudio=t===TH.studio;
     svg.querySelectorAll("path").forEach(p=>{p.setAttribute("stroke",t.noteStroke);p.setAttribute("fill",t.noteStroke);});
-    svg.querySelectorAll(".abcjs-staff path").forEach(p=>{p.setAttribute("stroke",t.staffStroke);p.setAttribute("fill","none");p.setAttribute("stroke-width","0.6");});
-    svg.querySelectorAll(".abcjs-staff-extra path").forEach(p=>{p.setAttribute("stroke",isStudio?t.staffStroke:t.muted);p.setAttribute("fill",isStudio?t.staffStroke:t.muted);p.setAttribute("stroke-width","0.6");});
-    svg.querySelectorAll(".abcjs-bar path").forEach(p=>{p.setAttribute("stroke",t.barStroke);p.setAttribute("stroke-width","0.8");});
+    // Staff lines — very thin, like professional engraving
+    svg.querySelectorAll(".abcjs-staff path").forEach(p=>{p.setAttribute("stroke",t.staffStroke);p.setAttribute("fill","none");p.setAttribute("stroke-width","0.4");});
+    // Clef, key sig, time sig — slightly lighter
+    svg.querySelectorAll(".abcjs-staff-extra path").forEach(p=>{p.setAttribute("stroke",isStudio?t.staffStroke:t.muted);p.setAttribute("fill",isStudio?t.staffStroke:t.muted);p.setAttribute("stroke-width","0.5");});
+    // Bar lines — thin and elegant
+    svg.querySelectorAll(".abcjs-bar path").forEach(p=>{p.setAttribute("stroke",t.barStroke);p.setAttribute("stroke-width","0.4");});
+    // Ledger lines — thinner than staff, shorter
+    svg.querySelectorAll(".abcjs-ledger path").forEach(p=>{p.setAttribute("stroke",t.staffStroke);p.setAttribute("stroke-width","0.35");});
+    // Stems — slightly thinner than noteheads for classical proportion
+    svg.querySelectorAll(".abcjs-note path").forEach(function(p){
+      try{var bb=p.getBBox();if(bb.width<1.5&&bb.height>5){p.setAttribute("stroke-width","0.7");}}catch(e){}
+    });
+    // Text styling
     svg.querySelectorAll("text").forEach(p=>p.setAttribute("fill",t.metaFill));
-    svg.querySelectorAll("text.abcjs-chord").forEach(p=>{p.setAttribute("fill",t.chordFill);p.style.fontSize=editorMode?"16px":(isStudio?"14px":"12px");p.style.fontWeight=editorMode?"700":(isStudio?"600":"400");p.style.fontFamily="'JetBrains Mono',monospace";if(isStudio)p.style.filter="drop-shadow(0 0 4px "+t.chordFill+"50)";});
+    // Chord symbols — jazz fake-book style
+    svg.querySelectorAll("text.abcjs-chord").forEach(p=>{
+      p.setAttribute("fill",t.chordFill);
+      p.style.fontSize=editorMode?"15px":(isStudio?"13px":"12px");
+      p.style.fontWeight=editorMode?"700":"600";
+      p.style.fontFamily="'Inter',sans-serif";
+      p.style.letterSpacing="-0.3px";
+      if(isStudio)p.style.filter="drop-shadow(0 0 3px "+t.chordFill+"40)";
+    });
     svg.querySelectorAll(".abcjs-title,.abcjs-meta-top").forEach(el=>el.style.display="none");
     const noteEls=svg.querySelectorAll(".abcjs-note");if(!noteEls.length)return;
     const fracs=getNoteTimeFracs(abc);
@@ -2038,7 +2057,7 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
   },[selNoteIdx,abc,th]);
   if(!ok)return React.createElement("div",{style:{height:compact?50:80,display:"flex",alignItems:"center",justifyContent:"center",color:t.subtle,fontSize:12,fontFamily:"'Inter',sans-serif"}},"Loading...");
   const isStudio=t===TH.studio;
-  return React.createElement("div",{ref,style:{borderRadius:focus?0:isStudio?12:10,background:focus?"transparent":compact?"transparent":t.noteBg,padding:focus?"0":compact?"2px 4px":(isStudio?"10px 14px":"8px 12px"),border:focus?"none":compact?"none":"1px solid "+(isStudio?t.staffStroke+"30":t.borderSub),overflow:compact?"hidden":"visible",transition:"min-height 0.15s ease"}});}
+  return React.createElement("div",{ref,style:{borderRadius:focus?0:isStudio?12:10,background:focus?"transparent":compact?"transparent":t.noteBg,padding:focus?"0":compact?"4px 6px":(isStudio?"14px 16px":"12px 14px"),border:focus?"none":compact?"none":"1px solid "+(isStudio?t.border:t.borderSub),overflow:compact?"hidden":"visible",transition:"min-height 0.15s ease"}});}
 
 // ============================================================
 // A/B RANGE BAR — themed
@@ -3792,9 +3811,9 @@ function ScalePopup({data,th,isStudio,onClose}){
         svg.style.maxWidth="100%";svg.style.overflow="visible";
         var stCol=isStudio?"#F2F2FA":"#1A1A1A";
         svg.querySelectorAll("path").forEach(function(p){p.setAttribute("fill",stCol);p.setAttribute("stroke",stCol);});
-        svg.querySelectorAll(".abcjs-staff path").forEach(function(p){p.setAttribute("stroke",t.staffStroke);p.setAttribute("fill","none");p.setAttribute("stroke-width","0.6");});
-        svg.querySelectorAll(".abcjs-staff-extra path").forEach(function(p){p.setAttribute("stroke",isStudio?t.staffStroke:t.muted);p.setAttribute("fill",isStudio?t.staffStroke:t.muted);p.setAttribute("stroke-width","0.6");});
-        svg.querySelectorAll(".abcjs-bar path").forEach(function(p){p.setAttribute("stroke",t.barStroke);p.setAttribute("stroke-width","0.8");});
+        svg.querySelectorAll(".abcjs-staff path").forEach(function(p){p.setAttribute("stroke",t.staffStroke);p.setAttribute("fill","none");p.setAttribute("stroke-width","0.4");});
+        svg.querySelectorAll(".abcjs-staff-extra path").forEach(function(p){p.setAttribute("stroke",isStudio?t.staffStroke:t.muted);p.setAttribute("fill",isStudio?t.staffStroke:t.muted);p.setAttribute("stroke-width","0.5");});
+        svg.querySelectorAll(".abcjs-bar path").forEach(function(p){p.setAttribute("stroke",t.barStroke);p.setAttribute("stroke-width","0.6");});
         var ct=parseChordName(data.chord);
         var noteEls=svg.querySelectorAll(".abcjs-note");
         noteEls.forEach(function(noteEl,ni){
@@ -4620,7 +4639,7 @@ function DailyLickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:user
       // NOTATION — ≤4 bars: single line. >4 bars: clipped at 1 line with more/less
       React.createElement("div",{style:{marginTop:6,position:"relative",maxHeight:(isLong&&!expanded)?105:notFullH,overflow:"hidden",transition:"max-height 0.4s cubic-bezier(0.4,0,0.2,1)"}},
         React.createElement("div",{ref:notInnerRef,style:{display:"flex",justifyContent:"center"}},
-          React.createElement(VexNotation,{abc:cardAbc,compact:true,th:t,bassClef:BASS_CLEF_INSTS.has(userInst)})),
+          React.createElement(Notation,{abc:cardAbc,compact:true,th:t,curNoteRef:prevCurNote,bassClef:BASS_CLEF_INSTS.has(userInst)})),
         isLong&&!expanded&&React.createElement("div",{style:{position:"absolute",left:0,right:0,bottom:0,height:36,background:"linear-gradient(to bottom, transparent, "+(isStudio?t.cardRaised||t.card:t.card)+")",display:"flex",alignItems:"flex-end",justifyContent:"center",paddingBottom:2}},
           React.createElement("button",{onClick:function(e){e.stopPropagation();setExpanded(true);},style:{background:isStudio?t.card+"E0":t.card+"E0",border:"1px solid "+t.border,borderRadius:12,padding:"2px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:4,boxShadow:"0 -2px 8px "+(isStudio?"rgba(0,0,0,0.3)":"rgba(0,0,0,0.08)")}},
             React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:500}},"more"),
@@ -7040,9 +7059,9 @@ function FullRangeScaleView({rootName,scaleDef,scaleName,lowMidi,highMidi,useBas
         svg.style.maxWidth="100%";svg.style.overflow="visible";
         var stCol=isStudio?"#F2F2FA":"#1A1A1A";
         svg.querySelectorAll("path").forEach(function(p){p.setAttribute("fill",stCol);p.setAttribute("stroke",stCol);});
-        svg.querySelectorAll(".abcjs-staff path").forEach(function(p){p.setAttribute("stroke",t.staffStroke);p.setAttribute("fill","none");p.setAttribute("stroke-width","0.6");});
-        svg.querySelectorAll(".abcjs-staff-extra path").forEach(function(p){p.setAttribute("stroke",isStudio?t.staffStroke:t.muted);p.setAttribute("fill",isStudio?t.staffStroke:t.muted);p.setAttribute("stroke-width","0.6");});
-        svg.querySelectorAll(".abcjs-bar path").forEach(function(p){p.setAttribute("stroke",t.barStroke);p.setAttribute("stroke-width","0.8");});
+        svg.querySelectorAll(".abcjs-staff path").forEach(function(p){p.setAttribute("stroke",t.staffStroke);p.setAttribute("fill","none");p.setAttribute("stroke-width","0.4");});
+        svg.querySelectorAll(".abcjs-staff-extra path").forEach(function(p){p.setAttribute("stroke",isStudio?t.staffStroke:t.muted);p.setAttribute("fill",isStudio?t.staffStroke:t.muted);p.setAttribute("stroke-width","0.5");});
+        svg.querySelectorAll(".abcjs-bar path").forEach(function(p){p.setAttribute("stroke",t.barStroke);p.setAttribute("stroke-width","0.6");});
         svg.querySelectorAll("text.abcjs-chord,text.abcjs-title,.abcjs-meta-top").forEach(function(el){el.style.display="none";});
         svg.querySelectorAll(".abcjs-time-signature path").forEach(function(p){p.setAttribute("fill",stCol);});
         var noteEls=svg.querySelectorAll(".abcjs-note");
@@ -7144,8 +7163,8 @@ function ScaleChordTrainer({th,userInst}){
         svg.style.maxWidth="100%";svg.style.overflow="visible";
         var stCol=isStudio?"#F2F2FA":"#1A1A1A";
         svg.querySelectorAll("path").forEach(function(p){p.setAttribute("fill",stCol);p.setAttribute("stroke",stCol);});
-        svg.querySelectorAll(".abcjs-staff path").forEach(function(p){p.setAttribute("stroke",t.staffStroke);p.setAttribute("fill","none");p.setAttribute("stroke-width","0.6");});
-        svg.querySelectorAll(".abcjs-staff-extra path").forEach(function(p){p.setAttribute("stroke",isStudio?t.staffStroke:t.muted);p.setAttribute("fill",isStudio?t.staffStroke:t.muted);p.setAttribute("stroke-width","0.6");});
+        svg.querySelectorAll(".abcjs-staff path").forEach(function(p){p.setAttribute("stroke",t.staffStroke);p.setAttribute("fill","none");p.setAttribute("stroke-width","0.4");});
+        svg.querySelectorAll(".abcjs-staff-extra path").forEach(function(p){p.setAttribute("stroke",isStudio?t.staffStroke:t.muted);p.setAttribute("fill",isStudio?t.staffStroke:t.muted);p.setAttribute("stroke-width","0.5");});
         svg.querySelectorAll(".abcjs-bar path").forEach(function(p){p.style.display="none";});
         svg.querySelectorAll("text.abcjs-chord,text.abcjs-title,.abcjs-meta-top,.abcjs-time-signature").forEach(function(el){el.style.display="none";});
         var noteEls=svg.querySelectorAll(".abcjs-note");
