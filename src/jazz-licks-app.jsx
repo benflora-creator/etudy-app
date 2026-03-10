@@ -1526,7 +1526,7 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
       renderAbc=renderAbc.replace(/(K:[^\n]*)/,"%%barsperstaff 2\n$1");
     }
     const opts={responsive:"resize",paddingtop:editorMode?28:(focus?14:theoryMode?14:2),paddingbottom:theoryMode?34:(focus?14:2),paddingleft:0,paddingright:0,add_classes:true};
-    if(compact){opts.staffwidth=400;opts.scale=0.85;var cBars=barInfo.nBars;if(cBars>2)opts.wrap={minSpacing:1.0,maxSpacing:2.2,preferredMeasuresPerLine:2};}
+    if(compact){opts.staffwidth=380;opts.scale=0.72;var cBars=barInfo.nBars;if(cBars>2)opts.wrap={minSpacing:1.0,maxSpacing:2.2,preferredMeasuresPerLine:2};}
     else if(editorMode&&hasContent){opts.staffwidth=460;opts.scale=1.1;opts.wrap={minSpacing:1.0,maxSpacing:2.8,preferredMeasuresPerLine:2};}
     else if(editorMode){opts.staffwidth=460;opts.scale=1.1;}
     else if(focus){opts.staffwidth=500;opts.scale=1.5;opts.wrap={minSpacing:1.0,maxSpacing:2.0,preferredMeasuresPerLine:2};}
@@ -4372,13 +4372,17 @@ function DailyLickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:user
         lick.instrument&&React.createElement("span",{style:{fontSize:9,color:instBorderC,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,background:instBorderC+"12",padding:"2px 7px",borderRadius:5,border:"1px solid "+instBorderC+"20"}},lick.instrument),
         React.createElement("span",{style:{fontSize:10,color:isStudio?catC:t.muted,fontFamily:"'JetBrains Mono',monospace",fontWeight:isStudio?600:400}},lick.category)),
       // NOTATION
-      React.createElement("div",{style:{marginTop:6,position:"relative",maxHeight:(hasFade&&!expanded)?155:2000,overflow:"hidden",transition:"max-height 0.35s ease"}},
+      React.createElement("div",{style:{marginTop:6,position:"relative",maxHeight:(hasFade&&!expanded)?130:2000,overflow:"hidden",transition:"max-height 0.35s ease"}},
         React.createElement("div",{style:{display:"flex",justifyContent:"center"}},
           React.createElement(Notation,{abc:cardAbc,compact:true,th:t,curNoteRef:prevCurNote,bassClef:BASS_CLEF_INSTS.has(userInst)})),
         hasFade&&!expanded&&React.createElement("div",{style:{position:"absolute",left:0,right:0,bottom:0,height:40,background:"linear-gradient(to bottom, transparent, "+(isStudio?t.cardRaised||t.card:t.card)+")",display:"flex",alignItems:"flex-end",justifyContent:"center",paddingBottom:2}},
           React.createElement("button",{onClick:function(e){e.stopPropagation();setExpanded(true);},style:{background:isStudio?t.card+"E0":t.card+"E0",border:"1px solid "+t.border,borderRadius:12,padding:"2px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:4,boxShadow:"0 -2px 8px "+(isStudio?"rgba(0,0,0,0.3)":"rgba(0,0,0,0.08)")}},
             React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:500}},"more"),
             React.createElement("span",{style:{fontSize:10,color:t.muted,transform:"rotate(90deg)",display:"inline-block"}},"\u203A")))),
+      hasFade&&expanded&&React.createElement("div",{style:{display:"flex",justifyContent:"center",marginTop:4}},
+        React.createElement("button",{onClick:function(e){e.stopPropagation();setExpanded(false);},style:{background:"transparent",border:"1px solid "+t.border,borderRadius:12,padding:"2px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:4}},
+          React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:500}},"less"),
+          React.createElement("span",{style:{fontSize:10,color:t.muted,transform:"rotate(-90deg)",display:"inline-block"}},"\u203A"))),
       // ACTION ROW — Instagram style
       React.createElement("div",{"data-coach":"flame",style:{display:"flex",alignItems:"center",gap:2,marginTop:isStudio?14:10,paddingTop:isStudio?12:8,borderTop:"1px solid "+t.border}},
         React.createElement(PreviewBtn,{lickId:lick.id,abc:lick.abc,tempo:lick.tempo,feel:lick.feel,th:t,size:30}),
@@ -4580,13 +4584,17 @@ function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst,
           lick.user&&lick.user!=="Anonymous"&&React.createElement("button",{onClick:function(e){e.stopPropagation();if(onUserClick)onUserClick(lick.user);},style:{background:"none",border:"none",cursor:"pointer",padding:0,display:"flex",alignItems:"center"}},
             React.createElement("span",{style:{fontSize:9,color:isStudio?t.accent+"99":t.accent,fontFamily:"'Inter',sans-serif",fontWeight:600,background:isStudio?t.accent+"10":"transparent",padding:isStudio?"2px 6px":"0",borderRadius:5}},"\u0040"+lick.user)))),
       // NOTATION
-      React.createElement("div",{style:{marginTop:4,position:"relative",maxHeight:(hasFade&&!expanded)?155:2000,overflow:"hidden",transition:"max-height 0.35s ease"}},
+      React.createElement("div",{style:{marginTop:4,position:"relative",maxHeight:(hasFade&&!expanded)?130:2000,overflow:"hidden",transition:"max-height 0.35s ease"}},
         React.createElement("div",{style:{display:"flex",justifyContent:"center"}},
           React.createElement(Notation,{abc:cardAbc,compact:true,th:t,curNoteRef:prevCurNote,onReady:function(){setNotationReady(true);},bassClef:BASS_CLEF_INSTS.has(userInst)})),
         hasFade&&!expanded&&React.createElement("div",{style:{position:"absolute",left:0,right:0,bottom:0,height:40,background:"linear-gradient(to bottom, transparent, "+(isStudio?t.cardRaised||t.card:t.card)+")",display:"flex",alignItems:"flex-end",justifyContent:"center",paddingBottom:2}},
           React.createElement("button",{onClick:function(e){e.stopPropagation();setExpanded(true);},style:{background:isStudio?t.card+"E0":t.card+"E0",border:"1px solid "+t.border,borderRadius:12,padding:"2px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:4,boxShadow:"0 -2px 8px "+(isStudio?"rgba(0,0,0,0.3)":"rgba(0,0,0,0.08)")}},
             React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:500}},"more"),
             React.createElement("span",{style:{fontSize:10,color:t.muted,transform:"rotate(90deg)",display:"inline-block"}},"\u203A")))),
+      hasFade&&expanded&&React.createElement("div",{style:{display:"flex",justifyContent:"center",marginTop:4}},
+        React.createElement("button",{onClick:function(e){e.stopPropagation();setExpanded(false);},style:{background:"transparent",border:"1px solid "+t.border,borderRadius:12,padding:"2px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:4}},
+          React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:500}},"less"),
+          React.createElement("span",{style:{fontSize:10,color:t.muted,transform:"rotate(-90deg)",display:"inline-block"}},"\u203A"))),
       // ACTION ROW — Instagram style
       React.createElement("div",{style:{marginTop:isStudio?12:8,paddingTop:isStudio?10:6,borderTop:"1px solid "+t.border}},
         React.createElement("div",{style:{display:"flex",alignItems:"center",gap:2}},
