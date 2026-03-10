@@ -1385,6 +1385,8 @@ async function previewPlay(lickId,abc,tempo,feel){
   try{await Tone.start();}catch(e){}
   if(myGen!==_preview.gen)return;
   if(!_samplerReady&&!_samplerFailed){await preloadPiano();}
+  // Load custom piano (same as detail view) + Salamander fallback
+  if(!_cPianoChordReady){await preloadCustomPianoChord();}
   if(!_chordSamplerReady){await preloadChordPiano();}
   if(myGen!==_preview.gen)return;
   var sw=feel==="swing"?1:feel==="hard-swing"?2:0;
@@ -1397,14 +1399,17 @@ async function previewPlay(lickId,abc,tempo,feel){
   for(var ni=0;ni<notes.length;ni++){if(notes[ni].tones){
     (function(idx,st){_preview.noteTimers.push(setTimeout(function(){if(_preview.gen!==myGen)return;_preview.curNote=idx;previewNotify();},st*1000));})(noteIdx,notes[ni].startTime);noteIdx++;}}
   _preview.noteTimers.push(setTimeout(function(){if(_preview.gen!==myGen)return;_preview.curNote=-1;previewNotify();},totalDur*1000));
+  // Pick chord sampler: custom piano first, Salamander fallback
+  var prevChordSampler=(_cPianoChordReady&&_cPianoChordSampler)?_cPianoChordSampler:(_chordSamplerReady&&_chordSampler)?_chordSampler:null;
   // Schedule chord accompaniment — same chain as detail view piano
   var chordCleanup=null;
-  if(_chordSamplerReady&&_chordSampler&&chordTimes.length>0){
-    var cRev=new Tone.Reverb({decay:2.5,wet:0.22}).toDestination();
-    var cComp=new Tone.Compressor({threshold:-24,ratio:4,attack:0.01,release:0.15}).connect(cRev);
-    var cFlt=new Tone.Filter({frequency:2200,type:"lowpass",rolloff:-12}).connect(cComp);
-    _chordSampler.disconnect();_chordSampler.connect(cFlt);
-    chordCleanup=function(){try{_chordSampler.releaseAll();_chordSampler.disconnect();_chordSampler.toDestination();}catch(e){}try{cFlt.dispose();}catch(e){}try{cComp.dispose();}catch(e){}try{cRev.dispose();}catch(e){}};
+  if(prevChordSampler&&chordTimes.length>0){
+    var cRev=new Tone.Reverb({decay:2.5,wet:0.18}).toDestination();
+    var cComp=new Tone.Compressor({threshold:-22,ratio:3,attack:0.008,release:0.12}).connect(cRev);
+    var cFlt=new Tone.Filter({frequency:2800,type:"lowpass",rolloff:-12}).connect(cComp);
+    prevChordSampler.disconnect();prevChordSampler.connect(cFlt);
+    var _pcs=prevChordSampler;
+    chordCleanup=function(){try{_pcs.releaseAll();_pcs.disconnect();_pcs.toDestination();}catch(e){}try{cFlt.dispose();}catch(e){}try{cComp.dispose();}catch(e){}try{cRev.dispose();}catch(e){}};
   }
   if(_samplerReady&&_sampler){
     // Use piano sampler with dedicated effects chain
@@ -1417,13 +1422,13 @@ async function previewPlay(lickId,abc,tempo,feel){
     for(var i=0;i<notes.length;i++){var n=notes[i];if(!n.tones)continue;
       (function(_n){var fireMs=Math.max(0,_n.startTime*1000-LA*1000);timers.push(setTimeout(function(){if(_preview.gen!==myGen)return;for(var j=0;j<_n.tones.length;j++){try{_sampler.triggerAttackRelease(_n.tones[j],Math.min(_n.dur*0.85,1.5),now+_n.startTime,_n.vel);}catch(e){}}},fireMs));})(n);}
     // Schedule chords on same time base — matches detail view piano style
-    if(_chordSamplerReady&&_chordSampler&&chordTimes.length>0){
+    if(prevChordSampler&&chordTimes.length>0){
       var SAMPLE_PRE=0.04;
       for(var ci=0;ci<chordTimes.length;ci++){var ch=chordTimes[ci];var cn=chordToNotes(ch.name,2);if(!cn.length)continue;
         var nextT=ci<chordTimes.length-1?chordTimes[ci+1].time:totalDur;var cDur=Math.max(0.5,nextT-ch.time);
         for(var cni=0;cni<cn.length;cni++){(function(_note,_time,_dur){
           var fireMs=Math.max(0,(_time-SAMPLE_PRE)*1000-LA*1000);
-          timers.push(setTimeout(function(){if(_preview.gen!==myGen)return;try{_chordSampler.triggerAttackRelease(_note,_dur,now+_time-SAMPLE_PRE,0.5);}catch(e){}},fireMs));
+          timers.push(setTimeout(function(){if(_preview.gen!==myGen)return;try{prevChordSampler.triggerAttackRelease(_note,_dur,now+_time-SAMPLE_PRE,0.5);}catch(e){}},fireMs));
         })(cn[cni],ch.time,cDur);}}
     }
     if(myGen!==_preview.gen){for(var k=0;k<timers.length;k++)clearTimeout(timers[k]);try{_sampler.disconnect();_sampler.toDestination();}catch(e){}try{rev.dispose();}catch(e){}try{comp.dispose();}catch(e){}if(chordCleanup)chordCleanup();return;}
@@ -1439,13 +1444,13 @@ async function previewPlay(lickId,abc,tempo,feel){
     for(var i2=0;i2<notes.length;i2++){var n2=notes[i2];if(!n2.tones)continue;
       (function(_n){var fireMs=Math.max(0,_n.startTime*1000-40);timers.push(setTimeout(function(){if(_preview.gen!==myGen)return;for(var j=0;j<_n.tones.length;j++){try{syn.triggerAttackRelease(_n.tones[j],Math.min(_n.dur*0.85,1.5),now2+_n.startTime);}catch(e){}}},fireMs));})(n2);}
     // Schedule chords in fallback too — same params as detail view
-    if(_chordSamplerReady&&_chordSampler&&chordTimes.length>0){
+    if(prevChordSampler&&chordTimes.length>0){
       var SAMPLE_PRE2=0.04;
       for(var ci2=0;ci2<chordTimes.length;ci2++){var ch2=chordTimes[ci2];var cn2=chordToNotes(ch2.name,2);if(!cn2.length)continue;
         var nextT2=ci2<chordTimes.length-1?chordTimes[ci2+1].time:totalDur;var cDur2=Math.max(0.5,nextT2-ch2.time);
         for(var cni2=0;cni2<cn2.length;cni2++){(function(_note,_time,_dur){
           var fireMs=Math.max(0,(_time-SAMPLE_PRE2)*1000-40);
-          timers.push(setTimeout(function(){if(_preview.gen!==myGen)return;try{_chordSampler.triggerAttackRelease(_note,_dur,now2+_time-SAMPLE_PRE2,0.5);}catch(e){}},fireMs));
+          timers.push(setTimeout(function(){if(_preview.gen!==myGen)return;try{prevChordSampler.triggerAttackRelease(_note,_dur,now2+_time-SAMPLE_PRE2,0.5);}catch(e){}},fireMs));
         })(cn2[cni2],ch2.time,cDur2);}}
     }
     _preview.id=lickId;
@@ -9061,7 +9066,7 @@ export default function Etudy(){
     // Sync with Supabase
     if(adding){addUserLick(authUser.id,id,"save");}else{removeUserLick(authUser.id,id,"save");}
   };
-  useEffect(()=>{preloadPiano();preloadChordPiano();},[]);
+  useEffect(()=>{preloadPiano();preloadChordPiano();preloadCustomPianoChord();},[]);
   const dayOfYear=Math.floor((Date.now()-new Date(new Date().getFullYear(),0,0))/86400000);
   const dailyLick=licks.length>0?licks[dayOfYear%licks.length]:null;
   const srcLicks=lickSource==="mine"?licks.filter(function(l){return savedSet.has(l.id);}).concat(myLicks):licks;
