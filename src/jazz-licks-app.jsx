@@ -201,7 +201,7 @@ const EAR_TIPS=[
   {target:"[data-coach='ear-reveal']",text:"Played it back? Reveal to check yourself",pos:"above"},
 ];
 const RHYTHM_TIPS=[
-  {target:"[data-coach='rhythm-modes']",text:"Metronome, sight-reading & polyrhythms",pos:"below"},
+  {target:"[data-coach='rhythm-metro']",text:"Metronome, sight-reading & polyrhythms",pos:"below"},
   {target:"[data-coach='rhythm-metro']",text:"Tap the dots to set accents & mutes",pos:"below"},
 ];
 
@@ -8944,7 +8944,7 @@ export default function Etudy(){
   const[lickSource,setLickSource]=useState("community"); // community | mine
   const[myLicksSub,setMyLicksSub]=useState("saved"); // saved | private
   const allLicks=useMemo(function(){return[...licks,...myLicks];},[licks,myLicks]);
-  const[rhythmSub,setRhythmSub]=useState("metronome"); // metronome | reading | poly
+  const[rhythmSub,setRhythmSub]=useState(null); // null | "metronome" | "reading" | "poly" — accordion
   const[trainSub,setTrainSub]=useState("rhythm"); // rhythm | ear
   const[showSettings,setShowSettings]=useState(false);
   const[rhythmInput,setRhythmInput]=useState("tap"); // tap | mic — shared across modes
@@ -9246,24 +9246,51 @@ export default function Etudy(){
         trainSub==="scales"&&React.createElement(ScaleChordTrainer,{key:userInst,th:t,userInst:userInst}),
         // Ear sub-view
         trainSub==="ear"&&React.createElement(EarTrainer,{licks:allLicks,onLike:toggleLike,onOpen:openLick,likedSet:likedSet,th:t,userInst:userInst}),
-        // Rhythm sub-view
-        trainSub==="rhythm"&&React.createElement("div",null,
-          // Rhythm sub-mode tabs
-          React.createElement("div",{"data-coach":"rhythm-modes",style:{display:"flex",gap:4,marginBottom:12,background:t.filterBg,borderRadius:10,padding:3}},
-            [["metronome","Metro"],["reading","Reading"],["poly","Polyrhythm"]].map(function(m){
-              return React.createElement("button",{key:m[0],onClick:function(){setRhythmSub(m[0]);},style:{flex:1,padding:"8px 12px",borderRadius:8,border:"none",background:rhythmSub===m[0]?(t.activeTabBg||t.card):"transparent",color:rhythmSub===m[0]?t.text:t.subtle,fontSize:11,fontWeight:rhythmSub===m[0]?600:400,fontFamily:"'Inter',sans-serif",cursor:"pointer",boxShadow:rhythmSub===m[0]?"0 1px 4px rgba(0,0,0,0.08)":"none",transition:"all 0.15s"}},m[1]);
-            })),
-          // Shared input mode toggle (for reading + poly)
-          rhythmSub!=="metronome"&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:12}},
-            React.createElement("div",{style:{display:"flex",gap:3,flex:1,background:t.filterBg,borderRadius:8,padding:2}},
-              [["tap","Tap"],["mic","Mic"]].map(function(m){
-                return React.createElement("button",{key:m[0],onClick:function(){setRhythmInput(m[0]);},style:{flex:1,padding:"5px 10px",borderRadius:6,border:"none",background:rhythmInput===m[0]?t.card:"transparent",color:rhythmInput===m[0]?t.text:t.subtle,fontSize:10,fontWeight:rhythmInput===m[0]?600:400,fontFamily:"'Inter',sans-serif",cursor:"pointer",boxShadow:rhythmInput===m[0]?"0 1px 3px rgba(0,0,0,0.06)":"none"}},m[1]);
-              })),
-            rhythmInput==="mic"&&React.createElement("button",{onClick:function(){setRhythmMicSilent(!rhythmMicSilent);},style:{padding:"5px 10px",borderRadius:6,border:"1px solid "+(isStudio?"#F59E0B30":"#FDE68A"),background:isStudio?"#F59E0B10":"#FEF9C3",color:isStudio?"#F59E0B":"#92400E",fontSize:9,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer",whiteSpace:"nowrap"}},rhythmMicSilent?"Silent":"Audio")),
-          // Components
-          rhythmSub==="metronome"&&React.createElement("div",{"data-coach":"rhythm-metro"},React.createElement(Metronome,{th:t})),
-          rhythmSub==="reading"&&React.createElement(RhythmGame,{th:t,sharedInput:rhythmInput,sharedMicSilent:rhythmMicSilent}),
-          rhythmSub==="poly"&&React.createElement(PolyrhythmTrainer,{th:t,sharedInput:rhythmInput,sharedMicSilent:rhythmMicSilent}))),
+        // Rhythm sub-view — accordion cards
+        trainSub==="rhythm"&&React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:8}},
+          // ── Metronome card ──
+          React.createElement("div",{"data-coach":"rhythm-metro",style:{background:t.card,borderRadius:14,border:"1px solid "+(rhythmSub==="metronome"?t.accent+"30":t.border),overflow:"hidden",transition:"border-color 0.2s"}},
+            React.createElement("button",{onClick:function(){setRhythmSub(rhythmSub==="metronome"?null:"metronome");},style:{width:"100%",padding:"14px 16px",background:"transparent",border:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:10}},
+              React.createElement("div",{style:{width:32,height:32,borderRadius:8,background:isStudio?"#3B82F615":"#3B82F608",display:"flex",alignItems:"center",justifyContent:"center"}},
+                React.createElement("span",{style:{fontSize:16}},"\uD83C\uDFB5")),
+              React.createElement("div",{style:{flex:1,textAlign:"left"}},
+                React.createElement("div",{style:{fontSize:13,fontWeight:600,color:t.text,fontFamily:"'Inter',sans-serif"}},"Metronome"),
+                React.createElement("div",{style:{fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",marginTop:1}},"Tap tempo, time signatures, subdivisions")),
+              React.createElement("span",{style:{fontSize:14,color:t.muted,transform:rhythmSub==="metronome"?"rotate(90deg)":"none",transition:"transform 0.2s"}},"\u203A")),
+            rhythmSub==="metronome"&&React.createElement("div",{style:{padding:"0 16px 16px"}},
+              React.createElement(Metronome,{th:t}))),
+          // ── Rhythm Reading card ──
+          React.createElement("div",{style:{background:t.card,borderRadius:14,border:"1px solid "+(rhythmSub==="reading"?t.accent+"30":t.border),overflow:"hidden",transition:"border-color 0.2s"}},
+            React.createElement("button",{onClick:function(){setRhythmSub(rhythmSub==="reading"?null:"reading");},style:{width:"100%",padding:"14px 16px",background:"transparent",border:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:10}},
+              React.createElement("div",{style:{width:32,height:32,borderRadius:8,background:isStudio?"#F59E0B15":"#F59E0B08",display:"flex",alignItems:"center",justifyContent:"center"}},
+                IC.tabRhythm(16,isStudio?"#F59E0B":"#D97706",false)),
+              React.createElement("div",{style:{flex:1,textAlign:"left"}},
+                React.createElement("div",{style:{fontSize:13,fontWeight:600,color:t.text,fontFamily:"'Inter',sans-serif"}},"Rhythm Reading"),
+                React.createElement("div",{style:{fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",marginTop:1}},"Sight-read and clap rhythmic patterns")),
+              React.createElement("span",{style:{fontSize:14,color:t.muted,transform:rhythmSub==="reading"?"rotate(90deg)":"none",transition:"transform 0.2s"}},"\u203A")),
+            rhythmSub==="reading"&&React.createElement("div",{style:{padding:"0 16px 16px"}},
+              React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:12}},
+                React.createElement("div",{style:{display:"flex",gap:3,flex:1,background:t.filterBg,borderRadius:8,padding:2}},
+                  [["tap","Tap"],["mic","Mic"]].map(function(m){
+                    return React.createElement("button",{key:m[0],onClick:function(){setRhythmInput(m[0]);},style:{flex:1,padding:"5px 10px",borderRadius:6,border:"none",background:rhythmInput===m[0]?t.card:"transparent",color:rhythmInput===m[0]?t.text:t.subtle,fontSize:10,fontWeight:rhythmInput===m[0]?600:400,fontFamily:"'Inter',sans-serif",cursor:"pointer",boxShadow:rhythmInput===m[0]?"0 1px 3px rgba(0,0,0,0.06)":"none"}},m[1]);})),
+                rhythmInput==="mic"&&React.createElement("button",{onClick:function(){setRhythmMicSilent(!rhythmMicSilent);},style:{padding:"5px 10px",borderRadius:6,border:"1px solid "+(isStudio?"#F59E0B30":"#FDE68A"),background:isStudio?"#F59E0B10":"#FEF9C3",color:isStudio?"#F59E0B":"#92400E",fontSize:9,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer",whiteSpace:"nowrap"}},rhythmMicSilent?"Silent":"Audio")),
+              React.createElement(RhythmGame,{th:t,sharedInput:rhythmInput,sharedMicSilent:rhythmMicSilent}))),
+          // ── Polyrhythm card ──
+          React.createElement("div",{style:{background:t.card,borderRadius:14,border:"1px solid "+(rhythmSub==="poly"?t.accent+"30":t.border),overflow:"hidden",transition:"border-color 0.2s"}},
+            React.createElement("button",{onClick:function(){setRhythmSub(rhythmSub==="poly"?null:"poly");},style:{width:"100%",padding:"14px 16px",background:"transparent",border:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:10}},
+              React.createElement("div",{style:{width:32,height:32,borderRadius:8,background:isStudio?"#A78BFA15":"#A78BFA08",display:"flex",alignItems:"center",justifyContent:"center"}},
+                React.createElement("span",{style:{fontSize:16}},"\u25EF")),
+              React.createElement("div",{style:{flex:1,textAlign:"left"}},
+                React.createElement("div",{style:{fontSize:13,fontWeight:600,color:t.text,fontFamily:"'Inter',sans-serif"}},"Polyrhythm"),
+                React.createElement("div",{style:{fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",marginTop:1}},"Cross-rhythm patterns with circular visualization")),
+              React.createElement("span",{style:{fontSize:14,color:t.muted,transform:rhythmSub==="poly"?"rotate(90deg)":"none",transition:"transform 0.2s"}},"\u203A")),
+            rhythmSub==="poly"&&React.createElement("div",{style:{padding:"0 16px 16px"}},
+              React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:12}},
+                React.createElement("div",{style:{display:"flex",gap:3,flex:1,background:t.filterBg,borderRadius:8,padding:2}},
+                  [["tap","Tap"],["mic","Mic"]].map(function(m){
+                    return React.createElement("button",{key:m[0],onClick:function(){setRhythmInput(m[0]);},style:{flex:1,padding:"5px 10px",borderRadius:6,border:"none",background:rhythmInput===m[0]?t.card:"transparent",color:rhythmInput===m[0]?t.text:t.subtle,fontSize:10,fontWeight:rhythmInput===m[0]?600:400,fontFamily:"'Inter',sans-serif",cursor:"pointer",boxShadow:rhythmInput===m[0]?"0 1px 3px rgba(0,0,0,0.06)":"none"}},m[1]);})),
+                rhythmInput==="mic"&&React.createElement("button",{onClick:function(){setRhythmMicSilent(!rhythmMicSilent);},style:{padding:"5px 10px",borderRadius:6,border:"1px solid "+(isStudio?"#F59E0B30":"#FDE68A"),background:isStudio?"#F59E0B10":"#FEF9C3",color:isStudio?"#F59E0B":"#92400E",fontSize:9,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer",whiteSpace:"nowrap"}},rhythmMicSilent?"Silent":"Audio")),
+              React.createElement(PolyrhythmTrainer,{th:t,sharedInput:rhythmInput,sharedMicSilent:rhythmMicSilent})))),
 
       // ─── SESSIONS TAB ───
       view==="sessions"&&React.createElement("div",{style:{padding:"8px 0"}},
