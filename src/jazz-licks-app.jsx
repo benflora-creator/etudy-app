@@ -1775,6 +1775,8 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
     try{window.ABCJS.renderAbc(ref.current,renderAbc,opts);}catch(e){}
     // Release height lock after paint (double-rAF ensures browser has painted)
     requestAnimationFrame(function(){requestAnimationFrame(function(){if(el)el.style.minHeight="";if(onReadyRef.current)onReadyRef.current();});});
+    // Invalidate cursor position cache for smooth cursor
+    noteXCacheRef.current=null;if(cursorLineRef.current){try{cursorLineRef.current.remove();}catch(e){}cursorLineRef.current=null;}
     if(!ref.current)return;const svg=ref.current.querySelector("svg");if(!svg)return;
     const isStudio=t===TH.studio;
     svg.querySelectorAll("path").forEach(p=>{p.setAttribute("stroke",t.noteStroke);p.setAttribute("fill",t.noteStroke);});
@@ -1987,7 +1989,68 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
     }
   },[abc,ok,compact,abRange,focus,th,theoryMode,theoryAnalysis,soundAbc,bassClef]);
   // Cursor: poll curNoteRef via rAF — zero React re-renders
+  // Smooth cursor line + note highlighting
+  var cursorLineRef=useRef(null);
+  var noteXCacheRef=useRef(null);
   useEffect(()=>{if(!curNoteRef)return;
+    // Build note x-position cache on first use
+    var ensureCache=function(){
+      if(noteXCacheRef.current)return noteXCacheRef.current;
+      if(!ref.current)return null;
+      var svg=ref.current.querySelector("svg");if(!svg)return null;
+      var noteEls=svg.querySelectorAll(".abcjs-note");
+      if(!noteEls.length)return null;
+      var positions=[];
+      noteEls.forEach(function(el){
+        try{
+          var head=el.querySelector("ellipse")||el.querySelector("circle");
+          var bb=head?head.getBBox():el.getBBox();
+          positions.push({cx:bb.x+bb.width/2,cy:bb.y+bb.height/2});
+        }catch(e){positions.push(null);}
+      });
+      // Find staff top/bottom for cursor height
+      var staffEls=svg.querySelectorAll(".abcjs-staff");
+      var staffTop=999,staffBot=0;
+      staffEls.forEach(function(s){try{var sb=s.getBBox();if(sb.y<staffTop)staffTop=sb.y;if(sb.y+sb.height>staffBot)staffBot=sb.y+sb.height;}catch(e){}});
+      if(staffTop>staffBot){staffTop=20;staffBot=60;}
+      noteXCacheRef.current={positions:positions,staffTop:staffTop-6,staffBot:staffBot+6};
+      return noteXCacheRef.current;
+    };
+    // Create cursor line element
+    var ensureCursorLine=function(){
+      if(cursorLineRef.current)return cursorLineRef.current;
+      if(!ref.current)return null;
+      var svg=ref.current.querySelector("svg");if(!svg)return null;
+      var cache=ensureCache();if(!cache)return null;
+      var line=document.createElementNS("http://www.w3.org/2000/svg","rect");
+      line.setAttribute("class","etudy-cursor");
+      line.setAttribute("width","2");
+      line.setAttribute("height",String(cache.staffBot-cache.staffTop));
+      line.setAttribute("y",String(cache.staffTop));
+      line.setAttribute("x","0");
+      line.setAttribute("rx","1");
+      line.setAttribute("fill",t.accent);
+      line.setAttribute("fill-opacity","0.7");
+      line.style.transition="transform 0.08s cubic-bezier(0.2,0,0.3,1)";
+      line.style.display="none";
+      // Glow filter
+      var filterId="cursor-glow-"+Math.random().toString(36).slice(2,6);
+      var defs=svg.querySelector("defs")||document.createElementNS("http://www.w3.org/2000/svg","defs");
+      if(!svg.querySelector("defs"))svg.insertBefore(defs,svg.firstChild);
+      var filter=document.createElementNS("http://www.w3.org/2000/svg","filter");
+      filter.setAttribute("id",filterId);filter.setAttribute("x","-50%");filter.setAttribute("y","-10%");filter.setAttribute("width","200%");filter.setAttribute("height","120%");
+      var blur=document.createElementNS("http://www.w3.org/2000/svg","feGaussianBlur");
+      blur.setAttribute("stdDeviation","3");blur.setAttribute("result","glow");
+      var merge=document.createElementNS("http://www.w3.org/2000/svg","feMerge");
+      var mn1=document.createElementNS("http://www.w3.org/2000/svg","feMergeNode");mn1.setAttribute("in","glow");
+      var mn2=document.createElementNS("http://www.w3.org/2000/svg","feMergeNode");mn2.setAttribute("in","SourceGraphic");
+      merge.appendChild(mn1);merge.appendChild(mn2);filter.appendChild(blur);filter.appendChild(merge);
+      defs.appendChild(filter);
+      line.setAttribute("filter","url(#"+filterId+")");
+      svg.appendChild(line);
+      cursorLineRef.current=line;
+      return line;
+    };
     const tick=()=>{const cn=curNoteRef.current;
       if(cn!==prevNoteRef.current&&ref.current){
         const svg=ref.current.querySelector("svg");if(svg){
@@ -2006,18 +2069,32 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
             el.style.filter="none";el.style.transition="";}
           if(cn>=0&&cn<noteEls.length){
             const el=noteEls[cn];
-            // In theory mode: use white/black to contrast all theory colors
             var curCol=theoryMode?(t===TH.studio?"#FFFFFF":"#1A1A1A"):t.accent;
             var curGlow=theoryMode?(t===TH.studio?"rgba(255,255,255,0.4)":"rgba(0,0,0,0.15)"):t.accentGlow;
             el.querySelectorAll("path,circle,ellipse").forEach(p=>{
               p.style.fill=curCol;p.style.stroke=curCol;
               p.style.fillOpacity="1";p.style.strokeOpacity="1";});
-            el.style.filter="drop-shadow(0 0 8px "+curGlow+")";
-            el.style.transition="filter 0.05s";}
+            el.style.filter="drop-shadow(0 0 6px "+curGlow+")";
+            el.style.transition="filter 0.05s";
+            // Move cursor line
+            var cache=ensureCache();var line=ensureCursorLine();
+            if(cache&&line&&cache.positions[cn]){
+              line.style.display="block";
+              line.style.transform="translateX("+cache.positions[cn].cx+"px)";
+            }
+          }else{
+            // Hide cursor when not playing
+            if(cursorLineRef.current)cursorLineRef.current.style.display="none";
+          }
         }prevNoteRef.current=cn;}
       rafRef.current=requestAnimationFrame(tick);};
     rafRef.current=requestAnimationFrame(tick);
-    return()=>{if(rafRef.current)cancelAnimationFrame(rafRef.current);};
+    return()=>{
+      if(rafRef.current)cancelAnimationFrame(rafRef.current);
+      // Cleanup cursor elements
+      if(cursorLineRef.current){try{cursorLineRef.current.remove();}catch(e){}cursorLineRef.current=null;}
+      noteXCacheRef.current=null;
+    };
   },[abc,abRange,th,compact,curNoteRef,theoryMode]);
   // Selection highlight (editor) — rounded box around selected note
   var prevSelRef=useRef(-1);var selBoxRef=useRef(null);
