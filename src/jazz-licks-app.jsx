@@ -1793,6 +1793,7 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
     // Invalidate cursor position cache for smooth cursor
     posMapRef.current=null;if(cursorLineRef.current){try{cursorLineRef.current.remove();}catch(e){}cursorLineRef.current=null;}
     if(!ref.current)return;const svg=ref.current.querySelector("svg");if(!svg)return;
+    svg.style.overflow="hidden";// prevent cursor overhang from causing layout shifts
     const isStudio=t===TH.studio;
     svg.querySelectorAll("path").forEach(p=>{p.setAttribute("stroke",t.noteStroke);p.setAttribute("fill",t.noteStroke);});
     // Staff lines — very thin, like professional engraving
@@ -2274,7 +2275,7 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
   },[selNoteIdx,abc,th]);
   if(!ok)return React.createElement("div",{style:{height:compact?50:80,display:"flex",alignItems:"center",justifyContent:"center",color:t.subtle,fontSize:12,fontFamily:"'Inter',sans-serif"}},"Loading...");
   const isStudio=t===TH.studio;
-  return React.createElement("div",{ref,style:{borderRadius:focus?0:isStudio?12:10,background:focus?"transparent":compact?"transparent":t.noteBg,padding:focus?"0":compact?"6px 10px":(isStudio?"14px 16px":"12px 14px"),border:focus?"none":compact?"none":"1px solid "+(isStudio?t.border:t.borderSub),overflow:compact?"hidden":"visible",transition:"min-height 0.15s ease"}});}
+  return React.createElement("div",{ref,style:{borderRadius:focus?0:isStudio?12:10,background:focus?"transparent":compact?"transparent":t.noteBg,padding:focus?"0":compact?"6px 10px":(isStudio?"14px 16px":"12px 14px"),border:focus?"none":compact?"none":"1px solid "+(isStudio?t.border:t.borderSub),overflow:compact?"hidden":"visible"}});}
 
 // ============================================================
 // A/B RANGE BAR — themed
