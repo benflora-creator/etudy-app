@@ -3182,7 +3182,7 @@ function buildAbc(items,keySig,timeSig,tempo,chords,minBars,keyQual){const[tsN,t
     var posInBar=pos%bE;
     if(Math.abs(posInBar)<0.01)posInBar=0;
     var remaining=Math.round((bE-posInBar)*1200)/1200;
-    if(remaining<bE-0.01&&effEi>remaining+0.01&&item.type==="note"&&!(item.tri&&triCount%3!==0)){
+    if(remaining<bE-0.01&&effEi>remaining+0.01&&item.type==="note"&&!item.tri){
       // Split: first part fills the bar, second part goes into next bar
       var firstEi=remaining;var secondEi=Math.round((effEi-remaining)*1200)/1200;
 
@@ -3203,9 +3203,8 @@ function buildAbc(items,keySig,timeSig,tempo,chords,minBars,keyQual){const[tsN,t
     }
 
     // Normal note (no barline crossing)
-    // Barline — emit when we've crossed a bar boundary, but defer if mid-triplet
-    var midTri=item.tri&&(triCount%3!==0);
-    if(pos>0&&!midTri){
+    // Barline — always emit when we've crossed a bar boundary
+    if(pos>0){
       var curBar=Math.floor(pos/bE+0.001);
       if(curBar>lastBarEmitted){abc+=" | ";barAlts={};lastBarEmitted=curBar;}
     }
@@ -3228,14 +3227,7 @@ function buildAbc(items,keySig,timeSig,tempo,chords,minBars,keyQual){const[tsN,t
     // Note
     if(item.type==="rest")abc+="z"+e2s(ei);
     else abc+=emitNote(item,ei,barAlts,hasTie);
-    pos+=effEi;nc++;
-    // POST: if a triplet group just completed, check for deferred barline
-    // Use -0.01 so exact boundary (pos=8.0) is NOT treated as "past" — PRE check handles it
-    if(item.tri&&triCount%3===0){
-      pos=Math.round(pos*1200)/1200;
-      var curBar2=Math.floor((pos-0.01)/bE);
-      if(curBar2>0&&curBar2>lastBarEmitted){abc+=" | ";barAlts={};lastBarEmitted=curBar2;}
-    }}
+    pos+=effEi;nc++;}
   if(nc>0)abc+=" |";
   if(items.some(function(it){return it.tri;})){
     console.log("[etudy] Triplet ABC:",abc.split("\n").pop());
@@ -3382,6 +3374,7 @@ function NoteBuilder({onAbcChange,keySig,keyQual,timeSig,tempo,previewEl,playerE
       prevNote(n,oct,acc,previewOffset||0);
       var newItems=items.concat([{type:"note",note:n,acc:acc,oct:oct,dur:cD,dotted:dt,tri:tri}]);
       mutate(newItems);
+      if(tri){var tc=0;for(var k=newItems.length-1;k>=0&&newItems[k].tri;k--)tc++;if(tc%3===0)sTri(false);}
     }
   };
   const addRest=function(){
@@ -3392,6 +3385,7 @@ function NoteBuilder({onAbcChange,keySig,keyQual,timeSig,tempo,previewEl,playerE
     }else{
       var newItems=items.concat([{type:"rest",dur:cD,dotted:dt,tri:tri}]);
       mutate(newItems);
+      if(tri){var tc=0;for(var k=newItems.length-1;k>=0&&newItems[k].tri;k--)tc++;if(tc%3===0)sTri(false);}
     }
   };
   const changeDur=function(d){
