@@ -2202,6 +2202,7 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
       // --- HTML cursor overlay (zero SVG DOM mutations) ---
       var cDiv=cursorDivRef.current;
       if(!compact&&progress>=0&&cDiv){
+        if(!svgRatio.ok)computeRatio();// lazy init — SVG might not be laid out on first tick
         var map=buildPosMap();
         if(map&&svgRatio.ok){
           var cPos=getCursorPos(progress,map);
