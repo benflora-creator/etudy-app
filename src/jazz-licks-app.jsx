@@ -690,7 +690,20 @@ function getIntervalLabel(semi,chordParsed){
 
 // Detect scale from notes over a chord
 function detectScale(noteSet,chordParsed){
-  if(!noteSet||noteSet.size<3||!chordParsed)return null;
+  if(!chordParsed)return null;
+  var DEFAULT_SCALES={
+    "maj7":"Ionian","maj9":"Ionian","6":"Ionian","":"Ionian",
+    "7":"Mixolydian","9":"Mixolydian","13":"Mixolydian",
+    "m7":"Dorian","m9":"Dorian","m":"Dorian","m6":"Dorian",
+    "m7b5":"Locrian","dim":"WH Diminished","dim7":"WH Diminished",
+    "aug":"Whole Tone","7#5":"Whole Tone",
+    "7alt":"Altered","7b9":"Altered","7#9":"Altered","7b13":"Altered",
+    "7#11":"Lydian Dominant","maj7#11":"Lydian","maj9#11":"Lydian",
+    "mmaj7":"Melodic Minor","sus4":"Mixolydian","sus2":"Mixolydian","7sus4":"Mixolydian"
+  };
+  var defaultScale=DEFAULT_SCALES[chordParsed.quality]||DEFAULT_SCALES[chordParsed.quality.replace(/\d+$/,"")]||"Ionian";
+  // No notes at all → return default
+  if(!noteSet||noteSet.size===0)return defaultScale;
   // Chord tones (reduced to 0-11)
   var ctArr=CHORD_TONE_MAP[chordParsed.quality]||CHORD_TONE_MAP[""]||[0,4,7];
   var ctSet=new Set(ctArr.map(function(ct){return ct%12;}));
@@ -730,7 +743,7 @@ function detectScale(noteSet,chordParsed){
     if(score>bestScore){bestScore=score;best=sd;}
   }
   if(best&&bestScore>0)return best.name;
-  return null;
+  return defaultScale;
 }
 
 // Analyze a full ABC string: returns {noteAnalysis[], chordScales[]}
@@ -4169,7 +4182,10 @@ function TempoPopup({bpm,onBpmChange,onClose,th,lickTempo,playerCtrlRef,ci,setCi
     if(m.setProgInc)m.setProgInc(inc);
     if(m.setProgBars)m.setProgBars(bars);
   };
-  var doSetProgOn=function(v){setProgOn(v);syncProg(v,progTarget,progStep,progLoops);};
+  var doSetProgOn=function(v){setProgOn(v);syncProg(v,progTarget,progStep,progLoops);
+    // Progressive needs loop — auto-enable when turning on
+    if(v){var c=pc();if(c.setLooping)c.setLooping(true);}
+  };
   var doSetProgTarget=function(v){setProgTarget(v);syncProg(progOn,v,progStep,progLoops);};
   var doSetProgStep=function(v){setProgStep(v);syncProg(progOn,progTarget,v,progLoops);};
   var doSetProgLoops=function(v){setProgLoops(v);syncProg(progOn,progTarget,progStep,v);};
@@ -4686,9 +4702,9 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
                 return React.createElement("span",{key:pair[0],style:{display:"flex",alignItems:"center",gap:3,fontSize:9,fontFamily:"'JetBrains Mono',monospace"}},
                   React.createElement("span",{style:{width:7,height:7,borderRadius:"50%",background:getTheoryColor(pair[0],isStudio),display:"inline-block",flexShrink:0,boxShadow:"0 0 4px "+getTheoryColor(pair[0],isStudio)+"40"}}),
                   React.createElement("span",{style:{color:getTheoryColor(pair[0],isStudio),fontWeight:600,opacity:0.85}},pair[1]));})),
-            theoryAnalysis.chordScales&&theoryAnalysis.chordScales.some(function(cs){return cs.scale&&cs.noteCount>=2;})&&React.createElement("span",{style:{width:1,height:14,background:t.border,flexShrink:0}}),
+            theoryAnalysis.chordScales&&theoryAnalysis.chordScales.some(function(cs){return !!cs.scale;})&&React.createElement("span",{style:{width:1,height:14,background:t.border,flexShrink:0}}),
             theoryAnalysis.chordScales&&theoryAnalysis.chordScales.map(function(cs,idx){
-              if(!cs.scale||cs.noteCount<2)return null;
+              if(!cs.scale)return null;
               return React.createElement("span",{key:idx,onClick:function(e){e.stopPropagation();var sn=getScaleNotes(cs.chord,cs.scale);if(sn){if(instOff){sn.midis=sn.midis.map(function(m){return m-instOff;});var minM=Math.min.apply(null,sn.midis);if(minM<48){var shift=Math.ceil((48-minM)/12)*12;sn.midis=sn.midis.map(function(m){return m+shift;});}}setScalePopup(sn);}},style:{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 8px",borderRadius:6,fontSize:10,fontFamily:"'JetBrains Mono',monospace",background:isStudio?t.accent+"10":"rgba(99,102,241,0.06)",border:"1px solid "+(isStudio?t.accent+"18":"rgba(99,102,241,0.1)"),cursor:"pointer",transition:"all 0.15s"}},
                 React.createElement("span",{style:{fontWeight:700,color:t.chordFill}},cs.chord),
                 React.createElement("span",{style:{fontWeight:500,color:t.text,opacity:0.75,fontFamily:"'Inter',sans-serif",fontSize:10}},cs.scale));}))),
@@ -4723,9 +4739,9 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
               ps.playing?React.createElement("div",{style:{display:"flex",gap:3}},React.createElement("div",{style:{width:4,height:16,background:isStudio?"#08080F":"#fff",borderRadius:1}}),React.createElement("div",{style:{width:4,height:16,background:isStudio?"#08080F":"#fff",borderRadius:1}})):
               React.createElement("div",{style:{width:0,height:0,borderTop:"9px solid transparent",borderBottom:"9px solid transparent",borderLeft:"14px solid #fff",marginLeft:3}})),
             // BPM — clearly clickable, opens tempo popup
-            React.createElement("button",{onClick:function(e){e.stopPropagation();setShowTempoPopup(true);},style:{background:isStudio?"#16162A":t.filterBg,border:"1.5px solid "+(ps.playing?t.accent+"40":t.border),borderRadius:10,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"flex-start",padding:"4px 10px",minWidth:48}},
-              React.createElement("div",{style:{fontSize:20,fontWeight:800,color:ps.playing?t.accent:t.text,fontFamily:"'JetBrains Mono',monospace",letterSpacing:-1,lineHeight:1}},pT),
-              React.createElement("div",{style:{fontSize:7,color:t.accent,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,marginTop:2}},"BPM \u25BE")),
+            React.createElement("button",{onClick:function(e){e.stopPropagation();setShowTempoPopup(true);},style:{width:48,height:48,background:isStudio?"#16162A":t.filterBg,border:"1.5px solid "+(ps.playing?t.accent+"40":t.border),borderRadius:14,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",flexShrink:0}},
+              React.createElement("div",{style:{fontSize:18,fontWeight:800,color:ps.playing?t.accent:t.text,fontFamily:"'JetBrains Mono',monospace",letterSpacing:-1,lineHeight:1}},pT),
+              React.createElement("div",{style:{fontSize:6,color:t.accent,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,marginTop:1}},"BPM")),
             React.createElement("div",{style:{flex:1}}),
             // Settings gear — opens sound/style/feel popup
             React.createElement("button",{onClick:function(e){e.stopPropagation();setShowSoundMenu(!showSoundMenu);},style:{width:34,height:34,borderRadius:10,flexShrink:0,border:"1.5px solid "+(showSoundMenu?t.accent+"40":t.border),background:showSoundMenu?t.accent+"15":"transparent",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",transition:"all 0.15s"}},IC.gear?IC.gear(15,showSoundMenu?t.accent:t.subtle):React.createElement("span",{style:{fontSize:14,color:showSoundMenu?t.accent:t.subtle}},"\u2699")),
