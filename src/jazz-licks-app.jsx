@@ -2355,14 +2355,19 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
   const parentChangeBpm=delta=>{const cur=pTR.current||tempo;const nv=Math.max(30,Math.min(300,cur+delta));if(sPT)sPT(nv);pTR.current=nv;if(metroCtrlRef.current.setBpmLive)metroCtrlRef.current.setBpmLive(nv);if(!sT.current)liveRestart(nv);};
   const clr=useCallback(()=>{sT.current=true;playGenRef.current++;if(aR.current)cancelAnimationFrame(aR.current);disposeBag();sPl(false);setPr(0);setLc(0);setLoading(false);lcR.current=0;curNoteR.current=-1;if(onCurNoteR.current)onCurNoteR.current(-1);if(progressRef)progressRef.current=-1;try{metroCtrlRef.current.stop&&metroCtrlRef.current.stop();}catch(e){}},[]);
   // Live restart at new BPM (called when user changes BPM during playback)
+  var liveRestartTimer=useRef(null);
   const liveRestart=useCallback((newBpm)=>{
     if(sT.current)return;// not playing
-    sT.current=true;if(aR.current)cancelAnimationFrame(aR.current);disposeBag();
-    pTR.current=newBpm;
-    const p=parseAbc(abcR.current,newBpm);sT.current=false;
-    var t0=Tone.now();toneStartR.current=t0;
-    ciOffR.current=0;sch(p,false,t0);
-    try{metroCtrlRef.current.start&&metroCtrlRef.current.start(t0);}catch(e){}
+    // Debounce rapid changes to avoid double-dispose crash
+    if(liveRestartTimer.current)clearTimeout(liveRestartTimer.current);
+    liveRestartTimer.current=setTimeout(function(){
+      if(sT.current)return;
+      sT.current=true;if(aR.current)cancelAnimationFrame(aR.current);try{disposeBag();}catch(e){}
+      pTR.current=newBpm;
+      const p=parseAbc(abcR.current,newBpm);sT.current=false;
+      var t0=Tone.now();toneStartR.current=t0;
+      ciOffR.current=0;sch(p,false,t0);
+      try{metroCtrlRef.current.start&&metroCtrlRef.current.start(t0);}catch(e){}
     const an=()=>{if(sT.current)return;const el=Tone.now()-toneStartR.current;const dur=dR.current;if(dur<=0)return;
       const cOff=ciOffR.current;const musicEl=el-cOff;
       if(musicEl<0){setPr(0);if(progressRef)progressRef.current=0;aR.current=requestAnimationFrame(an);return;}
@@ -2381,6 +2386,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
         if(rawP>=1){if(lR.current&&!sT.current){try{metroCtrlRef.current.notifyLoop&&metroCtrlRef.current.notifyLoop();}catch(e){}if(metroCtrlRef.current.getBpm){pTR.current=metroCtrlRef.current.getBpm();if(sPT)sPT(pTR.current);}var lt0=toneStartR.current+ciOffR.current+dR.current;toneStartR.current=lt0;lcR.current++;setLc(lcR.current);var _lr=onLoopCompleteR.current?onLoopCompleteR.current(lcR.current):null;if(_lr&&_lr.abc){abcR.current=_lr.abc;}if(_lr&&_lr.stop){clr();return;}ciOffR.current=sch(parseAbc(abcR.current,pTR.current),_lr&&_lr.countIn,lt0);noteFracsR.current=getNoteTimeFracs(abcR.current);try{metroCtrlRef.current.start&&metroCtrlRef.current.start(lt0);}catch(e){}aR.current=requestAnimationFrame(an);}else{clr();}return;}
       }
       aR.current=requestAnimationFrame(an);};aR.current=requestAnimationFrame(an);
+    },80);// debounce 80ms
   },[]);
   // Auto-sync metronome + restart when tempo prop changes (editor BPM input)
   var prevTempoRef=useRef(tempo);
@@ -4163,9 +4169,8 @@ function ScalePopup({data,th,isStudio,onClose}){
 function TempoPopup({bpm,onBpmChange,onClose,th,lickTempo,playerCtrlRef,ci,setCi}){
   var t=th||TH.classic;var isStudio=t===TH.studio;
   var pc=function(){return playerCtrlRef&&playerCtrlRef.current||{};};
-  var[tapTimes,setTapTimes]=useState([]);var[tapBpm,setTapBpm]=useState(null);var liveRestartTimerRef=useRef(null);
-  useEffect(function(){return function(){if(liveRestartTimerRef.current)clearTimeout(liveRestartTimerRef.current);};},[]);
-  var setBpm=function(v){var nv=Math.max(30,Math.min(320,typeof v==="function"?v(bpm):v));onBpmChange(nv);var c=pc();if(c.metroCtrlRef&&c.metroCtrlRef.current&&c.metroCtrlRef.current.setBpmLive)c.metroCtrlRef.current.setBpmLive(nv);if(liveRestartTimerRef.current)clearTimeout(liveRestartTimerRef.current);liveRestartTimerRef.current=setTimeout(function(){if(c.liveRestart)c.liveRestart(nv);},180);};
+  var[tapTimes,setTapTimes]=useState([]);var[tapBpm,setTapBpm]=useState(null);
+  var setBpm=function(v){var nv=Math.max(30,Math.min(320,typeof v==="function"?v(bpm):v));onBpmChange(nv);var c=pc();if(c.metroCtrlRef&&c.metroCtrlRef.current&&c.metroCtrlRef.current.setBpmLive)c.metroCtrlRef.current.setBpmLive(nv);};
   var handleTap=function(){var now=Date.now();setTapTimes(function(prev){var up=prev.concat(now).slice(-8);if(up.length>=2){var ivs=[];for(var i=1;i<up.length;i++)ivs.push(up[i]-up[i-1]);var avg=ivs.reduce(function(a,b){return a+b;},0)/ivs.length;var b=Math.round(60000/avg);if(b>=30&&b<=320){setTapBpm(b);setBpm(b);}}return up;});};
   var mc=function(){var c=pc();return c.metroCtrlRef&&c.metroCtrlRef.current||{};};
   var[mSound,setMSound]=useState(function(){var m=mc();return m.getSound?m.getSound():"click";});
@@ -4208,7 +4213,6 @@ function TempoPopup({bpm,onBpmChange,onClose,th,lickTempo,playerCtrlRef,ci,setCi
       React.createElement("div",{style:{display:"flex",gap:8,marginBottom:20}},
         [-5,-1,1,5].map(function(d){return React.createElement("button",{key:d,onClick:function(){setBpm(bpm+d);},style:{flex:1,padding:"12px",borderRadius:12,background:isStudio?"#16162A":t.filterBg,border:"1px solid "+t.border,color:t.text,fontSize:16,fontWeight:700,fontFamily:"'JetBrains Mono',monospace",cursor:"pointer"}},(d>0?"+":"")+d);})),
       React.createElement("button",{onClick:handleTap,style:{width:"100%",padding:"16px",borderRadius:14,background:t.accent+"12",border:"2px solid "+t.accent+"40",color:t.accent,fontSize:14,fontWeight:700,fontFamily:"'Inter',sans-serif",cursor:"pointer",marginBottom:20,display:"flex",alignItems:"center",justifyContent:"center",gap:8}},"TAP TEMPO",tapBpm&&React.createElement("span",{style:{fontSize:11,background:t.accentBg,padding:"2px 8px",borderRadius:6,fontFamily:"'JetBrains Mono',monospace"}},tapBpm)),
-      lickTempo&&bpm!==lickTempo&&React.createElement("button",{onClick:function(){setBpm(lickTempo);},style:{width:"100%",padding:"10px",borderRadius:10,background:"transparent",border:"1px solid "+t.border,color:t.muted,fontSize:11,fontFamily:"'Inter',sans-serif",cursor:"pointer",marginBottom:20}},"\u21A9 Reset to original: "+lickTempo+" BPM"),
       React.createElement("div",{style:{marginBottom:20}},
         React.createElement("div",{style:{fontSize:10,color:t.subtle,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,letterSpacing:1,marginBottom:8}},"CLICK SOUND"),
         React.createElement("div",{style:{display:"flex",gap:6}},
