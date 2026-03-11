@@ -1762,11 +1762,13 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
     var hasContent=abc.includes("|");
     // Inject barsperstaff directive for editor mode (only when there's music content)
     var renderAbc=bassClef?injectBassClef(abc):abc;
+    // Hide tempo marking on compact cards
+    if(compact)renderAbc=renderAbc.replace(/Q:[^\n]*\n?/,"");
     if(editorMode&&hasContent){
       renderAbc=renderAbc.replace(/(K:[^\n]*)/,"%%barsperstaff 2\n$1");
     }
     var fmtObj={notespacingfactor:1.4};
-    const opts={responsive:"resize",paddingtop:editorMode?28:(focus?16:theoryMode?20:6),paddingbottom:theoryMode?38:(focus?16:6),paddingleft:0,paddingright:0,add_classes:true,format:fmtObj};
+    const opts={responsive:"resize",paddingtop:editorMode?28:(focus?16:theoryMode?20:compact?2:6),paddingbottom:theoryMode?38:(focus?16:compact?2:6),paddingleft:0,paddingright:0,add_classes:true,format:fmtObj};
     if(compact){opts.staffwidth=420;opts.scale=0.85;var cBars=barInfo.nBars;if(cBars>4)opts.wrap={minSpacing:1.2,maxSpacing:2.2,preferredMeasuresPerLine:4};}
     else if(editorMode&&hasContent){opts.staffwidth=460;opts.scale=1.1;opts.wrap={minSpacing:1.0,maxSpacing:2.8,preferredMeasuresPerLine:2};}
     else if(editorMode){opts.staffwidth=460;opts.scale=1.1;}
@@ -2259,7 +2261,7 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
   },[selNoteIdx,abc,th]);
   if(!ok)return React.createElement("div",{style:{height:compact?50:80,display:"flex",alignItems:"center",justifyContent:"center",color:t.subtle,fontSize:12,fontFamily:"'Inter',sans-serif"}},"Loading...");
   const isStudio=t===TH.studio;
-  return React.createElement("div",{ref,style:{borderRadius:focus?0:isStudio?12:10,background:focus?"transparent":compact?"transparent":t.noteBg,padding:focus?"0":compact?"4px 6px":(isStudio?"14px 16px":"12px 14px"),border:focus?"none":compact?"none":"1px solid "+(isStudio?t.border:t.borderSub),overflow:compact?"hidden":"visible",transition:"min-height 0.15s ease"}});}
+  return React.createElement("div",{ref,style:{borderRadius:focus?0:isStudio?12:10,background:focus?"transparent":compact?"transparent":t.noteBg,padding:focus?"0":compact?"6px 10px":(isStudio?"14px 16px":"12px 14px"),border:focus?"none":compact?"none":"1px solid "+(isStudio?t.border:t.borderSub),overflow:compact?"hidden":"visible",transition:"min-height 0.15s ease"}});}
 
 // ============================================================
 // A/B RANGE BAR — themed
@@ -4845,7 +4847,7 @@ function DailyLickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:user
   var _exp=useState(false),expanded=_exp[0],setExpanded=_exp[1];
   var notInnerRef=useRef(null);
   var _notH=useState(500),notFullH=_notH[0],setNotFullH=_notH[1];
-  useEffect(function(){var t1=setTimeout(function(){if(notInnerRef.current){var h=notInnerRef.current.offsetHeight;if(h>105)setNotFullH(h+8);}},250);return function(){clearTimeout(t1);};},[cardAbc]);
+  useEffect(function(){var t1=setTimeout(function(){if(notInnerRef.current){var h=notInnerRef.current.offsetHeight;if(h>135)setNotFullH(h+8);}},250);return function(){clearTimeout(t1);};},[cardAbc]);
   return React.createElement("div",{"data-coach":"daily",onClick:()=>onSelect(lick),style:{background:isStudio?(t.cardRaised||t.card):t.card,borderRadius:isStudio?18:14,padding:0,marginBottom:isStudio?16:14,border:"1px solid "+(isStudio?catC+"25":t.border),borderLeft:isStudio?"none":("3px solid "+instBorderC),cursor:"pointer",boxShadow:isStudio?"0 4px 20px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04)":"0 2px 12px rgba(0,0,0,0.06)",transition:"box-shadow 0.2s, transform 0.15s",overflow:"hidden",display:"flex"}},
     isStudio&&React.createElement("div",{style:{width:4,flexShrink:0,background:"linear-gradient(180deg,"+catC+","+instC+")",boxShadow:"2px 0 12px "+catC+"30"}}),
     React.createElement("div",{style:{flex:1,padding:isStudio?18:16}},
@@ -4865,12 +4867,12 @@ function DailyLickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:user
       React.createElement("div",{style:{display:"flex",alignItems:"center",gap:5,marginBottom:10}},
         lick.tune&&React.createElement("span",{style:{fontSize:10,color:t.text,fontFamily:"'Inter',sans-serif",fontWeight:500,opacity:0.7}},lick.tune),
         lick.tune&&lick.instrument&&React.createElement("span",{style:{fontSize:8,color:t.muted}},"\u00B7"),
-        lick.instrument&&React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:500}},lick.instrument)),
+        lick.instrument&&React.createElement("span",{style:{fontSize:9,color:instBorderC,fontFamily:"'Inter',sans-serif",fontWeight:500}},lick.instrument)),
       // NOTATION — ≤4 bars: single line. >4 bars: clipped at 1 line with more/less
-      React.createElement("div",{style:{marginTop:6,position:"relative",maxHeight:(isLong&&!expanded)?105:notFullH,overflow:"hidden",transition:"max-height 0.4s cubic-bezier(0.4,0,0.2,1)"}},
+      React.createElement("div",{style:{marginTop:6,position:"relative",maxHeight:(isLong&&!expanded)?135:notFullH,overflow:"hidden",transition:"max-height 0.4s cubic-bezier(0.4,0,0.2,1)"}},
         React.createElement("div",{ref:notInnerRef,style:{display:"flex",justifyContent:"center"}},
           React.createElement(Notation,{abc:cardAbc,compact:true,th:t,curNoteRef:prevCurNote,bassClef:BASS_CLEF_INSTS.has(userInst)})),
-        isLong&&!expanded&&React.createElement("div",{style:{position:"absolute",left:0,right:0,bottom:0,height:36,background:"linear-gradient(to bottom, transparent, "+(isStudio?t.cardRaised||t.card:t.card)+")",display:"flex",alignItems:"flex-end",justifyContent:"center",paddingBottom:2}},
+        isLong&&!expanded&&React.createElement("div",{style:{position:"absolute",left:0,right:0,bottom:0,height:48,background:"linear-gradient(to bottom, transparent, "+(isStudio?t.cardRaised||t.card:t.card)+")",display:"flex",alignItems:"flex-end",justifyContent:"center",paddingBottom:2}},
           React.createElement("button",{onClick:function(e){e.stopPropagation();setExpanded(true);},style:{background:isStudio?t.card+"E0":t.card+"E0",border:"1px solid "+t.border,borderRadius:12,padding:"2px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:4,boxShadow:"0 -2px 8px "+(isStudio?"rgba(0,0,0,0.3)":"rgba(0,0,0,0.08)")}},
             React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:500}},"more"),
             React.createElement("span",{style:{fontSize:10,color:t.muted,transform:"rotate(90deg)",display:"inline-block"}},"\u203A")))),
@@ -5045,7 +5047,7 @@ function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst,
   var _exp2=useState(false),expanded=_exp2[0],setExpanded=_exp2[1];
   var notInnerRef2=useRef(null);
   var _notH2=useState(500),notFullH=_notH2[0],setNotFullH=_notH2[1];
-  useEffect(function(){var t1=setTimeout(function(){if(notInnerRef2.current){var h=notInnerRef2.current.offsetHeight;if(h>105)setNotFullH(h+8);}},250);return function(){clearTimeout(t1);};},[cardAbc]);
+  useEffect(function(){var t1=setTimeout(function(){if(notInnerRef2.current){var h=notInnerRef2.current.offsetHeight;if(h>135)setNotFullH(h+8);}},250);return function(){clearTimeout(t1);};},[cardAbc]);
   // Split title: "Artist — Rest" → clickable artist + rest
   const titleParts=lick.title?lick.title.split(" \u2014 "):null;
   const hasArtistInTitle=titleParts&&titleParts.length>1&&lick.artist&&titleParts[0].trim()===lick.artist.trim();
@@ -5074,16 +5076,16 @@ function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst,
         React.createElement("div",{style:{display:"flex",alignItems:"center",gap:5}},
           lick.tune&&React.createElement("span",{style:{fontSize:10,color:t.text,fontFamily:"'Inter',sans-serif",fontWeight:500,opacity:0.7}},lick.tune),
           lick.tune&&lick.instrument&&React.createElement("span",{style:{fontSize:8,color:t.muted}},"\u00B7"),
-          lick.instrument&&React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:500}},lick.instrument),
+          lick.instrument&&React.createElement("span",{style:{fontSize:9,color:instBorderC,fontFamily:"'Inter',sans-serif",fontWeight:500}},lick.instrument),
           lick.private&&React.createElement("span",{style:{fontSize:8,color:isStudio?"#22D89E":"#2E7D32",fontFamily:"'Inter',sans-serif",fontWeight:600,background:isStudio?"rgba(34,216,158,0.15)":"#E8F5E9",padding:"2px 6px",borderRadius:4,marginLeft:2}},"\uD83D\uDD12 Private"),
           lick.user&&lick.user!=="Anonymous"&&React.createElement("div",{style:{flex:1}}),
           lick.user&&lick.user!=="Anonymous"&&React.createElement("button",{onClick:function(e){e.stopPropagation();if(onUserClick)onUserClick(lick.user);},style:{background:"none",border:"none",cursor:"pointer",padding:0,display:"flex",alignItems:"center"}},
             React.createElement("span",{style:{fontSize:9,color:isStudio?t.accent+"99":t.accent,fontFamily:"'Inter',sans-serif",fontWeight:600,background:isStudio?t.accent+"10":"transparent",padding:isStudio?"2px 6px":"0",borderRadius:5}},"\u0040"+lick.user)))),
       // NOTATION — ≤4 bars: single line. >4 bars: clipped with more/less
-      React.createElement("div",{style:{marginTop:4,position:"relative",maxHeight:(isLong&&!expanded)?105:notFullH,overflow:"hidden",transition:"max-height 0.4s cubic-bezier(0.4,0,0.2,1)"}},
+      React.createElement("div",{style:{marginTop:4,position:"relative",maxHeight:(isLong&&!expanded)?135:notFullH,overflow:"hidden",transition:"max-height 0.4s cubic-bezier(0.4,0,0.2,1)"}},
         React.createElement("div",{ref:notInnerRef2,style:{display:"flex",justifyContent:"center"}},
           React.createElement(Notation,{abc:cardAbc,compact:true,th:t,curNoteRef:prevCurNote,onReady:function(){setNotationReady(true);},bassClef:BASS_CLEF_INSTS.has(userInst)})),
-        isLong&&!expanded&&React.createElement("div",{style:{position:"absolute",left:0,right:0,bottom:0,height:36,background:"linear-gradient(to bottom, transparent, "+(isStudio?t.cardRaised||t.card:t.card)+")",display:"flex",alignItems:"flex-end",justifyContent:"center",paddingBottom:2}},
+        isLong&&!expanded&&React.createElement("div",{style:{position:"absolute",left:0,right:0,bottom:0,height:48,background:"linear-gradient(to bottom, transparent, "+(isStudio?t.cardRaised||t.card:t.card)+")",display:"flex",alignItems:"flex-end",justifyContent:"center",paddingBottom:2}},
           React.createElement("button",{onClick:function(e){e.stopPropagation();setExpanded(true);},style:{background:isStudio?t.card+"E0":t.card+"E0",border:"1px solid "+t.border,borderRadius:12,padding:"2px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:4,boxShadow:"0 -2px 8px "+(isStudio?"rgba(0,0,0,0.3)":"rgba(0,0,0,0.08)")}},
             React.createElement("span",{style:{fontSize:9,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:500}},"more"),
             React.createElement("span",{style:{fontSize:10,color:t.muted,transform:"rotate(90deg)",display:"inline-block"}},"\u203A")))),
