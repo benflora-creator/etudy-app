@@ -2031,23 +2031,21 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
         }catch(e){positions.push(null);}
       });
       // Add virtual start position (frac=0) and end position (frac=1) for rests at edges
-      // Start: right edge of clef/key/time area, or first barline
+      // Start: right edge of clef/key/time area (= where music begins)
       var startX=null,endX=null;
       var firstStaff=staves.length>0?staves[0]:null;
       var lastStaff=staves.length>0?staves[staves.length-1]:null;
-      // Find first barline x for start reference
+      // Use staff-extra (clef+key+time) right edge as music start
+      var extras=svg.querySelectorAll(".abcjs-staff-extra");
+      if(extras.length>0){try{var eb=extras[0].getBBox();startX=eb.x+eb.width+6;}catch(e){}}
+      // Fallback: first note minus offset
+      if(startX===null&&positions.length>0&&positions[0])startX=positions[0].lx-16;
+      // End: last barline position
       var barEls=svg.querySelectorAll(".abcjs-bar");
       if(barEls.length>0){
-        try{var fb=barEls[0].getBBox();startX=fb.x;}catch(e){}
-        try{var lb=barEls[barEls.length-1].getBBox();endX=lb.x+lb.width;}catch(e){}
+        try{var lb=barEls[barEls.length-1].getBBox();endX=lb.x;}catch(e){}
       }
-      // Fallback: use staff-extra right edge for start
-      if(startX===null){
-        var extras=svg.querySelectorAll(".abcjs-staff-extra");
-        if(extras.length>0){try{var eb=extras[0].getBBox();startX=eb.x+eb.width+4;}catch(e){}}
-      }
-      if(startX===null&&positions.length>0&&positions[0])startX=positions[0].lx-10;
-      if(endX===null&&positions.length>0){var lp=positions[positions.length-1];if(lp)endX=lp.lx+20;}
+      if(endX===null&&positions.length>0){var lp2=positions[positions.length-1];if(lp2)endX=lp2.lx+20;}
       // Insert virtual start if first note isn't at frac~0
       if(positions.length>0&&positions[0]&&positions[0].frac>0.005&&startX!==null&&firstStaff){
         positions.unshift({lx:startX,staffIdx:0,frac:0,endFrac:0});
@@ -2298,7 +2296,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
     try{metroCtrlRef.current.start&&metroCtrlRef.current.start(t0);}catch(e){}
     const an=()=>{if(sT.current)return;const el=Tone.now()-toneStartR.current;const dur=dR.current;if(dur<=0)return;
       const cOff=ciOffR.current;const musicEl=el-cOff;
-      if(musicEl<0){setPr(0);aR.current=requestAnimationFrame(an);return;}
+      if(musicEl<0){setPr(0);if(progressRef)progressRef.current=0;aR.current=requestAnimationFrame(an);return;}
       if(abOnR.current){
         const abStart=abAR.current;const abEnd=abBR.current;const segDur=dur*(abEnd-abStart);
         if(segDur<=0){aR.current=requestAnimationFrame(an);return;}
@@ -2537,7 +2535,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
     sPl(true);lcR.current=1;setLc(1);setLoading(false);
     const an=()=>{if(sT.current)return;const el=Tone.now()-toneStartR.current;const dur=dR.current;if(dur<=0)return;
       const cOff=ciOffR.current;const musicEl=el-cOff;
-      if(musicEl<0){setPr(0);aR.current=requestAnimationFrame(an);return;}
+      if(musicEl<0){setPr(0);if(progressRef)progressRef.current=0;aR.current=requestAnimationFrame(an);return;}
       if(abOnR.current){
         const abStart=abAR.current;const abEnd=abBR.current;const segDur=dur*(abEnd-abStart);
         if(segDur<=0){aR.current=requestAnimationFrame(an);return;}
