@@ -1765,12 +1765,9 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
     if(editorMode&&hasContent){
       renderAbc=renderAbc.replace(/(K:[^\n]*)/,"%%barsperstaff 2\n$1");
     }
-    // Theory mode: increase space between systems for interval labels
-    if(theoryMode&&!compact){
-      renderAbc="%%staffsep 40\n%%sysstaffsep 50\n"+renderAbc;
-    }
-    const opts={responsive:"resize",paddingtop:editorMode?28:(focus?16:theoryMode?20:6),paddingbottom:theoryMode?38:(focus?16:6),paddingleft:0,paddingright:0,add_classes:true,
-      format:{notespacingfactor:1.4}};
+    // Theory mode spacing handled via SVG post-processing after labels are added
+    var fmtObj={notespacingfactor:1.4};
+    const opts={responsive:"resize",paddingtop:editorMode?28:(focus?16:theoryMode?20:6),paddingbottom:theoryMode?38:(focus?16:6),paddingleft:0,paddingright:0,add_classes:true,format:fmtObj};
     if(compact){opts.staffwidth=420;opts.scale=0.85;var cBars=barInfo.nBars;if(cBars>4)opts.wrap={minSpacing:1.2,maxSpacing:2.2,preferredMeasuresPerLine:4};}
     else if(editorMode&&hasContent){opts.staffwidth=460;opts.scale=1.1;opts.wrap={minSpacing:1.0,maxSpacing:2.8,preferredMeasuresPerLine:2};}
     else if(editorMode){opts.staffwidth=460;opts.scale=1.1;}
@@ -1875,6 +1872,61 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
           if(maxY>vb.y+vb.height)svg.setAttribute("viewBox",vb.x+" "+vb.y+" "+vb.width+" "+(maxY-vb.y));
         }
       }catch(e){}
+      // Push staff systems apart to avoid label/chord overlap
+      try{
+        var staffGrps=svg.querySelectorAll(".abcjs-staff");
+        if(staffGrps.length>1){
+          // Get bottom of labels per staff, top of chords per staff
+          var staffInfos=[];
+          staffGrps.forEach(function(sg){try{var sb=sg.getBBox();staffInfos.push({y:sb.y,y2:sb.y+sb.height,cy:sb.y+sb.height/2});}catch(e){staffInfos.push(null);}});
+          // Find theory-labels belonging to each staff
+          var labelBottoms=staffInfos.map(function(){return 0;});
+          svg.querySelectorAll(".theory-label").forEach(function(lbl){
+            try{
+              var lb=lbl.getBBox();var lblCy=lb.y;
+              var bestSi=0,bestD=Infinity;
+              for(var si=0;si<staffInfos.length;si++){if(!staffInfos[si])continue;var d=Math.abs(lblCy-staffInfos[si].cy);if(d<bestD){bestD=d;bestSi=si;}}
+              var bot=lb.y+lb.height;
+              if(bot>labelBottoms[bestSi])labelBottoms[bestSi]=bot;
+            }catch(e){}
+          });
+          // Find chord text top per staff
+          var chordTops=staffInfos.map(function(si){return si?si.y:9999;});
+          svg.querySelectorAll("text.abcjs-chord").forEach(function(ct){
+            try{
+              var cb=ct.getBBox();var ctCy=cb.y+cb.height;
+              var bestSi=0,bestD=Infinity;
+              for(var si=0;si<staffInfos.length;si++){if(!staffInfos[si])continue;var d=Math.abs(ctCy-staffInfos[si].y);if(d<bestD){bestD=d;bestSi=si;}}
+              if(cb.y<chordTops[bestSi])chordTops[bestSi]=cb.y;
+            }catch(e){}
+          });
+          // Calculate needed push for each system
+          var totalPush=0;
+          for(var li=1;li<staffInfos.length;li++){
+            if(!staffInfos[li]||!labelBottoms[li-1])continue;
+            var overlap=labelBottoms[li-1]-chordTops[li]+12;// 12px extra gap
+            if(overlap>0)totalPush+=overlap;
+            if(totalPush>0){
+              // Find all SVG elements belonging to this system and push them down
+              var sY=staffInfos[li].y;
+              var pushEls=[];
+              svg.querySelectorAll(".abcjs-staff,.abcjs-staff-extra,.abcjs-note,.abcjs-rest,.abcjs-bar,.abcjs-beam,.abcjs-slur,.abcjs-tie,text.abcjs-chord,.theory-label").forEach(function(el){
+                try{var eb=el.getBBox();if(eb.y>=sY-5&&!el._theoryPushed){pushEls.push(el);}}catch(e){}
+              });
+              pushEls.forEach(function(el){
+                var existing=el.getAttribute("transform")||"";
+                el.setAttribute("transform",existing+" translate(0,"+totalPush+")");
+                el._theoryPushed=true;
+              });
+            }
+          }
+          // Expand viewBox for pushed content
+          if(totalPush>0){
+            var vb2=svg.viewBox.baseVal;
+            if(vb2)svg.setAttribute("viewBox",vb2.x+" "+vb2.y+" "+vb2.width+" "+(vb2.height+totalPush));
+          }
+        }
+      }catch(e){console.warn("[etudy] Theory spacing error:",e);}
       // ── Theory tap: invisible hit-area columns from chord symbol to label ──
       var tapAbc=soundAbc||abc;
       var tapParsed=null;try{tapParsed=parseAbc(tapAbc);}catch(e){}
