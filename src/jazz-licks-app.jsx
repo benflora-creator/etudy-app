@@ -4846,11 +4846,12 @@ function DailyLickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:user
   var notInnerRef=useRef(null);
   var _notH=useState(500),notFullH=_notH[0],setNotFullH=_notH[1];
   useEffect(function(){var t1=setTimeout(function(){if(notInnerRef.current){var h=notInnerRef.current.offsetHeight;if(h>105)setNotFullH(h+8);}},250);return function(){clearTimeout(t1);};},[cardAbc]);
-  return React.createElement("div",{"data-coach":"daily",onClick:()=>onSelect(lick),style:{background:isStudio?(t.cardRaised||t.card):t.card,borderRadius:isStudio?18:14,padding:0,marginBottom:isStudio?16:14,border:"1px solid "+(isStudio?t.border:t.border),cursor:"pointer",boxShadow:isStudio?"0 4px 20px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04)":"0 2px 12px rgba(0,0,0,0.06)",transition:"box-shadow 0.2s, transform 0.15s",overflow:"hidden"}},
-    React.createElement("div",{style:{padding:isStudio?18:16}},
+  return React.createElement("div",{"data-coach":"daily",onClick:()=>onSelect(lick),style:{background:isStudio?(t.cardRaised||t.card):t.card,borderRadius:isStudio?18:14,padding:0,marginBottom:isStudio?16:14,border:"1px solid "+(isStudio?catC+"25":t.border),borderLeft:isStudio?"none":("3px solid "+instBorderC),cursor:"pointer",boxShadow:isStudio?"0 4px 20px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04)":"0 2px 12px rgba(0,0,0,0.06)",transition:"box-shadow 0.2s, transform 0.15s",overflow:"hidden",display:"flex"}},
+    isStudio&&React.createElement("div",{style:{width:4,flexShrink:0,background:"linear-gradient(180deg,"+catC+","+instC+")",boxShadow:"2px 0 12px "+catC+"30"}}),
+    React.createElement("div",{style:{flex:1,padding:isStudio?18:16}},
       // TOP: badge + date
       React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:isStudio?12:10}},
-        React.createElement("div",{style:{background:isStudio?t.accent:t.accent,borderRadius:8,padding:"4px 12px",display:"flex",alignItems:"center",gap:4}},
+        React.createElement("div",{style:{background:isStudio?"linear-gradient(135deg,"+catC+","+instC+")":t.accent,borderRadius:isStudio?10:8,padding:isStudio?"5px 14px":"4px 12px",display:"flex",alignItems:"center",gap:4,boxShadow:isStudio?"0 2px 12px "+catC+"40":"none"}},
           IC.bolt(10,"#fff"),
           React.createElement("span",{style:{fontSize:9,fontWeight:700,color:"#fff",fontFamily:"'Inter',sans-serif",letterSpacing:1}},"DAILY PICK")),
         React.createElement("span",{style:{fontSize:10,color:t.subtle,fontFamily:"'JetBrains Mono',monospace"}},new Date().toLocaleDateString("en",{month:"short",day:"numeric"}))),
@@ -5060,7 +5061,7 @@ function LickCard({lick,onSelect,th,liked,saved,onLike,onSave,userInst:userInst,
   const visible=notationReady&&inView;
   return React.createElement(React.Fragment,null,
     showFlames&&React.createElement(FlamesPopup,{lickId:lick.id,lickTitle:lick.title,likeCount:lick.likes,th:t,onClose:function(e){setShowFlames(false);},onUserClick:onUserClick}),
-    React.createElement("div",{ref:cardRef,onClick:()=>onSelect(lick),style:{background:isStudio?(t.cardRaised||t.card):t.card,borderRadius:isStudio?16:14,padding:0,marginBottom:isStudio?12:10,border:"1px solid "+(isStudio?t.border:t.border),cursor:"pointer",transition:visible?"opacity 0.7s ease-out, transform 0.7s cubic-bezier(0.2,0,0.2,1)":"none",opacity:visible?1:0,transform:visible?"translateY(0)":"translateY(22px)",boxShadow:isStudio?"0 2px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.03)":"0 1px 6px rgba(0,0,0,0.04)",overflow:"hidden"}},
+    React.createElement("div",{ref:cardRef,onClick:()=>onSelect(lick),style:{background:isStudio?(t.cardRaised||t.card):t.card,borderRadius:isStudio?16:14,padding:0,marginBottom:isStudio?12:10,border:"1px solid "+(isStudio?catC+"18":t.border),borderLeft:"3px solid "+instBorderC,cursor:"pointer",transition:visible?"opacity 0.7s ease-out, transform 0.7s cubic-bezier(0.2,0,0.2,1)":"none",opacity:visible?1:0,transform:visible?"translateY(0)":"translateY(22px)",boxShadow:isStudio?"0 2px 16px "+catC+"15, 0 1px 6px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.03)":"0 1px 6px rgba(0,0,0,0.04)",overflow:"hidden"}},
     React.createElement("div",{style:{padding:isStudio?16:14}},
       // TITLE — artist clickable
       React.createElement("div",{style:{marginBottom:8}},
