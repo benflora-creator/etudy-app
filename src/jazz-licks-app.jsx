@@ -1749,7 +1749,7 @@ function truncateAbcBars(abc,maxBars){
 // ============================================================
 // NOTATION — theme-aware
 // ============================================================
-function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteIdx,onDeselect,theoryMode,theoryAnalysis,onReady,soundAbc,bassClef}){
+function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNoteClick,selNoteIdx,onDeselect,theoryMode,theoryAnalysis,onReady,soundAbc,bassClef}){
   const ref=useRef(null);const ok=useAbcjs();const prevNoteRef=useRef(-1);const rafRef=useRef(null);
   const onReadyRef=useRef(onReady);useEffect(()=>{onReadyRef.current=onReady;},[onReady]);
   const t=th||TH.classic;
@@ -1776,7 +1776,7 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
     // Release height lock after paint (double-rAF ensures browser has painted)
     requestAnimationFrame(function(){requestAnimationFrame(function(){if(el)el.style.minHeight="";if(onReadyRef.current)onReadyRef.current();});});
     // Invalidate cursor position cache for smooth cursor
-    noteXCacheRef.current=null;if(cursorLineRef.current){try{cursorLineRef.current.remove();}catch(e){}cursorLineRef.current=null;}
+    posMapRef.current=null;if(cursorLineRef.current){try{cursorLineRef.current.remove();}catch(e){}cursorLineRef.current=null;}
     if(!ref.current)return;const svg=ref.current.querySelector("svg");if(!svg)return;
     const isStudio=t===TH.studio;
     svg.querySelectorAll("path").forEach(p=>{p.setAttribute("stroke",t.noteStroke);p.setAttribute("fill",t.noteStroke);});
@@ -1988,61 +1988,122 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
         }catch(e){}});}
     }
   },[abc,ok,compact,abRange,focus,th,theoryMode,theoryAnalysis,soundAbc,bassClef]);
-  // Cursor: poll curNoteRef via rAF — zero React re-renders
-  // Smooth cursor line + note highlighting
+  // Cursor: smooth continuous playhead + note highlighting
+  // Uses curProgressRef (0-1 fraction) for smooth cursor, curNoteRef for note highlighting
   var cursorLineRef=useRef(null);
-  var noteXCacheRef=useRef(null);
-  useEffect(()=>{if(!curNoteRef)return;
-    // Build note x-position cache on first use
-    var ensureCache=function(){
-      if(noteXCacheRef.current)return noteXCacheRef.current;
+  var posMapRef=useRef(null);
+  useEffect(()=>{if(!curNoteRef&&!curProgressRef)return;
+    // Build position map: note positions + staff lines
+    var buildPosMap=function(){
+      if(posMapRef.current)return posMapRef.current;
       if(!ref.current)return null;
       var svg=ref.current.querySelector("svg");if(!svg)return null;
       var noteEls=svg.querySelectorAll(".abcjs-note");
       if(!noteEls.length)return null;
+      var fracs=getNoteTimeFracs(abc);
+      // Detect staff lines (each system/line of music)
+      var staffGroups=svg.querySelectorAll("g.abcjs-staff-group,g[data-name]");
+      var staffLines=[];
+      if(staffGroups.length>0){
+        staffGroups.forEach(function(g){try{var gb=g.getBBox();staffLines.push({y:gb.y,y2:gb.y+gb.height,cy:gb.y+gb.height/2});}catch(e){}});
+      }
+      if(!staffLines.length){
+        var staffEls=svg.querySelectorAll(".abcjs-staff");
+        staffEls.forEach(function(s){try{var sb=s.getBBox();staffLines.push({y:sb.y,y2:sb.y+sb.height,cy:sb.y+sb.height/2});}catch(e){}});
+      }
+      // Deduplicate close staffLines (same system)
+      var lines=[];
+      staffLines.sort(function(a,b){return a.y-b.y;});
+      for(var si=0;si<staffLines.length;si++){
+        if(lines.length===0||staffLines[si].y>lines[lines.length-1].y2+10){
+          lines.push(staffLines[si]);
+        }else{
+          // Merge
+          var last=lines[lines.length-1];
+          last.y2=Math.max(last.y2,staffLines[si].y2);
+          last.cy=(last.y+last.y2)/2;
+        }
+      }
+      if(!lines.length)lines.push({y:20,y2:60,cy:40});
+      // Map each note to position
       var positions=[];
-      noteEls.forEach(function(el){
+      noteEls.forEach(function(el,idx){
         try{
           var head=el.querySelector("ellipse")||el.querySelector("circle");
           var bb=head?head.getBBox():el.getBBox();
-          positions.push({cx:bb.x+bb.width/2,cy:bb.y+bb.height/2});
+          var cx=bb.x+bb.width/2;
+          var cy=bb.y+bb.height/2;
+          // Find which staff line this note is on
+          var lineIdx=0;var bestDist=Infinity;
+          for(var li=0;li<lines.length;li++){
+            var d=Math.abs(cy-lines[li].cy);
+            if(d<bestDist){bestDist=d;lineIdx=li;}
+          }
+          positions.push({
+            cx:cx,cy:cy,lineIdx:lineIdx,
+            frac:idx<fracs.length?fracs[idx].frac:1,
+            endFrac:idx<fracs.length?fracs[idx].endFrac:1
+          });
         }catch(e){positions.push(null);}
       });
-      // Find staff top/bottom for cursor height
-      var staffEls=svg.querySelectorAll(".abcjs-staff");
-      var staffTop=999,staffBot=0;
-      staffEls.forEach(function(s){try{var sb=s.getBBox();if(sb.y<staffTop)staffTop=sb.y;if(sb.y+sb.height>staffBot)staffBot=sb.y+sb.height;}catch(e){}});
-      if(staffTop>staffBot){staffTop=20;staffBot=60;}
-      noteXCacheRef.current={positions:positions,staffTop:staffTop-6,staffBot:staffBot+6};
-      return noteXCacheRef.current;
+      posMapRef.current={positions:positions,lines:lines};
+      return posMapRef.current;
     };
-    // Create cursor line element
-    var ensureCursorLine=function(){
+    // Get cursor x,y for a given progress fraction by interpolating between notes
+    var getCursorPos=function(progress,map){
+      if(!map||!map.positions.length)return null;
+      var pos=map.positions;
+      // Find the two notes we're between
+      var prevP=null,nextP=null;
+      for(var i=0;i<pos.length;i++){
+        if(!pos[i])continue;
+        if(pos[i].frac<=progress+0.001)prevP=pos[i];
+        if(pos[i].frac>progress-0.001&&!nextP)nextP=pos[i];
+      }
+      if(!prevP&&nextP)prevP=nextP;
+      if(!nextP&&prevP)nextP=prevP;
+      if(!prevP)return null;
+      // If same line, interpolate x
+      if(prevP.lineIdx===nextP.lineIdx){
+        var segLen=nextP.frac-prevP.frac;
+        var t2=segLen>0.001?(progress-prevP.frac)/segLen:0;
+        t2=Math.max(0,Math.min(1,t2));
+        return{x:prevP.cx+(nextP.cx-prevP.cx)*t2,lineIdx:prevP.lineIdx};
+      }else{
+        // Line break: if we're past the start of next line's first note, jump
+        var midFrac=(prevP.endFrac+nextP.frac)/2;
+        if(progress>=midFrac){
+          return{x:nextP.cx,lineIdx:nextP.lineIdx};
+        }else{
+          return{x:prevP.cx,lineIdx:prevP.lineIdx};
+        }
+      }
+    };
+    // Create/get cursor SVG element
+    var ensureCursor=function(){
       if(cursorLineRef.current)return cursorLineRef.current;
-      if(!ref.current)return null;
+      if(!ref.current||compact)return null;
       var svg=ref.current.querySelector("svg");if(!svg)return null;
-      var cache=ensureCache();if(!cache)return null;
+      var map=buildPosMap();if(!map)return null;
       var line=document.createElementNS("http://www.w3.org/2000/svg","rect");
       line.setAttribute("class","etudy-cursor");
-      line.setAttribute("width","2");
-      line.setAttribute("height",String(cache.staffBot-cache.staffTop));
-      line.setAttribute("y",String(cache.staffTop));
-      line.setAttribute("x","0");
-      line.setAttribute("rx","1");
+      line.setAttribute("width","2.5");
+      line.setAttribute("rx","1.25");
       line.setAttribute("fill",t.accent);
-      line.setAttribute("fill-opacity","0.7");
-      line.style.transition="transform 0.08s cubic-bezier(0.2,0,0.3,1)";
+      line.setAttribute("fill-opacity","0.6");
       line.style.display="none";
-      // Glow filter
-      var filterId="cursor-glow-"+Math.random().toString(36).slice(2,6);
+      line.style.willChange="transform";
+      // Glow
+      var filterId="cg-"+Math.random().toString(36).slice(2,6);
       var defs=svg.querySelector("defs")||document.createElementNS("http://www.w3.org/2000/svg","defs");
       if(!svg.querySelector("defs"))svg.insertBefore(defs,svg.firstChild);
       var filter=document.createElementNS("http://www.w3.org/2000/svg","filter");
-      filter.setAttribute("id",filterId);filter.setAttribute("x","-50%");filter.setAttribute("y","-10%");filter.setAttribute("width","200%");filter.setAttribute("height","120%");
+      filter.setAttribute("id",filterId);filter.setAttribute("x","-100%");filter.setAttribute("y","-10%");filter.setAttribute("width","300%");filter.setAttribute("height","120%");
       var blur=document.createElementNS("http://www.w3.org/2000/svg","feGaussianBlur");
-      blur.setAttribute("stdDeviation","3");blur.setAttribute("result","glow");
+      blur.setAttribute("stdDeviation","2.5");blur.setAttribute("result","g");
       var merge=document.createElementNS("http://www.w3.org/2000/svg","feMerge");
-      var mn1=document.createElementNS("http://www.w3.org/2000/svg","feMergeNode");mn1.setAttribute("in","glow");
+      merge.appendChild(Object.assign(document.createElementNS("http://www.w3.org/2000/svg","feMergeNode"),{}).cloneNode());
+      var mn1=document.createElementNS("http://www.w3.org/2000/svg","feMergeNode");mn1.setAttribute("in","g");
       var mn2=document.createElementNS("http://www.w3.org/2000/svg","feMergeNode");mn2.setAttribute("in","SourceGraphic");
       merge.appendChild(mn1);merge.appendChild(mn2);filter.appendChild(blur);filter.appendChild(merge);
       defs.appendChild(filter);
@@ -2051,14 +2112,18 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
       cursorLineRef.current=line;
       return line;
     };
-    const tick=()=>{const cn=curNoteRef.current;
+    var prevLineIdx=useRef?{current:-1}:{current:-1};
+    var _prevLineIdx=-1;
+    const tick=()=>{
+      var cn=curNoteRef?curNoteRef.current:-1;
+      var progress=curProgressRef?curProgressRef.current:-1;
+      // --- Note highlighting (discrete, from curNoteRef) ---
       if(cn!==prevNoteRef.current&&ref.current){
         const svg=ref.current.querySelector("svg");if(svg){
           const noteEls=svg.querySelectorAll(".abcjs-note");
           const fracs=getNoteTimeFracs(abc);const hasRange=abRange&&(abRange[0]>0.001||abRange[1]<0.999);
           if(prevNoteRef.current>=0&&prevNoteRef.current<noteEls.length){
             const el=noteEls[prevNoteRef.current];
-            // Restore theory color if available, else default noteStroke
             var restoreCol=t.noteStroke;var restoreOp="1";
             if(el._theoryInfo){restoreCol=el._theoryInfo.col;restoreOp=el._theoryInfo.entry.type==="chord-tone"?"1":(el._theoryInfo.entry.type==="tension"?"0.8":"0.5");}
             el.querySelectorAll("path,circle,ellipse").forEach(p=>{
@@ -2076,26 +2141,46 @@ function Notation({abc,compact,abRange,curNoteRef,focus,th,onNoteClick,selNoteId
               p.style.fillOpacity="1";p.style.strokeOpacity="1";});
             el.style.filter="drop-shadow(0 0 6px "+curGlow+")";
             el.style.transition="filter 0.05s";
-            // Move cursor line
-            var cache=ensureCache();var line=ensureCursorLine();
-            if(cache&&line&&cache.positions[cn]){
-              line.style.display="block";
-              line.style.transform="translateX("+cache.positions[cn].cx+"px)";
-            }
-          }else{
-            // Hide cursor when not playing
-            if(cursorLineRef.current)cursorLineRef.current.style.display="none";
           }
         }prevNoteRef.current=cn;}
+      // --- Smooth cursor line (continuous, from curProgressRef) ---
+      if(!compact&&progress>=0){
+        var map=buildPosMap();
+        var cursor=ensureCursor();
+        if(map&&cursor){
+          var cPos=getCursorPos(progress,map);
+          if(cPos){
+            var staff=map.lines[cPos.lineIdx];
+            if(staff){
+              cursor.setAttribute("height",String(staff.y2-staff.y+12));
+              cursor.setAttribute("y",String(staff.y-6));
+            }
+            // On line change: instant jump (no transition)
+            if(cPos.lineIdx!==_prevLineIdx&&_prevLineIdx>=0){
+              cursor.style.transition="none";
+              cursor.style.transform="translateX("+cPos.x+"px)";
+              // Re-enable transition on next frame
+              requestAnimationFrame(function(){cursor.style.transition="transform 0.03s linear";});
+            }else{
+              if(!cursor.style.transition||cursor.style.transition==="none")cursor.style.transition="transform 0.03s linear";
+              cursor.style.transform="translateX("+cPos.x+"px)";
+            }
+            _prevLineIdx=cPos.lineIdx;
+            cursor.style.display="block";
+          }
+        }
+      }else if(cursorLineRef.current){
+        cursorLineRef.current.style.display="none";
+        _prevLineIdx=-1;
+      }
       rafRef.current=requestAnimationFrame(tick);};
     rafRef.current=requestAnimationFrame(tick);
     return()=>{
       if(rafRef.current)cancelAnimationFrame(rafRef.current);
-      // Cleanup cursor elements
       if(cursorLineRef.current){try{cursorLineRef.current.remove();}catch(e){}cursorLineRef.current=null;}
-      noteXCacheRef.current=null;
+      posMapRef.current=null;
     };
-  },[abc,abRange,th,compact,curNoteRef,theoryMode]);
+  },[abc,abRange,th,compact,curNoteRef,curProgressRef,theoryMode]);
   // Selection highlight (editor) — rounded box around selected note
   var prevSelRef=useRef(-1);var selBoxRef=useRef(null);
   useEffect(function(){
@@ -2165,7 +2250,7 @@ function ABRangeBar({abc,abA,abB,setAbA,setAbB,onReset,th,compact}){
 // ============================================================
 // PLAYER — themed, 3-tier
 // ============================================================
-function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,trInst,setTrInst,trMan,setTrMan,onCurNote,th,onLoopComplete,forceLoop,autoPlay,hideControls,ctrlRef,initFeel,editorMode,headless,onStateChange}){
+function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,trInst,setTrInst,trMan,setTrMan,onCurNote,th,onLoopComplete,forceLoop,autoPlay,hideControls,ctrlRef,initFeel,editorMode,headless,onStateChange,progressRef}){
   const t=th||TH.classic;
   const[pl,sPl]=useState(false);const[lp,sLp]=useState(forceLoop||editorMode||false);const[bk,sBk]=useState(true);const[ml,sMl]=useState(true);const[fl,sFl]=useState(initFeel||"straight");
   const[backingStyle,setBackingStyle]=useState("piano");const[muteKeys,setMuteKeys]=useState(false);const[muteBass,setMuteBass]=useState(false);const[muteDrums,setMuteDrums]=useState(false);
@@ -2213,7 +2298,7 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
   const tapTimesRef=useRef([]);
   const parentTapTempo=()=>{const now=performance.now();const taps=tapTimesRef.current;taps.push(now);if(taps.length>5)taps.shift();if(taps.length>=2){const ivs=[];for(let i=1;i<taps.length;i++)ivs.push(taps[i]-taps[i-1]);if(ivs.some(iv=>iv>2000)){tapTimesRef.current=[now];return;}const avg=ivs.reduce((a,b)=>a+b,0)/ivs.length;const nb=Math.round(60000/avg);if(nb>=30&&nb<=300){if(sPT)sPT(nb);pTR.current=nb;if(metroCtrlRef.current.setBpmLive)metroCtrlRef.current.setBpmLive(nb);if(!sT.current)liveRestart(nb);}}};
   const parentChangeBpm=delta=>{const cur=pTR.current||tempo;const nv=Math.max(30,Math.min(300,cur+delta));if(sPT)sPT(nv);pTR.current=nv;if(metroCtrlRef.current.setBpmLive)metroCtrlRef.current.setBpmLive(nv);if(!sT.current)liveRestart(nv);};
-  const clr=useCallback(()=>{sT.current=true;playGenRef.current++;if(aR.current)cancelAnimationFrame(aR.current);disposeBag();sPl(false);setPr(0);setLc(0);setLoading(false);lcR.current=0;curNoteR.current=-1;if(onCurNoteR.current)onCurNoteR.current(-1);try{metroCtrlRef.current.stop&&metroCtrlRef.current.stop();}catch(e){}},[]);
+  const clr=useCallback(()=>{sT.current=true;playGenRef.current++;if(aR.current)cancelAnimationFrame(aR.current);disposeBag();sPl(false);setPr(0);setLc(0);setLoading(false);lcR.current=0;curNoteR.current=-1;if(onCurNoteR.current)onCurNoteR.current(-1);if(progressRef)progressRef.current=-1;try{metroCtrlRef.current.stop&&metroCtrlRef.current.stop();}catch(e){}},[]);
   // Live restart at new BPM (called when user changes BPM during playback)
   const liveRestart=useCallback((newBpm)=>{
     if(sT.current)return;// not playing
@@ -2232,11 +2317,11 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
         const segP=musicEl/segDur;
         if(segP>=1&&!sT.current){try{metroCtrlRef.current.notifyLoop&&metroCtrlRef.current.notifyLoop();}catch(e){}if(metroCtrlRef.current.getBpm){pTR.current=metroCtrlRef.current.getBpm();if(sPT)sPT(pTR.current);}var lt0=toneStartR.current+ciOffR.current+segDur;toneStartR.current=lt0;lcR.current++;setLc(lcR.current);var _lr=onLoopCompleteR.current?onLoopCompleteR.current(lcR.current):null;if(_lr&&_lr.abc){abcR.current=_lr.abc;}if(_lr&&_lr.stop){clr();return;}ciOffR.current=sch(parseAbc(abcR.current,pTR.current),_lr&&_lr.countIn,lt0);noteFracsR.current=getNoteTimeFracs(abcR.current);try{metroCtrlRef.current.start&&metroCtrlRef.current.start(lt0);}catch(e){}aR.current=requestAnimationFrame(an);return;}
         const effP=abStart+(musicEl%segDur)/dur;
-        setPr(Math.min(effP,1));
+        setPr(Math.min(effP,1));if(progressRef)progressRef.current=Math.min(effP,1);
         if(noteFracsR.current){const fracs=noteFracsR.current;let ci2=-1;for(let i=0;i<fracs.length;i++){if(effP>=fracs[i].frac-0.001&&effP<fracs[i].endFrac+0.001){ci2=i;break;}}if(ci2!==curNoteR.current){curNoteR.current=ci2;if(onCurNoteR.current)onCurNoteR.current(ci2);}}
       }else{
         const rawP=musicEl/dur;
-        setPr(Math.min(rawP,1));
+        setPr(Math.min(rawP,1));if(progressRef)progressRef.current=Math.min(rawP,1);
         if(noteFracsR.current){const fracs=noteFracsR.current;let ci2=-1;for(let i=0;i<fracs.length;i++){if(rawP>=fracs[i].frac-0.001&&rawP<fracs[i].endFrac+0.001){ci2=i;break;}}if(ci2!==curNoteR.current){curNoteR.current=ci2;if(onCurNoteR.current)onCurNoteR.current(ci2);}}
         if(rawP>=1){if(lR.current&&!sT.current){try{metroCtrlRef.current.notifyLoop&&metroCtrlRef.current.notifyLoop();}catch(e){}if(metroCtrlRef.current.getBpm){pTR.current=metroCtrlRef.current.getBpm();if(sPT)sPT(pTR.current);}var lt0=toneStartR.current+ciOffR.current+dR.current;toneStartR.current=lt0;lcR.current++;setLc(lcR.current);var _lr=onLoopCompleteR.current?onLoopCompleteR.current(lcR.current):null;if(_lr&&_lr.abc){abcR.current=_lr.abc;}if(_lr&&_lr.stop){clr();return;}ciOffR.current=sch(parseAbc(abcR.current,pTR.current),_lr&&_lr.countIn,lt0);noteFracsR.current=getNoteTimeFracs(abcR.current);try{metroCtrlRef.current.start&&metroCtrlRef.current.start(lt0);}catch(e){}aR.current=requestAnimationFrame(an);}else{clr();}return;}
       }
@@ -2471,11 +2556,11 @@ function Player({abc,tempo,abOn,abA,abB,setAbOn,setAbA,setAbB,pT,sPT,lickTempo,t
         const segP=musicEl/segDur;
         if(segP>=1&&!sT.current){try{metroCtrlRef.current.notifyLoop&&metroCtrlRef.current.notifyLoop();}catch(e){}if(metroCtrlRef.current.getBpm){pTR.current=metroCtrlRef.current.getBpm();if(sPT)sPT(pTR.current);}lcR.current++;setLc(lcR.current);var _lr=onLoopCompleteR.current?onLoopCompleteR.current(lcR.current):null;if(_lr&&_lr.abc){abcR.current=_lr.abc;}if(_lr&&_lr.stop){clr();return;}var lt0=toneStartR.current+ciOffR.current+segDur;toneStartR.current=lt0;ciOffR.current=sch(parseAbc(abcR.current,pTR.current),_lr&&_lr.countIn,lt0);noteFracsR.current=getNoteTimeFracs(abcR.current);try{metroCtrlRef.current.start&&metroCtrlRef.current.start(lt0);}catch(e){}aR.current=requestAnimationFrame(an);return;}
         const effP=abStart+(musicEl%segDur)/dur;
-        setPr(Math.min(effP,1));
+        setPr(Math.min(effP,1));if(progressRef)progressRef.current=Math.min(effP,1);
         if(noteFracsR.current){const fracs=noteFracsR.current;let ci2=-1;for(let i=0;i<fracs.length;i++){if(effP>=fracs[i].frac-0.001&&effP<fracs[i].endFrac+0.001){ci2=i;break;}}if(ci2!==curNoteR.current){curNoteR.current=ci2;if(onCurNoteR.current)onCurNoteR.current(ci2);}}
       }else{
         const rawP=musicEl/dur;
-        setPr(Math.min(rawP,1));
+        setPr(Math.min(rawP,1));if(progressRef)progressRef.current=Math.min(rawP,1);
         if(noteFracsR.current){const fracs=noteFracsR.current;let ci2=-1;for(let i=0;i<fracs.length;i++){if(rawP>=fracs[i].frac-0.001&&rawP<fracs[i].endFrac+0.001){ci2=i;break;}}if(ci2!==curNoteR.current){curNoteR.current=ci2;if(onCurNoteR.current)onCurNoteR.current(ci2);}}
         if(rawP>=1){if(lR.current&&!sT.current){try{metroCtrlRef.current.notifyLoop&&metroCtrlRef.current.notifyLoop();}catch(e){}if(metroCtrlRef.current.getBpm){pTR.current=metroCtrlRef.current.getBpm();if(sPT)sPT(pTR.current);}var lt0=toneStartR.current+ciOffR.current+dR.current;toneStartR.current=lt0;lcR.current++;setLc(lcR.current);var _lr=onLoopCompleteR.current?onLoopCompleteR.current(lcR.current):null;if(_lr&&_lr.abc){abcR.current=_lr.abc;}if(_lr&&_lr.stop){clr();return;}ciOffR.current=sch(parseAbc(abcR.current,pTR.current),_lr&&_lr.countIn,lt0);noteFracsR.current=getNoteTimeFracs(abcR.current);try{metroCtrlRef.current.start&&metroCtrlRef.current.start(lt0);}catch(e){}aR.current=requestAnimationFrame(an);}else{clr();}return;}
       }
@@ -4369,7 +4454,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
   const[trInst,setTrInst]=useState(defaultInst||"Concert");const[trMan,setTrMan]=useState(0);
   const[pT,sPT]=useState(lick.tempo);
   const[abOn,setAbOn]=useState(false);const[abA,setAbA]=useState(0);const[abB,setAbB]=useState(1);
-  const curNoteRef=useRef(-1);const[focus,setFocus]=useState(false);
+  const curNoteRef=useRef(-1);const curProgressRef=useRef(-1);const[focus,setFocus]=useState(false);
   const playerCtrlRef=useRef({toggle:null,playing:false});
   const[trOpen,setTrOpen]=useState(false);const[showTempoPopup,setShowTempoPopup]=useState(false);const[showSoundMenu,setShowSoundMenu]=useState(false);
   const initialLikedRef=useRef(liked);
@@ -4516,7 +4601,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
         // Notation — card with subtle background, no border
         React.createElement("div",{style:{position:"relative",padding:"14px 10px 10px",borderRadius:16,background:isStudio?"rgba(255,255,255,0.03)":t.settingsBg||"#F8F9FB",boxShadow:isStudio?"inset 0 1px 0 rgba(255,255,255,0.04)":"inset 0 1px 3px rgba(0,0,0,0.03)"}},
           React.createElement("div",{onClick:function(){if(!theoryMode)setFocus(true);},style:{cursor:theoryMode?"default":"zoom-in"}},
-            React.createElement(Notation,{abc:notationAbc,compact:false,focus:true,abRange:abOn?[abA,abB]:null,curNoteRef:curNoteRef,th:t,theoryMode:theoryMode,theoryAnalysis:theoryAnalysis,soundAbc:soundAbc,bassClef:BASS_CLEF_INSTS.has(trInst)})),
+            React.createElement(Notation,{abc:notationAbc,compact:false,focus:true,abRange:abOn?[abA,abB]:null,curNoteRef:curNoteRef,curProgressRef:curProgressRef,th:t,theoryMode:theoryMode,theoryAnalysis:theoryAnalysis,soundAbc:soundAbc,bassClef:BASS_CLEF_INSTS.has(trInst)})),
           // X-Ray + Fullscreen buttons
           React.createElement("div",{style:{position:"absolute",top:10,right:14,display:"flex",gap:6,alignItems:"center"}},
             React.createElement("button",{onClick:function(){setTheoryMode(!theoryMode);},title:"Theory Analysis",style:{width:32,height:32,borderRadius:8,background:theoryMode?(isStudio?t.accent+"25":t.accent+"15"):t.accentBg,display:"flex",alignItems:"center",justifyContent:"center",border:theoryMode?"1.5px solid "+(isStudio?t.accent+"60":t.accent):("1px solid "+t.accentBorder),cursor:"pointer",transition:"all 0.2s",boxShadow:theoryMode?("0 0 12px "+(isStudio?t.accent+"30":"rgba(99,102,241,0.15)")):"none"}},IC.xray(15,theoryMode?t.accent:(isStudio?t.subtle:t.muted),theoryMode)),
@@ -4634,7 +4719,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
 
     // ═══════ HEADLESS PLAYER (audio only) ═══════
     React.createElement("div",{style:{position:"absolute",width:0,height:0,overflow:"hidden",pointerEvents:"none"}},
-      React.createElement(Player,{abc:soundAbc,tempo:pT,abOn:abOn,abA:abA,abB:abB,setAbOn:setAbOn,setAbA:setAbA,setAbB:setAbB,pT:pT,sPT:sPT,lickTempo:lick.tempo,trInst:null,setTrInst:null,trMan:null,setTrMan:null,onCurNote:function(n){curNoteRef.current=n;},th:t,ctrlRef:playerCtrlRef,initFeel:lick.feel,headless:true,onStateChange:setPs})),
+      React.createElement(Player,{abc:soundAbc,tempo:pT,abOn:abOn,abA:abA,abB:abB,setAbOn:setAbOn,setAbA:setAbA,setAbB:setAbB,pT:pT,sPT:sPT,lickTempo:lick.tempo,trInst:null,setTrInst:null,trMan:null,setTrMan:null,onCurNote:function(n){curNoteRef.current=n;},th:t,ctrlRef:playerCtrlRef,initFeel:lick.feel,headless:true,onStateChange:setPs,progressRef:curProgressRef})),
 
     // ═══════ OVERLAYS ═══════
     focus&&React.createElement(SheetFocus,{abc:notationAbc,onClose:function(){setFocus(false);},abRange:abOn?[abA,abB]:null,curNoteRef:curNoteRef,th:t,playerCtrlRef:playerCtrlRef,theoryMode:theoryMode,theoryAnalysis:theoryAnalysis,soundAbc:soundAbc}),
