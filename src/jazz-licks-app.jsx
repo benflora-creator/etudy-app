@@ -1781,7 +1781,7 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
       renderAbc=renderAbc.replace(/(K:[^\n]*)/,"%%barsperstaff 2\n$1");
     }
     var fmtObj={notespacingfactor:1.4};
-    const opts={responsive:"resize",paddingtop:editorMode?28:(focus?16:theoryMode?20:compact?2:6),paddingbottom:theoryMode?52:(focus?16:compact?2:6),paddingleft:0,paddingright:0,add_classes:true,format:fmtObj};
+    const opts={responsive:"resize",paddingtop:editorMode?28:(focus?16:theoryMode?20:compact?2:6),paddingbottom:theoryMode?62:(focus?16:compact?2:6),paddingleft:0,paddingright:0,add_classes:true,format:fmtObj};
     if(compact){opts.staffwidth=420;opts.scale=0.85;var cBars=barInfo.nBars;if(cBars>4)opts.wrap={minSpacing:1.2,maxSpacing:2.2,preferredMeasuresPerLine:4};}
     else if(editorMode&&hasContent){opts.staffwidth=460;opts.scale=1.1;opts.wrap={minSpacing:1.0,maxSpacing:2.8,preferredMeasuresPerLine:2};}
     else if(editorMode){opts.staffwidth=460;opts.scale=1.1;}
@@ -4695,7 +4695,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
               React.createElement("span",{style:{fontSize:9,fontWeight:600,fontFamily:"'Inter',sans-serif",color:theoryMode?t.accent:t.muted,letterSpacing:0.3}},"Theory")),
             !theoryMode&&React.createElement("button",{onClick:function(){setFocus(true);},style:{width:28,height:28,borderRadius:8,background:isStudio?"rgba(255,255,255,0.04)":"rgba(0,0,0,0.03)",display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid "+(isStudio?t.border:t.borderSub||t.border),cursor:"pointer"}},React.createElement("span",{style:{fontSize:12,color:t.muted}},"\u26F6")))),
         // Theory info panel
-        theoryMode&&theoryAnalysis&&theoryAnalysis.hasChords&&React.createElement("div",{style:{marginTop:16,padding:"10px 12px",borderRadius:12,background:isStudio?t.card:t.settingsBg,border:"1px solid "+(isStudio?t.accent+"20":t.accentBorder),transition:"all 0.2s"}},
+        theoryMode&&theoryAnalysis&&theoryAnalysis.hasChords&&React.createElement("div",{style:{marginTop:24,padding:"10px 12px",borderRadius:12,background:isStudio?t.card:t.settingsBg,border:"1px solid "+(isStudio?t.accent+"20":t.accentBorder),transition:"all 0.2s"}},
           React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}},
             React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,marginRight:4}},
               [["chord-tone","CT"],["tension","T"],["chromatic","Chr"]].map(function(pair){
@@ -4756,7 +4756,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
             React.createElement("button",{onClick:function(e){e.stopPropagation();var opening=!trOpen;setTrOpen(opening);if(opening&&drawerSnap===0){setDrawerH(DRAWER_PEEK+90);hRef.current=DRAWER_PEEK+90;}else if(!opening&&drawerSnap===0){setDrawerH(DRAWER_PEEK);hRef.current=DRAWER_PEEK;}},style:{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",padding:"6px 12px",borderRadius:trOpen?"10px 10px 0 0":10,border:"1px solid "+t.border,borderBottom:trOpen?"none":"1px solid "+t.border,background:isStudio?t.cardRaised||t.card:t.card,cursor:"pointer"}},
               React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
                 React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'Inter',sans-serif",fontWeight:600}},"TRANSPOSE"),
-                (instOff+trMan)!==0&&React.createElement("span",{style:{fontSize:9,color:t.accent,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,background:t.accentBg,padding:"1px 6px",borderRadius:5}},trKeyName("C",instOff+trMan))),
+                (instOff+trMan)!==0&&React.createElement("span",{style:{fontSize:9,color:t.accent,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,background:t.accentBg,padding:"1px 6px",borderRadius:5}},transposedKey)),
               React.createElement("span",{style:{fontSize:9,color:t.subtle,transform:trOpen?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.15s"}},"\u25BC")),
             trOpen&&React.createElement("div",{"data-coach":"transpose",style:{background:isStudio?t.cardRaised||t.card:t.card,borderRadius:"0 0 10px 10px",padding:"8px 12px 10px",border:"1px solid "+t.border,borderTop:"none"}},
               React.createElement(TransposeBar,{trInst:trInst,setTrInst:setTrInst,trMan:trMan,setTrMan:setTrMan,th:t}))),
