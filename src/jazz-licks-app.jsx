@@ -2001,31 +2001,15 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
       var noteEls=svg.querySelectorAll(".abcjs-note");
       if(!noteEls.length)return null;
       var fracs=getNoteTimeFracs(abc);
-      // Detect staff lines (each system/line of music)
-      var staffGroups=svg.querySelectorAll("g.abcjs-staff-group,g[data-name]");
-      var staffLines=[];
-      if(staffGroups.length>0){
-        staffGroups.forEach(function(g){try{var gb=g.getBBox();staffLines.push({y:gb.y,y2:gb.y+gb.height,cy:gb.y+gb.height/2});}catch(e){}});
-      }
-      if(!staffLines.length){
-        var staffEls=svg.querySelectorAll(".abcjs-staff");
-        staffEls.forEach(function(s){try{var sb=s.getBBox();staffLines.push({y:sb.y,y2:sb.y+sb.height,cy:sb.y+sb.height/2});}catch(e){}});
-      }
-      // Deduplicate close staffLines (same system)
-      var lines=[];
-      staffLines.sort(function(a,b){return a.y-b.y;});
-      for(var si=0;si<staffLines.length;si++){
-        if(lines.length===0||staffLines[si].y>lines[lines.length-1].y2+10){
-          lines.push(staffLines[si]);
-        }else{
-          // Merge
-          var last=lines[lines.length-1];
-          last.y2=Math.max(last.y2,staffLines[si].y2);
-          last.cy=(last.y+last.y2)/2;
-        }
-      }
-      if(!lines.length)lines.push({y:20,y2:60,cy:40});
-      // Map each note to position
+      // Get individual staff systems — each .abcjs-staff is one 5-line staff
+      var staffEls=svg.querySelectorAll(".abcjs-staff");
+      var staves=[];
+      staffEls.forEach(function(s){
+        try{var sb=s.getBBox();staves.push({y:sb.y,y2:sb.y+sb.height,cy:sb.y+sb.height/2,h:sb.height});}catch(e){}
+      });
+      // Fixed cursor height from first staff (all staves have same 5-line height)
+      var cursorH=staves.length>0?staves[0].h:30;
+      // Map each note to x position + which staff it belongs to
       var positions=[];
       noteEls.forEach(function(el,idx){
         try{
@@ -2033,27 +2017,26 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
           var bb=head?head.getBBox():el.getBBox();
           var cx=bb.x+bb.width/2;
           var cy=bb.y+bb.height/2;
-          // Find which staff line this note is on
-          var lineIdx=0;var bestDist=Infinity;
-          for(var li=0;li<lines.length;li++){
-            var d=Math.abs(cy-lines[li].cy);
-            if(d<bestDist){bestDist=d;lineIdx=li;}
+          // Find nearest staff by center Y distance
+          var staffIdx=0;var bestDist=Infinity;
+          for(var si=0;si<staves.length;si++){
+            var d=Math.abs(cy-staves[si].cy);
+            if(d<bestDist){bestDist=d;staffIdx=si;}
           }
           positions.push({
-            cx:cx,cy:cy,lineIdx:lineIdx,
+            cx:cx,staffIdx:staffIdx,
             frac:idx<fracs.length?fracs[idx].frac:1,
             endFrac:idx<fracs.length?fracs[idx].endFrac:1
           });
         }catch(e){positions.push(null);}
       });
-      posMapRef.current={positions:positions,lines:lines};
+      posMapRef.current={positions:positions,staves:staves,cursorH:cursorH};
       return posMapRef.current;
     };
     // Get cursor x,y for a given progress fraction by interpolating between notes
     var getCursorPos=function(progress,map){
       if(!map||!map.positions.length)return null;
       var pos=map.positions;
-      // Find the two notes we're between
       var prevP=null,nextP=null;
       for(var i=0;i<pos.length;i++){
         if(!pos[i])continue;
@@ -2063,19 +2046,19 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
       if(!prevP&&nextP)prevP=nextP;
       if(!nextP&&prevP)nextP=prevP;
       if(!prevP)return null;
-      // If same line, interpolate x
-      if(prevP.lineIdx===nextP.lineIdx){
+      // Same staff: interpolate x
+      if(prevP.staffIdx===nextP.staffIdx){
         var segLen=nextP.frac-prevP.frac;
         var t2=segLen>0.001?(progress-prevP.frac)/segLen:0;
         t2=Math.max(0,Math.min(1,t2));
-        return{x:prevP.cx+(nextP.cx-prevP.cx)*t2,lineIdx:prevP.lineIdx};
+        return{x:prevP.cx+(nextP.cx-prevP.cx)*t2,staffIdx:prevP.staffIdx};
       }else{
-        // Line break: if we're past the start of next line's first note, jump
+        // Line break: jump at midpoint
         var midFrac=(prevP.endFrac+nextP.frac)/2;
         if(progress>=midFrac){
-          return{x:nextP.cx,lineIdx:nextP.lineIdx};
+          return{x:nextP.cx,staffIdx:nextP.staffIdx};
         }else{
-          return{x:prevP.cx,lineIdx:prevP.lineIdx};
+          return{x:prevP.cx,staffIdx:prevP.staffIdx};
         }
       }
     };
@@ -2135,14 +2118,13 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
         var cursor=ensureCursor();
         if(map&&cursor){
           var cPos=getCursorPos(progress,map);
-          if(cPos){
-            var staff=map.lines[cPos.lineIdx];
-            if(staff){
-              cursor.setAttribute("height",String(staff.y2-staff.y));
-              cursor.setAttribute("y",String(staff.y));
-            }
+          if(cPos&&cPos.staffIdx<map.staves.length){
+            var staff=map.staves[cPos.staffIdx];
+            var ch=map.cursorH;
+            cursor.setAttribute("height",String(ch));
+            cursor.setAttribute("y",String(staff.cy-ch/2));
             cursor.setAttribute("x",String(cPos.x-0.6));
-            _prevLineIdx=cPos.lineIdx;
+            _prevLineIdx=cPos.staffIdx;
             cursor.style.display="block";
           }
         }
