@@ -4682,8 +4682,8 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
 
     // ═══════ NOTATION AREA (fills space between header and drawer) ═══════
     React.createElement("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:drawerH,paddingTop:"calc(env(safe-area-inset-top, 0px) + 88px)",display:"flex",flexDirection:"column",overflow:"hidden",background:isStudio?"#0C0C18":"#F4F3EE"}},
-      React.createElement("div",{style:{flex:1,display:"flex",flexDirection:"column",justifyContent:"center",overflowY:"auto",WebkitOverflowScrolling:"touch"}},
-      React.createElement("div",{style:{maxWidth:520,width:"100%",margin:"0 auto",padding:"8px 16px 20px"}},
+      React.createElement("div",{style:{flex:1,display:"flex",flexDirection:"column",overflowY:"auto",WebkitOverflowScrolling:"touch"}},
+      React.createElement("div",{style:{maxWidth:520,width:"100%",margin:"auto",padding:"8px 16px 20px"}},
         // Notation — flat, no card
         React.createElement("div",{style:{position:"relative",padding:"14px 10px 10px"}},
           React.createElement("div",{onClick:function(){if(!theoryMode)setFocus(true);},style:{cursor:theoryMode?"default":"zoom-in"}},
