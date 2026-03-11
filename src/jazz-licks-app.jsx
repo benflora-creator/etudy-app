@@ -3202,13 +3202,19 @@ function buildAbc(items,keySig,timeSig,tempo,chords,minBars,keyQual){const[tsN,t
 
     // Normal note (no barline crossing)
     // Barline
-    if(pos>0){var bN=pos/bE;if(Math.abs(bN-Math.round(bN))<0.01&&Math.round(bN)>0){abc+=" | ";barAlts={};}}
+    // Barline (skip if mid-triplet to avoid breaking groups)
+    var midTripletBar=item.tri&&(triCount%3!==0);
+    if(pos>0&&!midTripletBar){var bN=pos/bE;if(Math.abs(bN-Math.round(bN))<0.01&&Math.round(bN)>0){abc+=" | ";barAlts={};}}
     // Beam break
     if(nc>0){
       posInBar=pos%bE;if(Math.abs(posInBar)<0.01&&pos>0)posInBar=0;
       var needSpace=false;
-      if(effEi>=2)needSpace=true;
-      else{var breaks=effEi<1?beamBreaks16:beamBreaks;for(var bb2=0;bb2<breaks.length;bb2++)if(Math.abs(posInBar-breaks[bb2])<0.05){needSpace=true;break;}}
+      // Never break beam inside a triplet group
+      var midTriplet=item.tri&&(triCount%3!==0);
+      if(!midTriplet){
+        if(effEi>=2)needSpace=true;
+        else{var breaks=effEi<1?beamBreaks16:beamBreaks;for(var bb2=0;bb2<breaks.length;bb2++)if(Math.abs(posInBar-breaks[bb2])<0.05){needSpace=true;break;}}
+      }
       if(needSpace)abc+=" ";
     }
     // Chord
@@ -3394,6 +3400,14 @@ function NoteBuilder({onAbcChange,keySig,keyQual,timeSig,tempo,previewEl,playerE
   const toggleTie=function(){
     if(selIdx!==null&&selIdx<items.length&&items[selIdx].type==="note"){
       var ni=items.map(function(x){return Object.assign({},x);});ni[selIdx]=Object.assign({},ni[selIdx],{tie:!ni[selIdx].tie});mutate(ni);
+    }else{
+      // No selection: toggle tie on last note
+      for(var k=items.length-1;k>=0;k--){
+        if(items[k].type==="note"){
+          var ni2=items.map(function(x){return Object.assign({},x);});ni2[k]=Object.assign({},ni2[k],{tie:!ni2[k].tie});mutate(ni2);
+          break;
+        }
+      }
     }
   };
   const changeOct=function(delta){
@@ -3424,7 +3438,9 @@ function NoteBuilder({onAbcChange,keySig,keyQual,timeSig,tempo,previewEl,playerE
   var selItem=selIdx!==null&&items[selIdx]?items[selIdx]:null;
   var effDur=selItem?selItem.dur:cD;var effDot=selItem?!!selItem.dotted:dt;var effTri=selItem?!!selItem.tri:tri;
   var effOct=selItem&&selItem.type==="note"?selItem.oct:cO;
-  var effTie=selItem&&selItem.type==="note"?!!selItem.tie:false;
+  var effTie=false;
+  if(selItem&&selItem.type==="note")effTie=!!selItem.tie;
+  else{for(var ti2=items.length-1;ti2>=0;ti2--){if(items[ti2].type==="note"){effTie=!!items[ti2].tie;break;}}}
 
   const renderItem=function(item,idx){
     var pB=0;for(var j=0;j<idx;j++){var it3=items[j];if(it3.type==="note"||it3.type==="rest")pB+=DURS[it3.dur].eighths*(it3.dotted?1.5:1)*(it3.tri?2/3:1);}
@@ -3478,7 +3494,7 @@ function NoteBuilder({onAbcChange,keySig,keyQual,timeSig,tempo,previewEl,playerE
       React.createElement("div",{style:{width:1,height:28,background:btnBd}}),
       React.createElement("button",{onClick:toggleDot,style:{padding:"4px 10px",borderRadius:8,border:"1px solid "+(effDot?t.accentBorder:btnBd),cursor:"pointer",background:effDot?t.accentBg:btnBg,color:effDot?ac:mu,fontSize:18,fontWeight:700}},"\u00B7"),
       React.createElement("button",{onClick:toggleTri,style:{padding:"4px 8px",borderRadius:8,border:"1px solid "+(effTri?t.accentBorder:btnBd),cursor:"pointer",background:effTri?t.accentBg:btnBg,color:effTri?ac:mu,fontSize:11,fontWeight:700,fontFamily:"'JetBrains Mono',monospace"}},"3"),
-      selIdx!==null&&items[selIdx]&&items[selIdx].type==="note"&&React.createElement("button",{onClick:toggleTie,style:{padding:"4px 8px",borderRadius:8,border:"1px solid "+(effTie?t.accentBorder:btnBd),cursor:"pointer",background:effTie?t.accentBg:btnBg,color:effTie?ac:mu,fontSize:12,fontWeight:700,fontFamily:"'Instrument Serif',serif"}},"\u2040 tie")),
+      items.some(function(it){return it.type==="note";})&&React.createElement("button",{onClick:toggleTie,style:{padding:"4px 8px",borderRadius:8,border:"1px solid "+(effTie?t.accentBorder:btnBd),cursor:"pointer",background:effTie?t.accentBg:btnBg,color:effTie?ac:mu,fontSize:11,fontWeight:600,fontFamily:"'Inter',sans-serif",display:"flex",alignItems:"center",gap:3}},"\u2040","tie")),
     // 7. Rest button
     React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4}},
       React.createElement("button",{onClick:addRest,style:{padding:"5px 12px",borderRadius:8,border:"1px solid "+btnBd,background:chipBg,color:mu,fontSize:11,cursor:"pointer",fontFamily:"monospace"}},selIdx!==null?"Set Rest":"+ Rest"),
