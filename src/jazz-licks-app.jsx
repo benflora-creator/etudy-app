@@ -559,15 +559,15 @@ var CHORD_TONE_MAP={
 var SCALE_DEFS=[
   {name:"Mixolydian",notes:[0,2,4,5,7,9,10],ctx:["7","9","13"]},
   {name:"Dorian",notes:[0,2,3,5,7,9,10],ctx:["m7","m9"]},
-  {name:"Ionian",notes:[0,2,4,5,7,9,11],ctx:["maj7","maj9","6"]},
-  {name:"Aeolian",notes:[0,2,3,5,7,8,10],ctx:["m7"]},
+  {name:"Ionian",notes:[0,2,4,5,7,9,11],ctx:["maj7","maj9","6",""]},
+  {name:"Aeolian",notes:[0,2,3,5,7,8,10],ctx:["m7","m"]},
   {name:"Lydian",notes:[0,2,4,6,7,9,11],ctx:["maj7","maj7#11"]},
   {name:"Lydian Dominant",notes:[0,2,4,6,7,9,10],ctx:["7","7#11"]},
   {name:"Altered",notes:[0,1,3,4,6,8,10],ctx:["7","7alt","7b9","7#9","7b13"]},
   {name:"HW Diminished",notes:[0,1,3,4,6,7,9,10],ctx:["7","7b9","dim"]},
   {name:"WH Diminished",notes:[0,2,3,5,6,8,9,11],ctx:["dim","dim7"]},
-  {name:"Melodic Minor",notes:[0,2,3,5,7,9,11],ctx:["m","m6","m7"]},
-  {name:"Harmonic Minor",notes:[0,2,3,5,7,8,11],ctx:["m"]},
+  {name:"Melodic Minor",notes:[0,2,3,5,7,9,11],ctx:["m6","mmaj7"]},
+  {name:"Harmonic Minor",notes:[0,2,3,5,7,8,11],ctx:["mmaj7"]},
   {name:"Whole Tone",notes:[0,2,4,6,8,10],ctx:["aug","7#5"]},
   {name:"Blues",notes:[0,3,5,6,7,10],ctx:["7","m7"]},
   {name:"Minor Pentatonic",notes:[0,3,5,7,10],ctx:["m7","7"]},
@@ -694,7 +694,7 @@ function detectScale(noteSet,chordParsed){
   var DEFAULT_SCALES={
     "maj7":"Ionian","maj9":"Ionian","6":"Ionian","":"Ionian",
     "7":"Mixolydian","9":"Mixolydian","13":"Mixolydian",
-    "m7":"Dorian","m9":"Dorian","m":"Dorian","m6":"Dorian",
+    "m7":"Dorian","m9":"Dorian","m":"Aeolian","m6":"Dorian",
     "m7b5":"Locrian","dim":"WH Diminished","dim7":"WH Diminished",
     "aug":"Whole Tone","7#5":"Whole Tone",
     "7alt":"Altered","7b9":"Altered","7#9":"Altered","7b13":"Altered",
@@ -1781,7 +1781,7 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
       renderAbc=renderAbc.replace(/(K:[^\n]*)/,"%%barsperstaff 2\n$1");
     }
     var fmtObj={notespacingfactor:1.4};
-    const opts={responsive:"resize",paddingtop:editorMode?28:(focus?16:theoryMode?20:compact?2:6),paddingbottom:theoryMode?38:(focus?16:compact?2:6),paddingleft:0,paddingright:0,add_classes:true,format:fmtObj};
+    const opts={responsive:"resize",paddingtop:editorMode?28:(focus?16:theoryMode?20:compact?2:6),paddingbottom:theoryMode?52:(focus?16:compact?2:6),paddingleft:0,paddingright:0,add_classes:true,format:fmtObj};
     if(compact){opts.staffwidth=420;opts.scale=0.85;var cBars=barInfo.nBars;if(cBars>4)opts.wrap={minSpacing:1.2,maxSpacing:2.2,preferredMeasuresPerLine:4};}
     else if(editorMode&&hasContent){opts.staffwidth=460;opts.scale=1.1;opts.wrap={minSpacing:1.0,maxSpacing:2.8,preferredMeasuresPerLine:2};}
     else if(editorMode){opts.staffwidth=460;opts.scale=1.1;}
@@ -4690,12 +4690,12 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
             React.createElement(Notation,{abc:notationAbc,compact:false,focus:true,abRange:abOn?[abA,abB]:null,curNoteRef:curNoteRef,curProgressRef:curProgressRef,th:t,theoryMode:theoryMode,theoryAnalysis:theoryAnalysis,soundAbc:soundAbc,bassClef:BASS_CLEF_INSTS.has(trInst)})),
           // Theory + Fullscreen buttons
           React.createElement("div",{style:{position:"absolute",top:10,right:12,display:"flex",gap:6,alignItems:"center"}},
-            React.createElement("button",{onClick:function(){setTheoryMode(!theoryMode);},style:{padding:"5px 10px",borderRadius:8,background:theoryMode?(isStudio?t.accent+"20":t.accent+"12"):(isStudio?"rgba(255,255,255,0.04)":"rgba(0,0,0,0.03)"),display:"flex",alignItems:"center",gap:5,border:theoryMode?"1.5px solid "+(isStudio?t.accent+"50":t.accent+"40"):"1px solid "+(isStudio?t.border:t.borderSub||t.border),cursor:"pointer",transition:"all 0.2s",boxShadow:theoryMode?"0 0 10px "+(isStudio?t.accent+"20":"rgba(99,102,241,0.1)"):"none"}},
+            React.createElement("button",{onClick:function(){setTheoryMode(!theoryMode);},style:{height:28,padding:"0 10px",borderRadius:8,background:theoryMode?(isStudio?t.accent+"20":t.accent+"12"):(isStudio?"rgba(255,255,255,0.04)":"rgba(0,0,0,0.03)"),display:"flex",alignItems:"center",gap:5,border:theoryMode?"1.5px solid "+(isStudio?t.accent+"50":t.accent+"40"):"1px solid "+(isStudio?t.border:t.borderSub||t.border),cursor:"pointer",transition:"all 0.2s",boxShadow:theoryMode?"0 0 10px "+(isStudio?t.accent+"20":"rgba(99,102,241,0.1)"):"none"}},
               IC.xray(13,theoryMode?t.accent:(isStudio?t.subtle:t.muted),theoryMode),
               React.createElement("span",{style:{fontSize:9,fontWeight:600,fontFamily:"'Inter',sans-serif",color:theoryMode?t.accent:t.muted,letterSpacing:0.3}},"Theory")),
-            !theoryMode&&React.createElement("button",{onClick:function(){setFocus(true);},style:{width:28,height:28,borderRadius:7,background:isStudio?"rgba(255,255,255,0.04)":"rgba(0,0,0,0.03)",display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid "+(isStudio?t.border:t.borderSub||t.border),cursor:"pointer"}},React.createElement("span",{style:{fontSize:12,color:t.muted}},"\u26F6")))),
+            !theoryMode&&React.createElement("button",{onClick:function(){setFocus(true);},style:{width:28,height:28,borderRadius:8,background:isStudio?"rgba(255,255,255,0.04)":"rgba(0,0,0,0.03)",display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid "+(isStudio?t.border:t.borderSub||t.border),cursor:"pointer"}},React.createElement("span",{style:{fontSize:12,color:t.muted}},"\u26F6")))),
         // Theory info panel
-        theoryMode&&theoryAnalysis&&theoryAnalysis.hasChords&&React.createElement("div",{style:{marginTop:10,padding:"10px 12px",borderRadius:12,background:isStudio?t.card:t.settingsBg,border:"1px solid "+(isStudio?t.accent+"20":t.accentBorder),transition:"all 0.2s"}},
+        theoryMode&&theoryAnalysis&&theoryAnalysis.hasChords&&React.createElement("div",{style:{marginTop:16,padding:"10px 12px",borderRadius:12,background:isStudio?t.card:t.settingsBg,border:"1px solid "+(isStudio?t.accent+"20":t.accentBorder),transition:"all 0.2s"}},
           React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}},
             React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,marginRight:4}},
               [["chord-tone","CT"],["tension","T"],["chromatic","Chr"]].map(function(pair){
