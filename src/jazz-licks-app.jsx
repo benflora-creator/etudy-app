@@ -1770,6 +1770,7 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
   const ref=useRef(null);const ok=useAbcjs();const prevNoteRef=useRef(-1);const rafRef=useRef(null);
   const onReadyRef=useRef(onReady);useEffect(()=>{onReadyRef.current=onReady;},[onReady]);
   const t=th||TH.classic;
+  var cursorDivRef=useRef(null);
   useEffect(()=>{if(!ok||!ref.current||!window.ABCJS)return;
     prevNoteRef.current=-1;
     var el=ref.current;var prevH=el.offsetHeight;if(prevH>0)el.style.minHeight=prevH+"px";el.style.maxHeight="";
@@ -2275,7 +2276,6 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
   },[selNoteIdx,abc,th]);
   if(!ok)return React.createElement("div",{style:{height:compact?50:80,display:"flex",alignItems:"center",justifyContent:"center",color:t.subtle,fontSize:12,fontFamily:"'Inter',sans-serif"}},"Loading...");
   const isStudio=t===TH.studio;
-  var cursorDivRef=useRef(null);
   return React.createElement("div",{style:{position:"relative",borderRadius:focus?0:isStudio?12:10,background:focus?"transparent":compact?"transparent":t.noteBg,padding:focus?"0":compact?"6px 10px":(isStudio?"14px 16px":"12px 14px"),border:focus?"none":compact?"none":"1px solid "+(isStudio?t.border:t.borderSub),overflow:"hidden"}},
     React.createElement("div",{ref:ref}),
     !compact&&React.createElement("div",{ref:cursorDivRef,style:{position:"absolute",top:0,left:0,width:1.5,borderRadius:1,background:t.accent,opacity:isStudio?0.5:0.35,pointerEvents:"none",display:"none",willChange:"transform"}}));}
