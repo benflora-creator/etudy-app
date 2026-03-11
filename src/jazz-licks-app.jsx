@@ -2030,8 +2030,35 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
           });
         }catch(e){positions.push(null);}
       });
-      posMapRef.current={positions:positions,staves:staves,cursorH:cursorH,
-        firstNoteFrac:positions.length>0&&positions[0]?positions[0].frac:0};
+      // Add virtual start position (frac=0) and end position (frac=1) for rests at edges
+      // Start: right edge of clef/key/time area, or first barline
+      var startX=null,endX=null;
+      var firstStaff=staves.length>0?staves[0]:null;
+      var lastStaff=staves.length>0?staves[staves.length-1]:null;
+      // Find first barline x for start reference
+      var barEls=svg.querySelectorAll(".abcjs-bar");
+      if(barEls.length>0){
+        try{var fb=barEls[0].getBBox();startX=fb.x;}catch(e){}
+        try{var lb=barEls[barEls.length-1].getBBox();endX=lb.x+lb.width;}catch(e){}
+      }
+      // Fallback: use staff-extra right edge for start
+      if(startX===null){
+        var extras=svg.querySelectorAll(".abcjs-staff-extra");
+        if(extras.length>0){try{var eb=extras[0].getBBox();startX=eb.x+eb.width+4;}catch(e){}}
+      }
+      if(startX===null&&positions.length>0&&positions[0])startX=positions[0].lx-10;
+      if(endX===null&&positions.length>0){var lp=positions[positions.length-1];if(lp)endX=lp.lx+20;}
+      // Insert virtual start if first note isn't at frac~0
+      if(positions.length>0&&positions[0]&&positions[0].frac>0.005&&startX!==null&&firstStaff){
+        positions.unshift({lx:startX,staffIdx:0,frac:0,endFrac:0});
+      }
+      // Append virtual end if last note isn't at frac~1
+      if(positions.length>0){var lastP=positions[positions.length-1];
+        if(lastP&&lastP.endFrac<0.995&&endX!==null&&lastStaff){
+          positions.push({lx:endX,staffIdx:lastP.staffIdx,frac:1,endFrac:1});
+        }
+      }
+      posMapRef.current={positions:positions,staves:staves,cursorH:cursorH};
       return posMapRef.current;
     };
     // Get cursor x,y for a given progress fraction by interpolating between notes
@@ -2125,23 +2152,9 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
             var overhang=ch*0.15;
             cursor.setAttribute("height",String(ch+overhang*2));
             cursor.setAttribute("y",String(staff.cy-ch/2-overhang));
-            cursor.setAttribute("x",String(cPos.x-1.5));
+            cursor.setAttribute("x",String(cPos.x-3));
             _prevLineIdx=cPos.staffIdx;
             cursor.style.display="block";
-            // Pulse during rest before first note
-            var isS=t===TH.studio;
-            var baseOp=isS?0.5:0.35;
-            if(map.firstNoteFrac>0.001&&progress<map.firstNoteFrac-0.001){
-              var bpmMatch=abc.match(/Q:.*?(\d+)\s*$/m);
-              var bpm=bpmMatch?parseInt(bpmMatch[1]):120;
-              var beatMs=60000/bpm;
-              var phase=(performance.now()%beatMs)/beatMs;
-              var pulse=0.5+0.5*Math.cos(phase*Math.PI*2);
-              var minOp=isS?0.1:0.06;
-              cursor.setAttribute("fill-opacity",String(minOp+(baseOp-minOp)*pulse));
-            }else{
-              cursor.setAttribute("fill-opacity",String(baseOp));
-            }
           }
         }
       }else if(cursorLineRef.current){
