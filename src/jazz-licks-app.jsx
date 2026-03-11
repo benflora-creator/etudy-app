@@ -1771,6 +1771,7 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
   const onReadyRef=useRef(onReady);useEffect(()=>{onReadyRef.current=onReady;},[onReady]);
   const t=th||TH.classic;
   var cursorDivRef=useRef(null);
+  var wrapRef=useRef(null);
   useEffect(()=>{if(!ok||!ref.current||!window.ABCJS)return;
     prevNoteRef.current=-1;
     var el=ref.current;var prevH=el.offsetHeight;if(prevH>0)el.style.minHeight=prevH+"px";
@@ -2166,7 +2167,7 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
     var computeRatio=function(){
       if(!ref.current)return;var svg=ref.current.querySelector("svg");if(!svg)return;
       var vb=svg.viewBox.baseVal;if(!vb||vb.width<=0)return;
-      var sr=svg.getBoundingClientRect();var cr=ref.current.parentNode.getBoundingClientRect();
+      var sr=svg.getBoundingClientRect();var cr=wrapRef.current?wrapRef.current.getBoundingClientRect():ref.current.getBoundingClientRect();
       svgRatio.ratio=sr.width/vb.width;
       svgRatio.offX=sr.left-cr.left-vb.x*svgRatio.ratio;
       svgRatio.offY=sr.top-cr.top-vb.y*svgRatio.ratio;
@@ -2202,6 +2203,7 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
       // --- HTML cursor overlay (zero SVG DOM mutations) ---
       var cDiv=cursorDivRef.current;
       if(!compact&&progress>=0&&cDiv){
+        if(!svgRatio.ok)computeRatio();// lazy init — SVG might not be laid out on first tick
         var map=buildPosMap();
         if(map&&svgRatio.ok){
           var cPos=getCursorPos(progress,map);
@@ -2268,9 +2270,9 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
   },[selNoteIdx,abc,th]);
   if(!ok)return React.createElement("div",{style:{height:compact?50:80,display:"flex",alignItems:"center",justifyContent:"center",color:t.subtle,fontSize:12,fontFamily:"'Inter',sans-serif"}},"Loading...");
   const isStudio=t===TH.studio;
-  return React.createElement("div",{style:{position:"relative",borderRadius:focus?0:isStudio?12:10,background:focus?"transparent":compact?"transparent":t.noteBg,padding:focus?"0":compact?"6px 10px":(isStudio?"14px 16px":"12px 14px"),border:focus?"none":compact?"none":"1px solid "+(isStudio?t.border:t.borderSub),overflow:"hidden"}},
-    React.createElement("div",{ref:ref,style:{contain:"layout paint"}}),
-    !compact&&React.createElement("div",{ref:cursorDivRef,style:{position:"absolute",top:0,left:0,width:1.5,borderRadius:1,background:t.accent,opacity:isStudio?0.5:0.35,pointerEvents:"none",display:"none",willChange:"transform"}}));}
+  return React.createElement("div",{ref:wrapRef,style:{position:"relative",borderRadius:focus?0:isStudio?12:10,background:focus?"transparent":compact?"transparent":t.noteBg,padding:focus?"0":compact?"6px 10px":(isStudio?"14px 16px":"12px 14px"),border:focus?"none":compact?"none":"1px solid "+(isStudio?t.border:t.borderSub),overflow:compact?"hidden":"visible"}},
+    React.createElement("div",{ref:ref}),
+    !compact&&React.createElement("div",{ref:cursorDivRef,style:{position:"absolute",top:0,left:0,width:1.5,borderRadius:1,background:t.accent,opacity:isStudio?0.5:0.35,pointerEvents:"none",display:"none",willChange:"transform",zIndex:5}}));}
 
 // ============================================================
 // A/B RANGE BAR — themed
