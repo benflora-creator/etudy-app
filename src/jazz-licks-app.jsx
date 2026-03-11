@@ -1805,7 +1805,7 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
       if(onReadyRef.current)onReadyRef.current();
     });});
     // Invalidate cursor position cache for smooth cursor
-    posMapRef.current=null;if(cursorLineRef.current){try{cursorLineRef.current.remove();}catch(e){}cursorLineRef.current=null;}
+    posMapRef.current=null;
     if(!ref.current)return;const svg=ref.current.querySelector("svg");if(!svg)return;
     svg.style.overflow="hidden";// prevent cursor overhang from causing layout shifts
     const isStudio=t===TH.studio;
@@ -2059,7 +2059,6 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
   },[abc,ok,compact,abRange,focus,th,theoryMode,theoryAnalysis,soundAbc,bassClef]);
   // Cursor: smooth continuous playhead + note highlighting
   // Uses curProgressRef (0-1 fraction) for smooth cursor, curNoteRef for note highlighting
-  var cursorLineRef=useRef(null);
   var posMapRef=useRef(null);
   useEffect(()=>{if(!curNoteRef&&!curProgressRef)return;
     // Build position map: note positions + staff lines
@@ -2169,44 +2168,23 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
         }
       }
     };
-    // Create/get cursor SVG element
-    var ensureCursor=function(){
-      if(cursorLineRef.current)return cursorLineRef.current;
-      if(!ref.current||compact)return null;
-      var svg=ref.current.querySelector("svg");if(!svg)return null;
-      svg.querySelectorAll(".etudy-cursor").forEach(function(c){c.remove();});
-      var map=buildPosMap();if(!map)return null;
-      var line=document.createElementNS("http://www.w3.org/2000/svg","rect");
-      line.setAttribute("class","etudy-cursor");
-      line.setAttribute("width","1.2");
-      line.setAttribute("rx","0.6");
-      line.setAttribute("x","0");
-      line.setAttribute("y","0");
-      line.setAttribute("height","0");
-      var isS=t===TH.studio;
-      line.setAttribute("fill",isS?t.accent:t.accent);
-      line.setAttribute("fill-opacity",isS?"0.5":"0.35");
-      line.style.display="none";
-      svg.appendChild(line);
-      cursorLineRef.current=line;
-      // Pre-compute staff positions (height, y, yOff) so tick only sets transform
-      var staffCache=[];
-      for(var si=0;si<map.staves.length;si++){
-        var staff=map.staves[si];
-        var ch=map.cursorH;var overhang=ch*0.15;
-        var staffYOff=0;
-        if(staff.el){var g=staff.el;while(g&&g.tagName!=="svg"){var tr=g.getAttribute&&g.getAttribute("transform");if(tr){var m2=tr.match(/translate\(\s*[\d.+-]+\s*,\s*([\d.+-]+)\s*\)/);if(m2)staffYOff+=parseFloat(m2[1]);}g=g.parentNode;}}
-        staffCache.push({cy:staff.cy+staffYOff,h:ch+overhang*2,y:staff.cy-ch/2-overhang+staffYOff});
-      }
-      line._staffCache=staffCache;
-      line._cursorH=map.cursorH;
-      return line;
+    // SVG-to-pixel mapping for HTML cursor overlay
+    var svgRatio={ratio:0,offX:0,offY:0,ok:false};
+    var computeRatio=function(){
+      if(!ref.current)return;var svg=ref.current.querySelector("svg");if(!svg)return;
+      var vb=svg.viewBox.baseVal;if(!vb||vb.width<=0)return;
+      var sr=svg.getBoundingClientRect();var cr=ref.current.parentNode.getBoundingClientRect();
+      svgRatio.ratio=sr.width/vb.width;
+      svgRatio.offX=sr.left-cr.left-vb.x*svgRatio.ratio;
+      svgRatio.offY=sr.top-cr.top-vb.y*svgRatio.ratio;
+      svgRatio.ok=true;
     };
-    var _prevLineIdx=-1;
+    computeRatio();
+    var _prevLineIdx=-1;var _lastCurTr="";
     const tick=()=>{
       var cn=curNoteRef?curNoteRef.current:-1;
       var progress=curProgressRef?curProgressRef.current:-1;
-      // --- Note highlighting (discrete, from curNoteRef) ---
+      // --- Note highlighting (discrete, uses setAttribute not style) ---
       if(cn!==prevNoteRef.current&&ref.current){
         const svg=ref.current.querySelector("svg");if(svg){
           const noteEls=svg.querySelectorAll(".abcjs-note");
@@ -2216,48 +2194,46 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
             var restoreCol=t.noteStroke;var restoreOp="1";
             if(el._theoryInfo){restoreCol=el._theoryInfo.col;restoreOp=el._theoryInfo.entry.type==="chord-tone"?"1":(el._theoryInfo.entry.type==="tension"?"0.8":"0.5");}
             el.querySelectorAll("path,circle,ellipse").forEach(p=>{
-              p.style.fill=restoreCol;p.style.stroke=restoreCol;
+              p.setAttribute("fill",restoreCol);p.setAttribute("stroke",restoreCol);
               if(hasRange&&prevNoteRef.current<fracs.length){const f=fracs[prevNoteRef.current];const inR=f.frac>=abRange[0]-0.001&&f.endFrac<=abRange[1]+0.001;
-                p.style.fillOpacity=inR?restoreOp:"0.12";p.style.strokeOpacity=inR?restoreOp:"0.12";
-              }else{p.style.fillOpacity=restoreOp;p.style.strokeOpacity=restoreOp;}});}          if(cn>=0&&cn<noteEls.length){
+                p.setAttribute("fill-opacity",inR?restoreOp:"0.12");p.setAttribute("stroke-opacity",inR?restoreOp:"0.12");
+              }else{p.setAttribute("fill-opacity",restoreOp);p.setAttribute("stroke-opacity",restoreOp);}});}
+          if(cn>=0&&cn<noteEls.length){
             const el=noteEls[cn];
             var curCol=theoryMode?(t===TH.studio?"#FFFFFF":"#1A1A1A"):t.accent;
             el.querySelectorAll("path,circle,ellipse").forEach(p=>{
-              p.style.fill=curCol;p.style.stroke=curCol;
-              p.style.fillOpacity="1";p.style.strokeOpacity="1";});
+              p.setAttribute("fill",curCol);p.setAttribute("stroke",curCol);
+              p.setAttribute("fill-opacity","1");p.setAttribute("stroke-opacity","1");});
           }
         }prevNoteRef.current=cn;}
-      // --- Smooth cursor line (continuous, from curProgressRef) ---
-      if(!compact&&progress>=0){
+      // --- HTML cursor overlay (zero SVG DOM mutations) ---
+      var cDiv=cursorDivRef.current;
+      if(!compact&&progress>=0&&cDiv){
         var map=buildPosMap();
-        var cursor=ensureCursor();
-        if(map&&cursor&&cursor._staffCache){
+        if(map&&svgRatio.ok){
           var cPos=getCursorPos(progress,map);
-          if(cPos&&cPos.staffIdx<cursor._staffCache.length){
-            var sc=cursor._staffCache[cPos.staffIdx];
-            if(cPos.staffIdx!==_prevLineIdx){
-              cursor.setAttribute("height",String(sc.h));
-              _prevLineIdx=cPos.staffIdx;
-            }
-            var nx=Math.round((cPos.x-3)*2)/2;// round to 0.5px
-            var ny=Math.round(sc.y*2)/2;
-            var newTr="translate("+nx+","+ny+")";
-            if(cursor._lastTr!==newTr){
-              cursor.setAttribute("transform",newTr);
-              cursor._lastTr=newTr;
-            }
-            if(cursor.style.display!=="block")cursor.style.display="block";
+          if(cPos&&cPos.staffIdx<map.staves.length){
+            var staff=map.staves[cPos.staffIdx];
+            var ch=map.cursorH;var overhang=ch*0.15;
+            var staffYOff=0;
+            if(staff.el){var g=staff.el;while(g&&g.tagName!=="svg"){var tr2=g.getAttribute&&g.getAttribute("transform");if(tr2){var m3=tr2.match(/translate\(\s*[\d.+-]+\s*,\s*([\d.+-]+)\s*\)/);if(m3)staffYOff+=parseFloat(m3[1]);}g=g.parentNode;}}
+            var r=svgRatio.ratio;
+            var px=Math.round(((cPos.x-3)*r+svgRatio.offX)*2)/2;
+            var py=Math.round(((staff.cy-ch/2-overhang+staffYOff)*r+svgRatio.offY)*2)/2;
+            var ph=Math.round((ch+overhang*2)*r*2)/2;
+            var newTr="translate3d("+px+"px,"+py+"px,0)";
+            if(_lastCurTr!==newTr){cDiv.style.transform=newTr;_lastCurTr=newTr;}
+            if(cDiv._lastH!==ph){cDiv.style.height=ph+"px";cDiv._lastH=ph;}
+            if(cDiv.style.display!=="block")cDiv.style.display="block";
           }
         }
-      }else if(cursorLineRef.current){
-        if(cursorLineRef.current.style.display!=="none")cursorLineRef.current.style.display="none";
-        _prevLineIdx=-1;
+      }else if(cDiv&&cDiv.style.display!=="none"){
+        cDiv.style.display="none";_lastCurTr="";
       }
       rafRef.current=requestAnimationFrame(tick);};
     rafRef.current=requestAnimationFrame(tick);
     return()=>{
       if(rafRef.current)cancelAnimationFrame(rafRef.current);
-      if(cursorLineRef.current){try{cursorLineRef.current.remove();}catch(e){}cursorLineRef.current=null;}
       posMapRef.current=null;
     };
   },[abc,abRange,th,compact,curNoteRef,curProgressRef,theoryMode]);
@@ -2299,7 +2275,10 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
   },[selNoteIdx,abc,th]);
   if(!ok)return React.createElement("div",{style:{height:compact?50:80,display:"flex",alignItems:"center",justifyContent:"center",color:t.subtle,fontSize:12,fontFamily:"'Inter',sans-serif"}},"Loading...");
   const isStudio=t===TH.studio;
-  return React.createElement("div",{ref,style:{borderRadius:focus?0:isStudio?12:10,background:focus?"transparent":compact?"transparent":t.noteBg,padding:focus?"0":compact?"6px 10px":(isStudio?"14px 16px":"12px 14px"),border:focus?"none":compact?"none":"1px solid "+(isStudio?t.border:t.borderSub),overflow:compact?"hidden":"visible"}});}
+  var cursorDivRef=useRef(null);
+  return React.createElement("div",{style:{position:"relative",borderRadius:focus?0:isStudio?12:10,background:focus?"transparent":compact?"transparent":t.noteBg,padding:focus?"0":compact?"6px 10px":(isStudio?"14px 16px":"12px 14px"),border:focus?"none":compact?"none":"1px solid "+(isStudio?t.border:t.borderSub),overflow:"hidden"}},
+    React.createElement("div",{ref:ref}),
+    !compact&&React.createElement("div",{ref:cursorDivRef,style:{position:"absolute",top:0,left:0,width:1.5,borderRadius:1,background:t.accent,opacity:isStudio?0.5:0.35,pointerEvents:"none",display:"none",willChange:"transform"}}));}
 
 // ============================================================
 // A/B RANGE BAR — themed
