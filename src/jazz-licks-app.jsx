@@ -1765,8 +1765,12 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
     if(editorMode&&hasContent){
       renderAbc=renderAbc.replace(/(K:[^\n]*)/,"%%barsperstaff 2\n$1");
     }
-    const opts={responsive:"resize",paddingtop:editorMode?28:(focus?16:theoryMode?16:6),paddingbottom:theoryMode?34:(focus?16:6),paddingleft:0,paddingright:0,add_classes:true,
-      format:{notespacingfactor:1.4,staffsep:theoryMode?52:28}};
+    // Theory mode: increase space between systems for interval labels
+    if(theoryMode&&!compact){
+      renderAbc="%%staffsep 40\n%%sysstaffsep 50\n"+renderAbc;
+    }
+    const opts={responsive:"resize",paddingtop:editorMode?28:(focus?16:theoryMode?20:6),paddingbottom:theoryMode?38:(focus?16:6),paddingleft:0,paddingright:0,add_classes:true,
+      format:{notespacingfactor:1.4}};
     if(compact){opts.staffwidth=420;opts.scale=0.85;var cBars=barInfo.nBars;if(cBars>4)opts.wrap={minSpacing:1.2,maxSpacing:2.2,preferredMeasuresPerLine:4};}
     else if(editorMode&&hasContent){opts.staffwidth=460;opts.scale=1.1;opts.wrap={minSpacing:1.0,maxSpacing:2.8,preferredMeasuresPerLine:2};}
     else if(editorMode){opts.staffwidth=460;opts.scale=1.1;}
