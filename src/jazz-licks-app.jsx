@@ -4681,11 +4681,11 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
             React.createElement("span",{style:{fontSize:9,color:isStudio?t.accent+"99":t.accent,fontFamily:"'Inter',sans-serif",fontWeight:600,background:isStudio?t.accent+"10":"transparent",padding:isStudio?"2px 6px":"0",borderRadius:5}},"\u0040"+lick.user))))),
 
     // ═══════ NOTATION AREA (fills space between header and drawer) ═══════
-    React.createElement("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:drawerH,paddingTop:"calc(env(safe-area-inset-top, 0px) + 88px)",display:"flex",flexDirection:"column",overflow:"hidden"}},
+    React.createElement("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:drawerH,paddingTop:"calc(env(safe-area-inset-top, 0px) + 88px)",display:"flex",flexDirection:"column",overflow:"hidden",background:isStudio?"#0C0C18":"#F4F3EE"}},
       React.createElement("div",{style:{flex:1,display:"flex",flexDirection:"column",justifyContent:"center",overflowY:"auto",WebkitOverflowScrolling:"touch"}},
       React.createElement("div",{style:{maxWidth:520,width:"100%",margin:"0 auto",padding:"8px 16px 20px"}},
-        // Notation — card with subtle background
-        React.createElement("div",{style:{position:"relative",padding:"14px 10px 10px",borderRadius:16,background:isStudio?"rgba(255,255,255,0.03)":t.settingsBg||"#F8F9FB",boxShadow:isStudio?"inset 0 1px 0 rgba(255,255,255,0.04)":"inset 0 1px 3px rgba(0,0,0,0.03)"}},
+        // Notation — flat, no card
+        React.createElement("div",{style:{position:"relative",padding:"14px 10px 10px"}},
           React.createElement("div",{onClick:function(){if(!theoryMode)setFocus(true);},style:{cursor:theoryMode?"default":"zoom-in"}},
             React.createElement(Notation,{abc:notationAbc,compact:false,focus:true,abRange:abOn?[abA,abB]:null,curNoteRef:curNoteRef,curProgressRef:curProgressRef,th:t,theoryMode:theoryMode,theoryAnalysis:theoryAnalysis,soundAbc:soundAbc,bassClef:BASS_CLEF_INSTS.has(trInst)})),
           // Theory + Fullscreen buttons
