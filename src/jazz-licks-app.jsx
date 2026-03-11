@@ -1772,7 +1772,7 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
   const t=th||TH.classic;
   useEffect(()=>{if(!ok||!ref.current||!window.ABCJS)return;
     prevNoteRef.current=-1;
-    var el=ref.current;var prevH=el.offsetHeight;if(prevH>0)el.style.minHeight=prevH+"px";
+    var el=ref.current;var prevH=el.offsetHeight;if(prevH>0)el.style.minHeight=prevH+"px";el.style.maxHeight="";
     var barInfo=getBarInfo(abc);var nBars=barInfo.nBars;
     var mpl=nBars<=4?nBars:4;
     var editorMode=!!onNoteClick;
@@ -1792,8 +1792,18 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
     else if(focus){var isWide=ref.current&&ref.current.offsetWidth>600;opts.staffwidth=isWide?700:500;opts.scale=isWide?1.1:1.5;opts.wrap={minSpacing:1.0,maxSpacing:2.0,preferredMeasuresPerLine:isWide?4:2};}
     else{opts.staffwidth=420;opts.scale=1.0;opts.wrap={minSpacing:1.0,maxSpacing:1.8,preferredMeasuresPerLine:mpl};}
     try{window.ABCJS.renderAbc(ref.current,renderAbc,opts);}catch(e){}
-    // Release height lock after paint (double-rAF ensures browser has painted)
-    requestAnimationFrame(function(){requestAnimationFrame(function(){if(el)el.style.minHeight="";if(onReadyRef.current)onReadyRef.current();});});
+    // Lock height after paint to prevent playback jitter (only in focus/detail mode)
+    requestAnimationFrame(function(){requestAnimationFrame(function(){
+      if(el){
+        if(focus){
+          var finalH=el.offsetHeight;
+          if(finalH>0){el.style.minHeight=finalH+"px";el.style.maxHeight=finalH+"px";}
+        }else{
+          el.style.minHeight="";el.style.maxHeight="";
+        }
+      }
+      if(onReadyRef.current)onReadyRef.current();
+    });});
     // Invalidate cursor position cache for smooth cursor
     posMapRef.current=null;if(cursorLineRef.current){try{cursorLineRef.current.remove();}catch(e){}cursorLineRef.current=null;}
     if(!ref.current)return;const svg=ref.current.querySelector("svg");if(!svg)return;
@@ -2225,18 +2235,22 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
           var cPos=getCursorPos(progress,map);
           if(cPos&&cPos.staffIdx<cursor._staffCache.length){
             var sc=cursor._staffCache[cPos.staffIdx];
-            // Only update height when staff changes
             if(cPos.staffIdx!==_prevLineIdx){
               cursor.setAttribute("height",String(sc.h));
               _prevLineIdx=cPos.staffIdx;
             }
-            // Position via SVG transform (no x/y attribute changes = no layout)
-            cursor.setAttribute("transform","translate("+Math.round((cPos.x-3)*10)/10+","+Math.round(sc.y*10)/10+")");
-            cursor.style.display="block";
+            var nx=Math.round((cPos.x-3)*2)/2;// round to 0.5px
+            var ny=Math.round(sc.y*2)/2;
+            var newTr="translate("+nx+","+ny+")";
+            if(cursor._lastTr!==newTr){
+              cursor.setAttribute("transform",newTr);
+              cursor._lastTr=newTr;
+            }
+            if(cursor.style.display!=="block")cursor.style.display="block";
           }
         }
       }else if(cursorLineRef.current){
-        cursorLineRef.current.style.display="none";
+        if(cursorLineRef.current.style.display!=="none")cursorLineRef.current.style.display="none";
         _prevLineIdx=-1;
       }
       rafRef.current=requestAnimationFrame(tick);};
@@ -4705,8 +4719,8 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
 
     // ═══════ NOTATION AREA (fills space between header and drawer) ═══════
     React.createElement("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:drawerH,paddingTop:"calc(env(safe-area-inset-top, 0px) + 88px)",display:"flex",flexDirection:"column",overflow:"hidden",background:isStudio?"#0C0C18":"#F4F3EE"}},
-      React.createElement("div",{style:{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch"}},
-      React.createElement("div",{style:{maxWidth:520,width:"100%",margin:"0 auto",padding:"8px 16px 20px"}},
+      React.createElement("div",{style:{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",display:"flex",flexDirection:"column"}},
+      React.createElement("div",{style:{maxWidth:520,width:"100%",margin:"auto",padding:"8px 16px 20px",flexShrink:0}},
         // Notation — flat, no card
         React.createElement("div",{style:{position:"relative",padding:"14px 10px 10px"}},
           React.createElement("div",{onClick:function(){if(!theoryMode)setFocus(true);},style:{cursor:theoryMode?"default":"zoom-in"}},
