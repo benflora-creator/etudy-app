@@ -4437,7 +4437,7 @@ function EditProfileView({authUser,authProfile,onClose,onSave,th}){
   );
 }
 
-var DRAWER_PEEK=200,DRAWER_HALF=340,DRAWER_FULL_OFF=80;
+var DRAWER_PEEK=200,DRAWER_HALF=460,DRAWER_FULL_OFF=80;
 
 // ============================================================
 // PUBLIC PROFILE VIEW — full-screen overlay
@@ -4717,11 +4717,11 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
 
     // ═══════ BOTTOM DRAWER ═══════
     React.createElement("div",{style:{position:"fixed",bottom:0,left:0,right:0,height:drawerH,background:isStudio?t.card:t.card,borderRadius:"20px 20px 0 0",boxShadow:"0 -4px 30px rgba(0,0,0,"+(isStudio?"0.5":"0.12")+"), 0 -1px 0 "+t.border,transition:dragging?"none":"height 0.35s cubic-bezier(0.32,0.72,0,1)",zIndex:150,display:"flex",flexDirection:"column",overflow:"hidden"}},
-      // Drag handle — triple line, also clickable to expand
-      React.createElement("div",{onTouchStart:onTouchStart,onTouchMove:onTouchMove,onTouchEnd:onTouchEnd,onMouseDown:onMouseDown,onClick:function(e){if(!dragRef.current.moved&&!dragRef.current.active){var next=(drawerSnap+1)%snapPts.length;setDrawerSnap(next);}},style:{padding:"8px 0 4px",cursor:"grab",display:"flex",flexDirection:"column",alignItems:"center",gap:2,flexShrink:0,userSelect:"none",touchAction:"none"}},
-        React.createElement("div",{style:{width:28,height:3,borderRadius:2,background:t.subtle,opacity:0.45}}),
-        React.createElement("div",{style:{width:20,height:2.5,borderRadius:2,background:t.subtle,opacity:0.35}}),
-        React.createElement("div",{style:{width:14,height:2,borderRadius:2,background:t.subtle,opacity:0.25}})),
+      // Drag handle — grab line + snap stage dots
+      React.createElement("div",{onTouchStart:onTouchStart,onTouchMove:onTouchMove,onTouchEnd:onTouchEnd,onMouseDown:onMouseDown,onClick:function(e){if(!dragRef.current.moved&&!dragRef.current.active){var next=(drawerSnap+1)%snapPts.length;setDrawerSnap(next);}},style:{padding:"10px 0 6px",cursor:"grab",display:"flex",flexDirection:"column",alignItems:"center",gap:6,flexShrink:0,userSelect:"none",touchAction:"none"}},
+        React.createElement("div",{style:{width:32,height:3,borderRadius:2,background:t.subtle,opacity:0.4}}),
+        snapPts.length>1&&React.createElement("div",{style:{display:"flex",gap:6,alignItems:"center"}},
+          snapPts.map(function(sp,i){var active=(dragging?effectiveSnap:drawerSnap)===i;return React.createElement("div",{key:i,style:{width:active?16:6,height:6,borderRadius:3,background:active?t.accent:t.subtle,opacity:active?1:0.3,transition:"all 0.25s cubic-bezier(0.4,0,0.2,1)"}});}))),
       // Drawer scroll content
       React.createElement("div",{ref:drawerContentRef,style:{flex:1,overflowY:drawerH>DRAWER_PEEK+10?"auto":"hidden",overflowX:"hidden",WebkitOverflowScrolling:"touch"}},
 
@@ -4801,9 +4801,8 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
           !lick.private&&onReport&&React.createElement("div",{style:{marginTop:24,paddingTop:20,borderTop:"1px solid "+t.border,display:"flex",justifyContent:"center"}},
             React.createElement("button",{onClick:function(){if(confirm("Report this lick as spam or inappropriate?")){onReport(lick.id);}},style:{display:"flex",alignItems:"center",gap:8,padding:"14px 32px",borderRadius:14,border:"1.5px solid "+(isStudio?"rgba(239,68,68,0.25)":"rgba(239,68,68,0.2)"),background:isStudio?"rgba(239,68,68,0.06)":"rgba(239,68,68,0.04)",color:isStudio?"#F87171":"#DC2626",fontSize:13,fontWeight:600,fontFamily:"'Inter',sans-serif",cursor:"pointer",transition:"all 0.15s",letterSpacing:0.3}},"Report this lick")),
 
-          // Snap indicator dots
-          React.createElement("div",{style:{display:"flex",justifyContent:"center",gap:6,marginTop:24}},
-            snapPts.map(function(sp,i){return React.createElement("button",{key:i,onClick:function(){setDrawerSnap(i);},style:{width:(dragging?effectiveSnap:drawerSnap)===i?20:8,height:8,borderRadius:4,background:(dragging?effectiveSnap:drawerSnap)===i?t.accent:(t.border),border:"none",cursor:"pointer",transition:"all 0.2s"}});}))))),
+          // (snap dots moved to drag handle)
+          ))),
 
     // ═══════ HEADLESS PLAYER (audio only) ═══════
     React.createElement("div",{style:{position:"absolute",width:0,height:0,overflow:"hidden",pointerEvents:"none"}},
