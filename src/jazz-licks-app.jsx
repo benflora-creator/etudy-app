@@ -3139,7 +3139,7 @@ function buildAbc(items,keySig,timeSig,tempo,chords,minBars,keyQual){const[tsN,t
   };
 
   let abc="X:1\nT:My Lick\nM:"+timeSig+"\nL:1/8\nQ:1/4="+tempo+"\nK:"+abcKFull+"\n";
-  let pos=0,nc=0;var barAlts={};var triCount=0;var chObj=chords||{};var emittedCh={};
+  let pos=0,nc=0;var barAlts={};var triCount=0;var chObj=chords||{};var emittedCh={};var lastBarEmitted=0;
 
   // ── Enharmonic respelling pre-pass ──
   var chordBeats=Object.keys(chObj).map(Number).sort(function(a,b){return a-b;});
@@ -3194,7 +3194,7 @@ function buildAbc(items,keySig,timeSig,tempo,chords,minBars,keyQual){const[tsN,t
       abc+=emitNote(item,firstEi,barAlts,true);nc++;pos+=firstEi;
 
       // Barline
-      abc+=" | ";barAlts={};
+      abc+=" | ";barAlts={};lastBarEmitted=Math.floor(pos/bE+0.001);
 
       // Chord on beat 1 of new bar?
       var newBarStart=pos;var beatIdx2=Math.floor(newBarStart/beatE+0.01);if(chObj[beatIdx2]&&!emittedCh[beatIdx2]){abc+='"'+chN(chObj[beatIdx2])+'"';emittedCh[beatIdx2]=true;}
@@ -3203,9 +3203,12 @@ function buildAbc(items,keySig,timeSig,tempo,chords,minBars,keyQual){const[tsN,t
     }
 
     // Normal note (no barline crossing)
-    // Barline (skip if mid-triplet to avoid breaking groups)
-    var midTripletBar=item.tri&&(triCount%3!==0);
-    if(pos>0&&!midTripletBar){var bN=Math.round(pos*1200/bE)/1200;if(Math.abs(bN-Math.round(bN))<0.01&&Math.round(bN)>0){abc+=" | ";barAlts={};}}
+    // Barline — emit when we've crossed a bar boundary, but defer if mid-triplet
+    var midTri=item.tri&&(triCount%3!==0);
+    if(pos>0&&!midTri){
+      var curBar=Math.floor(pos/bE+0.001);
+      if(curBar>lastBarEmitted){abc+=" | ";barAlts={};lastBarEmitted=curBar;}
+    }
     // Beam break — use base duration (ei) for threshold, not triplet-adjusted effEi
     if(nc>0){
       posInBar=Math.round((pos%bE)*1200)/1200;if(Math.abs(posInBar)<0.01&&pos>0)posInBar=0;
