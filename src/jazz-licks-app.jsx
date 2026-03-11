@@ -2084,35 +2084,21 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
       if(cursorLineRef.current)return cursorLineRef.current;
       if(!ref.current||compact)return null;
       var svg=ref.current.querySelector("svg");if(!svg)return null;
+      // Remove any orphaned cursors from previous renders
+      svg.querySelectorAll(".etudy-cursor").forEach(function(c){c.remove();});
       var map=buildPosMap();if(!map)return null;
       var line=document.createElementNS("http://www.w3.org/2000/svg","rect");
       line.setAttribute("class","etudy-cursor");
-      line.setAttribute("width","2.5");
-      line.setAttribute("rx","1.25");
-      line.setAttribute("fill",t.accent);
-      line.setAttribute("fill-opacity","0.6");
+      line.setAttribute("width","1.2");
+      line.setAttribute("rx","0.6");
+      var isS=t===TH.studio;
+      line.setAttribute("fill",isS?t.accent:t.accent);
+      line.setAttribute("fill-opacity",isS?"0.5":"0.35");
       line.style.display="none";
-      line.style.willChange="transform";
-      // Glow
-      var filterId="cg-"+Math.random().toString(36).slice(2,6);
-      var defs=svg.querySelector("defs")||document.createElementNS("http://www.w3.org/2000/svg","defs");
-      if(!svg.querySelector("defs"))svg.insertBefore(defs,svg.firstChild);
-      var filter=document.createElementNS("http://www.w3.org/2000/svg","filter");
-      filter.setAttribute("id",filterId);filter.setAttribute("x","-100%");filter.setAttribute("y","-10%");filter.setAttribute("width","300%");filter.setAttribute("height","120%");
-      var blur=document.createElementNS("http://www.w3.org/2000/svg","feGaussianBlur");
-      blur.setAttribute("stdDeviation","2.5");blur.setAttribute("result","g");
-      var merge=document.createElementNS("http://www.w3.org/2000/svg","feMerge");
-      merge.appendChild(Object.assign(document.createElementNS("http://www.w3.org/2000/svg","feMergeNode"),{}).cloneNode());
-      var mn1=document.createElementNS("http://www.w3.org/2000/svg","feMergeNode");mn1.setAttribute("in","g");
-      var mn2=document.createElementNS("http://www.w3.org/2000/svg","feMergeNode");mn2.setAttribute("in","SourceGraphic");
-      merge.appendChild(mn1);merge.appendChild(mn2);filter.appendChild(blur);filter.appendChild(merge);
-      defs.appendChild(filter);
-      line.setAttribute("filter","url(#"+filterId+")");
       svg.appendChild(line);
       cursorLineRef.current=line;
       return line;
     };
-    var prevLineIdx=useRef?{current:-1}:{current:-1};
     var _prevLineIdx=-1;
     const tick=()=>{
       var cn=curNoteRef?curNoteRef.current:-1;
@@ -2139,8 +2125,8 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
             el.querySelectorAll("path,circle,ellipse").forEach(p=>{
               p.style.fill=curCol;p.style.stroke=curCol;
               p.style.fillOpacity="1";p.style.strokeOpacity="1";});
-            el.style.filter="drop-shadow(0 0 6px "+curGlow+")";
-            el.style.transition="filter 0.05s";
+            el.style.filter="drop-shadow(0 0 4px "+curGlow+")";
+            el.style.transition="filter 0.04s";
           }
         }prevNoteRef.current=cn;}
       // --- Smooth cursor line (continuous, from curProgressRef) ---
@@ -2152,19 +2138,10 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
           if(cPos){
             var staff=map.lines[cPos.lineIdx];
             if(staff){
-              cursor.setAttribute("height",String(staff.y2-staff.y+12));
-              cursor.setAttribute("y",String(staff.y-6));
+              cursor.setAttribute("height",String(staff.y2-staff.y));
+              cursor.setAttribute("y",String(staff.y));
             }
-            // On line change: instant jump (no transition)
-            if(cPos.lineIdx!==_prevLineIdx&&_prevLineIdx>=0){
-              cursor.style.transition="none";
-              cursor.style.transform="translateX("+cPos.x+"px)";
-              // Re-enable transition on next frame
-              requestAnimationFrame(function(){cursor.style.transition="transform 0.03s linear";});
-            }else{
-              if(!cursor.style.transition||cursor.style.transition==="none")cursor.style.transition="transform 0.03s linear";
-              cursor.style.transform="translateX("+cPos.x+"px)";
-            }
+            cursor.setAttribute("x",String(cPos.x-0.6));
             _prevLineIdx=cPos.lineIdx;
             cursor.style.display="block";
           }
