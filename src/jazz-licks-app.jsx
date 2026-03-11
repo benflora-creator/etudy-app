@@ -4456,7 +4456,8 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
     if(!theoryMode)return null;
     return analyzeTheory(notationAbc);
   },[theoryMode,notationAbc]);
-  const keyDisplay=lick.key+((instOff+trMan)?" \u2192 "+trKeyName(lick.key.split(" ")[0],instOff+trMan):"");
+  const transposedKey=((instOff+trMan)!==0)?trKeyName(lick.key.split(" ")[0],instOff+trMan)+(lick.key.includes(" ")?lick.key.substring(lick.key.indexOf(" ")):""): lick.key;
+  const keyDisplay=transposedKey;
   const catC=getCatColor(lick.category,t);const instC=getInstColor(lick.instrument,t);
 
   // ── DRAWER STATE (ref-based for drag correctness) ──
@@ -4560,7 +4561,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
 
     // ═══════ HEADER (sticky) ═══════
     React.createElement("div",{style:{position:"fixed",top:0,left:0,right:0,zIndex:200,background:t.headerBg,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",borderBottom:"1px solid "+t.border}},
-      React.createElement("div",{style:{maxWidth:520,margin:"0 auto",padding:"12px 16px 10px",paddingTop:"calc(env(safe-area-inset-top, 0px) + 12px)"}},
+      React.createElement("div",{style:{maxWidth:520,margin:"0 auto",padding:"12px 16px 12px",paddingTop:"calc(env(safe-area-inset-top, 0px) + 12px)"}},
         React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10}},
           React.createElement("button",{onClick:onBack,style:{background:"none",border:"none",cursor:"pointer",color:isStudio?t.accent:t.muted,fontSize:22,padding:"4px 8px 4px 0",display:"flex",alignItems:"center"}},"\u2039"),
           React.createElement("div",{style:{flex:1,minWidth:0}},
@@ -4572,26 +4573,28 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
           React.createElement("div",{style:{display:"flex",gap:8,flexShrink:0,alignItems:"center"}},
             React.createElement("button",{onClick:function(e){onLike(lick.id);if(!liked&&isStudio){var r=e.target.closest("button").getBoundingClientRect();burstKeyRef.current++;sBurst({x:r.left+r.width/2,y:r.top+r.height/2,k:burstKeyRef.current});var b=e.target.closest("button");b.style.animation="none";void b.offsetHeight;b.style.animation="firePop 0.35s ease";}},style:{background:"none",border:"none",cursor:"pointer",padding:"4px",display:"flex",alignItems:"center",gap:5,transition:"all 0.15s"}},isStudio?(liked?IC.flame(22,"#F97316",true):IC.flameOff(22)):React.createElement("span",{style:{fontSize:22,color:liked?"#EF4444":t.muted}},liked?"\u2665":"\u2661"),React.createElement("span",{style:{fontSize:12,fontWeight:600,fontFamily:"'JetBrains Mono',monospace",color:liked?(isStudio?"#F97316":"#EF4444"):t.muted}},lc)),
             React.createElement("button",{onClick:function(e){onSave(lick.id);if(!saved&&isStudio&&e.target.closest("button")){var b=e.target.closest("button");b.style.animation="none";void b.offsetHeight;b.style.animation="firePop 0.35s ease";}},style:{background:"none",border:"none",cursor:"pointer",padding:"4px",display:"flex",alignItems:"center",transition:"all 0.15s"}},isStudio?IC.target(22,saved?"#22D89E":"#55556A"):React.createElement("span",{style:{fontSize:22,color:saved?"#F59E0B":t.muted}},saved?"\u2605":"\u2606")),
-            !showTips&&onReShowTips&&React.createElement("button",{onClick:onReShowTips,style:{width:20,height:20,borderRadius:10,border:"1px solid "+t.border,background:t.filterBg,color:t.subtle,fontSize:10,fontFamily:"'Inter',sans-serif",fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,marginLeft:2,animation:"helpGlow 0.8s ease"}},"?"))))),
+            !showTips&&onReShowTips&&React.createElement("button",{onClick:onReShowTips,style:{width:20,height:20,borderRadius:10,border:"1px solid "+t.border,background:t.filterBg,color:t.subtle,fontSize:10,fontFamily:"'Inter',sans-serif",fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,marginLeft:2,animation:"helpGlow 0.8s ease"}},"?"))),
+        // Chips row under title
+        React.createElement("div",{style:{display:"flex",alignItems:"center",gap:5,marginTop:8,flexWrap:"wrap"}},
+          React.createElement("span",{style:{fontSize:9,color:instC,fontWeight:600,fontFamily:"'JetBrains Mono',monospace",background:instC+"12",padding:"3px 8px",borderRadius:6,border:"1px solid "+instC+"20"}},lick.instrument),
+          React.createElement("span",{style:{fontSize:9,color:catC,fontWeight:600,fontFamily:"'JetBrains Mono',monospace",background:catC+"12",padding:"3px 8px",borderRadius:6,border:"1px solid "+catC+"20"}},lick.category),
+          React.createElement("span",{style:{fontSize:9,color:t.muted,fontWeight:500,fontFamily:"'JetBrains Mono',monospace",background:isStudio?t.bg:t.card,padding:"3px 8px",borderRadius:6,border:"1px solid "+t.border}},keyDisplay),
+          React.createElement("span",{style:{fontSize:9,color:t.muted,fontWeight:500,fontFamily:"'JetBrains Mono',monospace",background:isStudio?t.bg:t.card,padding:"3px 8px",borderRadius:6,border:"1px solid "+t.border,display:"flex",alignItems:"center",gap:3}},"\u2669 "+lick.tempo)))),
 
     // ═══════ NOTATION AREA (fills space between header and drawer) ═══════
-    React.createElement("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:drawerH,paddingTop:"calc(env(safe-area-inset-top, 0px) + 60px)",display:"flex",flexDirection:"column",overflow:"hidden"}},
+    React.createElement("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:drawerH,paddingTop:"calc(env(safe-area-inset-top, 0px) + 88px)",display:"flex",flexDirection:"column",overflow:"hidden"}},
       React.createElement("div",{style:{flex:1,display:"flex",flexDirection:"column",justifyContent:"center",overflowY:"auto",WebkitOverflowScrolling:"touch"}},
-      React.createElement("div",{style:{maxWidth:520,width:"100%",margin:"0 auto",padding:"12px 16px 20px"}},
-        // Meta chips
-        React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:12,flexWrap:"wrap"}},
-          React.createElement("span",{style:{fontSize:10,display:"flex",alignItems:"center",gap:4,color:instC,fontWeight:600,fontFamily:"'JetBrains Mono',monospace",background:instC+"18",padding:"4px 10px",borderRadius:8,border:isStudio?"1px solid "+instC+"30":"none"}},lick.instrument),
-          React.createElement("span",{style:{fontSize:10,color:catC,fontWeight:isStudio?600:400,fontFamily:"'JetBrains Mono',monospace",background:isStudio?catC+"18":t.card,padding:"4px 10px",borderRadius:8,border:isStudio?"1px solid "+catC+"30":"1px solid "+t.border}},lick.category),
-          React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace",background:t.card,padding:"4px 10px",borderRadius:8,border:"1px solid "+t.border}},keyDisplay),
-          React.createElement("span",{style:{fontSize:10,color:t.muted,fontFamily:"'JetBrains Mono',monospace",background:t.card,padding:"4px 10px",borderRadius:8,border:"1px solid "+t.border,display:"flex",alignItems:"center",gap:3}},isStudio&&lick.tempo>=160&&IC.flame(11,"#F97316",true),isStudio&&lick.tempo<=100&&IC.slow(11,"#8888A0"),"\u2669="+lick.tempo)),
-        // Notation — card with subtle background, no border
+      React.createElement("div",{style:{maxWidth:520,width:"100%",margin:"0 auto",padding:"8px 16px 20px"}},
+        // Notation — card with subtle background
         React.createElement("div",{style:{position:"relative",padding:"14px 10px 10px",borderRadius:16,background:isStudio?"rgba(255,255,255,0.03)":t.settingsBg||"#F8F9FB",boxShadow:isStudio?"inset 0 1px 0 rgba(255,255,255,0.04)":"inset 0 1px 3px rgba(0,0,0,0.03)"}},
           React.createElement("div",{onClick:function(){if(!theoryMode)setFocus(true);},style:{cursor:theoryMode?"default":"zoom-in"}},
             React.createElement(Notation,{abc:notationAbc,compact:false,focus:true,abRange:abOn?[abA,abB]:null,curNoteRef:curNoteRef,curProgressRef:curProgressRef,th:t,theoryMode:theoryMode,theoryAnalysis:theoryAnalysis,soundAbc:soundAbc,bassClef:BASS_CLEF_INSTS.has(trInst)})),
-          // X-Ray + Fullscreen buttons
-          React.createElement("div",{style:{position:"absolute",top:10,right:14,display:"flex",gap:6,alignItems:"center"}},
-            React.createElement("button",{onClick:function(){setTheoryMode(!theoryMode);},title:"Theory Analysis",style:{width:32,height:32,borderRadius:8,background:theoryMode?(isStudio?t.accent+"25":t.accent+"15"):t.accentBg,display:"flex",alignItems:"center",justifyContent:"center",border:theoryMode?"1.5px solid "+(isStudio?t.accent+"60":t.accent):("1px solid "+t.accentBorder),cursor:"pointer",transition:"all 0.2s",boxShadow:theoryMode?("0 0 12px "+(isStudio?t.accent+"30":"rgba(99,102,241,0.15)")):"none"}},IC.xray(15,theoryMode?t.accent:(isStudio?t.subtle:t.muted),theoryMode)),
-            !theoryMode&&React.createElement("button",{onClick:function(){setFocus(true);},style:{width:28,height:28,borderRadius:7,background:t.accentBg,display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid "+t.accentBorder,cursor:"pointer"}},React.createElement("span",{style:{fontSize:12,color:t.accent}},"\u26F6")))),
+          // Theory + Fullscreen buttons
+          React.createElement("div",{style:{position:"absolute",top:10,right:12,display:"flex",gap:6,alignItems:"center"}},
+            React.createElement("button",{onClick:function(){setTheoryMode(!theoryMode);},style:{padding:"5px 10px",borderRadius:8,background:theoryMode?(isStudio?t.accent+"20":t.accent+"12"):(isStudio?"rgba(255,255,255,0.04)":"rgba(0,0,0,0.03)"),display:"flex",alignItems:"center",gap:5,border:theoryMode?"1.5px solid "+(isStudio?t.accent+"50":t.accent+"40"):"1px solid "+(isStudio?t.border:t.borderSub||t.border),cursor:"pointer",transition:"all 0.2s",boxShadow:theoryMode?"0 0 10px "+(isStudio?t.accent+"20":"rgba(99,102,241,0.1)"):"none"}},
+              IC.xray(13,theoryMode?t.accent:(isStudio?t.subtle:t.muted),theoryMode),
+              React.createElement("span",{style:{fontSize:9,fontWeight:600,fontFamily:"'Inter',sans-serif",color:theoryMode?t.accent:t.muted,letterSpacing:0.3}},"Theory")),
+            !theoryMode&&React.createElement("button",{onClick:function(){setFocus(true);},style:{width:28,height:28,borderRadius:7,background:isStudio?"rgba(255,255,255,0.04)":"rgba(0,0,0,0.03)",display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid "+(isStudio?t.border:t.borderSub||t.border),cursor:"pointer"}},React.createElement("span",{style:{fontSize:12,color:t.muted}},"\u26F6")))),
         // Theory info panel
         theoryMode&&theoryAnalysis&&theoryAnalysis.hasChords&&React.createElement("div",{style:{marginTop:10,padding:"10px 12px",borderRadius:12,background:isStudio?t.card:t.settingsBg,border:"1px solid "+(isStudio?t.accent+"20":t.accentBorder),transition:"all 0.2s"}},
           React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}},
