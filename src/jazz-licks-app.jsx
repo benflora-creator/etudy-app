@@ -2044,26 +2044,38 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
       var staffEls=svg.querySelectorAll(".abcjs-staff");
       var staves=[];
       staffEls.forEach(function(s){
-        try{var sb=s.getBBox();staves.push({y:sb.y,y2:sb.y+sb.height,cy:sb.y+sb.height/2,h:sb.height});}catch(e){}
+        try{var sb=s.getBBox();staves.push({y:sb.y,y2:sb.y+sb.height,cy:sb.y+sb.height/2,h:sb.height,el:s});}catch(e){}
       });
       // Fixed cursor height from first staff (all staves have same 5-line height)
       var cursorH=staves.length>0?staves[0].h:30;
       // Map each note to x position + which staff it belongs to
+      // Get Y offset from transform="... translate(0,N)" on a group element
+      var getGroupYOffset=function(el){
+        var g=el;
+        while(g&&g!==svg){
+          var tr=g.getAttribute&&g.getAttribute("transform");
+          if(tr){var m=tr.match(/translate\(\s*[\d.+-]+\s*,\s*([\d.+-]+)\s*\)/);if(m)return parseFloat(m[1]);}
+          g=g.parentNode;
+        }
+        return 0;
+      };
       var positions=[];
       noteEls.forEach(function(el,idx){
         try{
           var head=el.querySelector("ellipse")||el.querySelector("circle");
           var bb=head?head.getBBox():el.getBBox();
+          var yOff=getGroupYOffset(el);
           var lx=bb.x;// left edge of notehead
-          var cy=bb.y+bb.height/2;
-          // Find nearest staff by center Y distance
+          var cy=bb.y+bb.height/2+yOff;
+          // Find nearest staff by center Y distance (also offset)
           var staffIdx=0;var bestDist=Infinity;
           for(var si=0;si<staves.length;si++){
-            var d=Math.abs(cy-staves[si].cy);
+            var sOff=getGroupYOffset(staves[si].el||svg);
+            var d=Math.abs(cy-(staves[si].cy+sOff));
             if(d<bestDist){bestDist=d;staffIdx=si;}
           }
           positions.push({
-            lx:lx,staffIdx:staffIdx,
+            lx:lx,staffIdx:staffIdx,yOff:yOff,
             frac:idx<fracs.length?fracs[idx].frac:1,
             endFrac:idx<fracs.length?fracs[idx].endFrac:1
           });
@@ -2187,8 +2199,11 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
             var staff=map.staves[cPos.staffIdx];
             var ch=map.cursorH;
             var overhang=ch*0.15;
+            // Account for theory-mode translate on line groups
+            var staffYOff=0;
+            if(staff.el){var g=staff.el;while(g&&g.tagName!=="svg"){var tr=g.getAttribute&&g.getAttribute("transform");if(tr){var m=tr.match(/translate\(\s*[\d.+-]+\s*,\s*([\d.+-]+)\s*\)/);if(m)staffYOff+=parseFloat(m[1]);}g=g.parentNode;}}
             cursor.setAttribute("height",String(ch+overhang*2));
-            cursor.setAttribute("y",String(staff.cy-ch/2-overhang));
+            cursor.setAttribute("y",String(staff.cy-ch/2-overhang+staffYOff));
             cursor.setAttribute("x",String(cPos.x-3));
             _prevLineIdx=cPos.staffIdx;
             cursor.style.display="block";
