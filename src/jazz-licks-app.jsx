@@ -3225,11 +3225,14 @@ function buildAbc(items,keySig,timeSig,tempo,chords,minBars,keyQual){const[tsN,t
     // Note
     if(item.type==="rest")abc+="z"+e2s(ei);
     else abc+=emitNote(item,ei,barAlts,hasTie);
-    pos+=effEi;nc++;
-    // Force beam break after completing a triplet group
-    if(item.tri&&triCount%3===0)abc+=" ";}
+    pos+=effEi;nc++;}
   if(nc>0)abc+=" |";
-  if(triCount>0)console.log("[etudy] Triplet ABC:",abc.split("\n").pop());
+  if(items.some(function(it){return it.tri;})){
+    console.log("[etudy] Triplet ABC:",abc.split("\n").pop());
+    console.log("[etudy] Final pos:",pos,"bE:",bE,"items:",spItems.length,"triItems:",spItems.filter(function(x){return x.tri;}).length);
+    var itemDump=spItems.map(function(it,i){return i+":"+(it.tri?"TRI":"REG")+"-"+DURS[it.dur].name+(it.dotted?".":"");}).join(" ");
+    console.log("[etudy] Items:",itemDump);
+  }
   // Pad to minBars with full-bar rests
   if(minBars&&minBars>0){
     var currentBars=0;
@@ -3369,7 +3372,6 @@ function NoteBuilder({onAbcChange,keySig,keyQual,timeSig,tempo,previewEl,playerE
       prevNote(n,oct,acc,previewOffset||0);
       var newItems=items.concat([{type:"note",note:n,acc:acc,oct:oct,dur:cD,dotted:dt,tri:tri}]);
       mutate(newItems);
-      if(tri){var tc=0;for(var k=newItems.length-1;k>=0&&newItems[k].tri;k--)tc++;if(tc>=3){sTri(false);}}
     }
   };
   const addRest=function(){
@@ -3380,7 +3382,6 @@ function NoteBuilder({onAbcChange,keySig,keyQual,timeSig,tempo,previewEl,playerE
     }else{
       var newItems=items.concat([{type:"rest",dur:cD,dotted:dt,tri:tri}]);
       mutate(newItems);
-      if(tri){var tc=0;for(var k=newItems.length-1;k>=0&&newItems[k].tri;k--)tc++;if(tc>=3){sTri(false);}}
     }
   };
   const changeDur=function(d){
