@@ -3210,12 +3210,9 @@ function buildAbc(items,keySig,timeSig,tempo,chords,minBars,keyQual){const[tsN,t
     if(nc>0){
       posInBar=Math.round((pos%bE)*1200)/1200;if(Math.abs(posInBar)<0.01&&pos>0)posInBar=0;
       var needSpace=false;
-      // Never break beam inside a triplet group, but always between groups
+      // Never break beam inside a triplet group
       var midTriplet=item.tri&&(triCount%3!==0);
-      var tripletGroupStart=item.tri&&(triCount%3===0)&&triCount>0;
-      if(tripletGroupStart){
-        needSpace=true;// always separate triplet groups
-      }else if(!midTriplet){
+      if(!midTriplet){
         if(ei>=2)needSpace=true;
         else{var breaks=ei<1?beamBreaks16:beamBreaks;for(var bb2=0;bb2<breaks.length;bb2++)if(Math.abs(posInBar-breaks[bb2])<0.05){needSpace=true;break;}}
       }
@@ -3224,12 +3221,15 @@ function buildAbc(items,keySig,timeSig,tempo,chords,minBars,keyQual){const[tsN,t
     // Chord
     var beatIdx3=Math.floor(pos/beatE+0.01);if(chObj[beatIdx3]&&!emittedCh[beatIdx3]){abc+='"'+chN(chObj[beatIdx3])+'"';emittedCh[beatIdx3]=true;}
     // Triplet
-    if(item.tri&&triCount%3===0)abc+="(3";if(item.tri)triCount++;else triCount=0;
+    if(item.tri&&triCount%3===0){if(nc>0&&abc.length>0&&abc[abc.length-1]!==" ")abc+=" ";abc+="(3";}if(item.tri)triCount++;else triCount=0;
     // Note
     if(item.type==="rest")abc+="z"+e2s(ei);
     else abc+=emitNote(item,ei,barAlts,hasTie);
-    pos+=effEi;nc++;}
+    pos+=effEi;nc++;
+    // Force beam break after completing a triplet group
+    if(item.tri&&triCount%3===0)abc+=" ";}
   if(nc>0)abc+=" |";
+  if(triCount>0)console.log("[etudy] Triplet ABC:",abc.split("\n").pop());
   // Pad to minBars with full-bar rests
   if(minBars&&minBars>0){
     var currentBars=0;
