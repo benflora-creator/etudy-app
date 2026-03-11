@@ -2030,7 +2030,8 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
           });
         }catch(e){positions.push(null);}
       });
-      posMapRef.current={positions:positions,staves:staves,cursorH:cursorH};
+      posMapRef.current={positions:positions,staves:staves,cursorH:cursorH,
+        firstNoteFrac:positions.length>0&&positions[0]?positions[0].frac:0};
       return posMapRef.current;
     };
     // Get cursor x,y for a given progress fraction by interpolating between notes
@@ -2121,12 +2122,26 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
           if(cPos&&cPos.staffIdx<map.staves.length){
             var staff=map.staves[cPos.staffIdx];
             var ch=map.cursorH;
-            var overhang=ch*0.15;// slight protrusion above and below
+            var overhang=ch*0.15;
             cursor.setAttribute("height",String(ch+overhang*2));
             cursor.setAttribute("y",String(staff.cy-ch/2-overhang));
-            cursor.setAttribute("x",String(cPos.x-1.5));// just left of notehead
+            cursor.setAttribute("x",String(cPos.x-1.5));
             _prevLineIdx=cPos.staffIdx;
             cursor.style.display="block";
+            // Pulse during rest before first note
+            var isS=t===TH.studio;
+            var baseOp=isS?0.5:0.35;
+            if(map.firstNoteFrac>0.001&&progress<map.firstNoteFrac-0.001){
+              var bpmMatch=abc.match(/Q:.*?(\d+)\s*$/m);
+              var bpm=bpmMatch?parseInt(bpmMatch[1]):120;
+              var beatMs=60000/bpm;
+              var phase=(performance.now()%beatMs)/beatMs;
+              var pulse=0.5+0.5*Math.cos(phase*Math.PI*2);
+              var minOp=isS?0.1:0.06;
+              cursor.setAttribute("fill-opacity",String(minOp+(baseOp-minOp)*pulse));
+            }else{
+              cursor.setAttribute("fill-opacity",String(baseOp));
+            }
           }
         }
       }else if(cursorLineRef.current){
