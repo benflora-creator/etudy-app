@@ -1773,7 +1773,7 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
   var cursorDivRef=useRef(null);
   useEffect(()=>{if(!ok||!ref.current||!window.ABCJS)return;
     prevNoteRef.current=-1;
-    var el=ref.current;var prevH=el.offsetHeight;if(prevH>0)el.style.minHeight=prevH+"px";
+    var el=ref.current;var prevH=el.offsetHeight;if(prevH>0)el.style.minHeight=prevH+"px";el.style.maxHeight="";
     var barInfo=getBarInfo(abc);var nBars=barInfo.nBars;
     var mpl=nBars<=4?nBars:4;
     var editorMode=!!onNoteClick;
@@ -1793,14 +1793,22 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
     else if(focus){var isWide=ref.current&&ref.current.offsetWidth>600;opts.staffwidth=isWide?700:500;opts.scale=isWide?1.1:1.5;opts.wrap={minSpacing:1.0,maxSpacing:2.0,preferredMeasuresPerLine:isWide?4:2};}
     else{opts.staffwidth=420;opts.scale=1.0;opts.wrap={minSpacing:1.0,maxSpacing:1.8,preferredMeasuresPerLine:mpl};}
     try{window.ABCJS.renderAbc(ref.current,renderAbc,opts);}catch(e){}
-    // Release height lock after paint
+    // Lock height after paint to prevent playback jitter (only in focus/detail mode)
     requestAnimationFrame(function(){requestAnimationFrame(function(){
-      if(el)el.style.minHeight="";
+      if(el){
+        if(focus){
+          var finalH=el.offsetHeight;
+          if(finalH>0){el.style.minHeight=finalH+"px";el.style.maxHeight=finalH+"px";}
+        }else{
+          el.style.minHeight="";el.style.maxHeight="";
+        }
+      }
       if(onReadyRef.current)onReadyRef.current();
     });});
     // Invalidate cursor position cache for smooth cursor
     posMapRef.current=null;
     if(!ref.current)return;const svg=ref.current.querySelector("svg");if(!svg)return;
+    svg.style.overflow="hidden";// prevent cursor overhang from causing layout shifts
     const isStudio=t===TH.studio;
     svg.querySelectorAll("path").forEach(p=>{p.setAttribute("stroke",t.noteStroke);p.setAttribute("fill",t.noteStroke);});
     // Staff lines — very thin, like professional engraving
@@ -2269,7 +2277,7 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
   if(!ok)return React.createElement("div",{style:{height:compact?50:80,display:"flex",alignItems:"center",justifyContent:"center",color:t.subtle,fontSize:12,fontFamily:"'Inter',sans-serif"}},"Loading...");
   const isStudio=t===TH.studio;
   return React.createElement("div",{style:{position:"relative",borderRadius:focus?0:isStudio?12:10,background:focus?"transparent":compact?"transparent":t.noteBg,padding:focus?"0":compact?"6px 10px":(isStudio?"14px 16px":"12px 14px"),border:focus?"none":compact?"none":"1px solid "+(isStudio?t.border:t.borderSub),overflow:"hidden"}},
-    React.createElement("div",{ref:ref,style:{contain:"layout paint"}}),
+    React.createElement("div",{ref:ref}),
     !compact&&React.createElement("div",{ref:cursorDivRef,style:{position:"absolute",top:0,left:0,width:1.5,borderRadius:1,background:t.accent,opacity:isStudio?0.5:0.35,pointerEvents:"none",display:"none",willChange:"transform"}}));}
 
 // ============================================================
@@ -4693,7 +4701,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
       React.createElement("div",{style:{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",display:"flex",flexDirection:"column"}},
       React.createElement("div",{style:{maxWidth:520,width:"100%",margin:"auto",padding:"8px 16px 20px",flexShrink:0}},
         // Notation — flat, no card
-        React.createElement("div",{style:{position:"relative",padding:"14px 10px 10px",contain:"layout style paint"}},
+        React.createElement("div",{style:{position:"relative",padding:"14px 10px 10px"}},
           React.createElement("div",{onClick:function(){if(!theoryMode)setFocus(true);},style:{cursor:theoryMode?"default":"zoom-in"}},
             React.createElement(Notation,{abc:notationAbc,compact:false,focus:true,abRange:abOn?[abA,abB]:null,curNoteRef:curNoteRef,curProgressRef:curProgressRef,th:t,theoryMode:theoryMode,theoryAnalysis:theoryAnalysis,soundAbc:soundAbc,bassClef:BASS_CLEF_INSTS.has(trInst)})),
           // Theory + Fullscreen buttons
