@@ -1781,7 +1781,7 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
       renderAbc=renderAbc.replace(/(K:[^\n]*)/,"%%barsperstaff 2\n$1");
     }
     var fmtObj={notespacingfactor:1.4};
-    const opts={responsive:"resize",paddingtop:editorMode?28:(focus?16:theoryMode?20:compact?2:6),paddingbottom:theoryMode?62:(focus?16:compact?2:6),paddingleft:0,paddingright:0,add_classes:true,format:fmtObj};
+    const opts={responsive:"resize",paddingtop:editorMode?28:(focus?16:theoryMode?20:compact?2:6),paddingbottom:theoryMode?76:(focus?16:compact?2:6),paddingleft:0,paddingright:0,add_classes:true,format:fmtObj};
     if(compact){opts.staffwidth=420;opts.scale=0.85;var cBars=barInfo.nBars;if(cBars>4)opts.wrap={minSpacing:1.2,maxSpacing:2.2,preferredMeasuresPerLine:4};}
     else if(editorMode&&hasContent){opts.staffwidth=460;opts.scale=1.1;opts.wrap={minSpacing:1.0,maxSpacing:2.8,preferredMeasuresPerLine:2};}
     else if(editorMode){opts.staffwidth=460;opts.scale=1.1;}
@@ -4695,7 +4695,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
               React.createElement("span",{style:{fontSize:9,fontWeight:600,fontFamily:"'Inter',sans-serif",color:theoryMode?t.accent:t.muted,letterSpacing:0.3}},"Theory")),
             !theoryMode&&React.createElement("button",{onClick:function(){setFocus(true);},style:{width:28,height:28,borderRadius:8,background:isStudio?"rgba(255,255,255,0.04)":"rgba(0,0,0,0.03)",display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid "+(isStudio?t.border:t.borderSub||t.border),cursor:"pointer"}},React.createElement("span",{style:{fontSize:12,color:t.muted}},"\u26F6")))),
         // Theory info panel
-        theoryMode&&theoryAnalysis&&theoryAnalysis.hasChords&&React.createElement("div",{style:{marginTop:24,padding:"10px 12px",borderRadius:12,background:isStudio?t.card:t.settingsBg,border:"1px solid "+(isStudio?t.accent+"20":t.accentBorder),transition:"all 0.2s"}},
+        theoryMode&&theoryAnalysis&&theoryAnalysis.hasChords&&React.createElement("div",{style:{marginTop:32,padding:"10px 12px",borderRadius:12,background:isStudio?t.card:t.settingsBg,border:"1px solid "+(isStudio?t.accent+"20":t.accentBorder),transition:"all 0.2s"}},
           React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}},
             React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,marginRight:4}},
               [["chord-tone","CT"],["tension","T"],["chromatic","Chr"]].map(function(pair){
