@@ -2160,19 +2160,32 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
       if(cursorLineRef.current)return cursorLineRef.current;
       if(!ref.current||compact)return null;
       var svg=ref.current.querySelector("svg");if(!svg)return null;
-      // Remove any orphaned cursors from previous renders
       svg.querySelectorAll(".etudy-cursor").forEach(function(c){c.remove();});
       var map=buildPosMap();if(!map)return null;
       var line=document.createElementNS("http://www.w3.org/2000/svg","rect");
       line.setAttribute("class","etudy-cursor");
       line.setAttribute("width","1.2");
       line.setAttribute("rx","0.6");
+      line.setAttribute("x","0");
+      line.setAttribute("y","0");
+      line.setAttribute("height","0");
       var isS=t===TH.studio;
       line.setAttribute("fill",isS?t.accent:t.accent);
       line.setAttribute("fill-opacity",isS?"0.5":"0.35");
       line.style.display="none";
       svg.appendChild(line);
       cursorLineRef.current=line;
+      // Pre-compute staff positions (height, y, yOff) so tick only sets transform
+      var staffCache=[];
+      for(var si=0;si<map.staves.length;si++){
+        var staff=map.staves[si];
+        var ch=map.cursorH;var overhang=ch*0.15;
+        var staffYOff=0;
+        if(staff.el){var g=staff.el;while(g&&g.tagName!=="svg"){var tr=g.getAttribute&&g.getAttribute("transform");if(tr){var m2=tr.match(/translate\(\s*[\d.+-]+\s*,\s*([\d.+-]+)\s*\)/);if(m2)staffYOff+=parseFloat(m2[1]);}g=g.parentNode;}}
+        staffCache.push({cy:staff.cy+staffYOff,h:ch+overhang*2,y:staff.cy-ch/2-overhang+staffYOff});
+      }
+      line._staffCache=staffCache;
+      line._cursorH=map.cursorH;
       return line;
     };
     var _prevLineIdx=-1;
@@ -2192,36 +2205,29 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
               p.style.fill=restoreCol;p.style.stroke=restoreCol;
               if(hasRange&&prevNoteRef.current<fracs.length){const f=fracs[prevNoteRef.current];const inR=f.frac>=abRange[0]-0.001&&f.endFrac<=abRange[1]+0.001;
                 p.style.fillOpacity=inR?restoreOp:"0.12";p.style.strokeOpacity=inR?restoreOp:"0.12";
-              }else{p.style.fillOpacity=restoreOp;p.style.strokeOpacity=restoreOp;}});
-            el.style.filter="none";el.style.transition="";}
-          if(cn>=0&&cn<noteEls.length){
+              }else{p.style.fillOpacity=restoreOp;p.style.strokeOpacity=restoreOp;}});}          if(cn>=0&&cn<noteEls.length){
             const el=noteEls[cn];
             var curCol=theoryMode?(t===TH.studio?"#FFFFFF":"#1A1A1A"):t.accent;
-            var curGlow=theoryMode?(t===TH.studio?"rgba(255,255,255,0.4)":"rgba(0,0,0,0.15)"):t.accentGlow;
             el.querySelectorAll("path,circle,ellipse").forEach(p=>{
               p.style.fill=curCol;p.style.stroke=curCol;
               p.style.fillOpacity="1";p.style.strokeOpacity="1";});
-            el.style.filter="drop-shadow(0 0 4px "+curGlow+")";
-            el.style.transition="filter 0.04s";
           }
         }prevNoteRef.current=cn;}
       // --- Smooth cursor line (continuous, from curProgressRef) ---
       if(!compact&&progress>=0){
         var map=buildPosMap();
         var cursor=ensureCursor();
-        if(map&&cursor){
+        if(map&&cursor&&cursor._staffCache){
           var cPos=getCursorPos(progress,map);
-          if(cPos&&cPos.staffIdx<map.staves.length){
-            var staff=map.staves[cPos.staffIdx];
-            var ch=map.cursorH;
-            var overhang=ch*0.15;
-            // Account for theory-mode translate on line groups
-            var staffYOff=0;
-            if(staff.el){var g=staff.el;while(g&&g.tagName!=="svg"){var tr=g.getAttribute&&g.getAttribute("transform");if(tr){var m=tr.match(/translate\(\s*[\d.+-]+\s*,\s*([\d.+-]+)\s*\)/);if(m)staffYOff+=parseFloat(m[1]);}g=g.parentNode;}}
-            cursor.setAttribute("height",String(ch+overhang*2));
-            cursor.setAttribute("y",String(staff.cy-ch/2-overhang+staffYOff));
-            cursor.setAttribute("x",String(cPos.x-3));
-            _prevLineIdx=cPos.staffIdx;
+          if(cPos&&cPos.staffIdx<cursor._staffCache.length){
+            var sc=cursor._staffCache[cPos.staffIdx];
+            // Only update height when staff changes
+            if(cPos.staffIdx!==_prevLineIdx){
+              cursor.setAttribute("height",String(sc.h));
+              _prevLineIdx=cPos.staffIdx;
+            }
+            // Position via SVG transform (no x/y attribute changes = no layout)
+            cursor.setAttribute("transform","translate("+Math.round((cPos.x-3)*10)/10+","+Math.round(sc.y*10)/10+")");
             cursor.style.display="block";
           }
         }
