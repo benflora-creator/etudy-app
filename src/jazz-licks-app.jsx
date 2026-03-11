@@ -9312,6 +9312,13 @@ function LoginModal({onClose, onLogin, th}) {
 
 export default function Etudy(){
   const[theme,setTheme]=useState(null);const[view,sV]=useState("explore");const[selectedLick,setSelected]=useState(null);const[inst,sI]=useState("All");const[cat,sC]=useState("All");const[sq,sQ]=useState("");const[showEd,sSE]=useState(false);const[licks,sL]=useState(SAMPLE_LICKS);
+  // Splash screen
+  const[splashDone,setSplashDone]=useState(false);
+  const[splashFading,setSplashFading]=useState(false);
+  // Detail/Editor transition state: null | "entering" | "visible" | "exiting"
+  const[detailAnim,setDetailAnim]=useState(null);
+  const[editorAnim,setEditorAnim]=useState(null);
+  const detailLickRef=useRef(null);
   // PWA Install prompt
   const[installPrompt,setInstallPrompt]=useState(null);
   // ─── AUTH STATE ───
@@ -9455,12 +9462,18 @@ export default function Etudy(){
   const openLick=useCallback((lick)=>{
     previewStop();ytCardCollapseAll();
     if(!selectedLick)exploreScrollRef.current=window.scrollY||0;
-    setSelected(lick);window.scrollTo(0,0);
+    detailLickRef.current=lick;
+    setSelected(lick);setDetailAnim("entering");
+    requestAnimationFrame(()=>requestAnimationFrame(()=>setDetailAnim("visible")));
+    window.scrollTo(0,0);
     if(!visitedRef.current.detail){visitedRef.current.detail=true;setDetailShowTips(true);}
   },[selectedLick]);
   const closeLick=useCallback(()=>{
-    ytCardCollapseAll();setSelected(null);
-    if(viewRef.current==="explore")setTimeout(()=>window.scrollTo(0,exploreScrollRef.current),0);
+    ytCardCollapseAll();setDetailAnim("exiting");
+    setTimeout(()=>{
+      setSelected(null);setDetailAnim(null);detailLickRef.current=null;
+      if(viewRef.current==="explore")setTimeout(()=>window.scrollTo(0,exploreScrollRef.current),0);
+    },280);
   },[]);
   const[feedTipped,setFeedTipped]=useState(false);const[detailTipped,setDetailTipped]=useState(false);
   const[earTipped,setEarTipped]=useState(false);const[rhythmTipped,setRhythmTipped]=useState(false);
@@ -9490,10 +9503,14 @@ export default function Etudy(){
   // Load community licks from Supabase
   useEffect(()=>{
     fetchLicks().then(data=>{if(data&&data.length>0){sL(data);
-      // Sync selectedLick with fresh data (e.g. feel, status)
       setSelected(prev=>{if(!prev)return null;var fresh=data.find(l=>l.id===prev.id);return fresh||prev;});
-    }});
+    }
+    // Dismiss splash after data arrives
+    setTimeout(()=>{setSplashFading(true);setTimeout(()=>setSplashDone(true),400);},300);
+    });
   },[]);
+  // Fallback: dismiss splash after 2s even if fetch fails
+  useEffect(()=>{var t=setTimeout(()=>{setSplashFading(true);setTimeout(()=>setSplashDone(true),400);},2000);return ()=>clearTimeout(t);},[]);
   const calcStreak=(sessions)=>{
     if(!sessions||!sessions.length){setStreakDays(0);return;}
     var days=new Set();sessions.forEach(se=>{try{days.add(new Date(se.date).toISOString().slice(0,10));}catch(e){}});
@@ -9656,7 +9673,7 @@ export default function Etudy(){
             React.createElement("div",{style:{fontSize:10,color:"#7B7B8A",fontFamily:"'Inter',sans-serif"}},"Dark \u00B7 Colorful \u00B7 Musician"))))));}
   const t=TH[theme];const isStudio=theme==="studio";
   const css=["@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;500;700&family=Inter:wght@300;400;500;600;700&display=swap');","*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}","html,body{background:"+t.bg+"}","::-webkit-scrollbar{display:none}","input:focus,textarea:focus,select:focus{border-color:"+t.accentBorder+"!important;outline:none}","select option{background:"+t.card+"}","input[type=range]{-webkit-appearance:none;background:"+t.progressBg+";border-radius:4px;height:3px}","input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:"+t.accent+";cursor:pointer;box-shadow:0 1px 4px "+t.accentGlow+"}","@keyframes spin{to{transform:rotate(360deg)}}","@keyframes fadeIn{from{opacity:0}to{opacity:1}}","@keyframes playPulse{0%,100%{box-shadow:0 4px 18px "+t.accentGlow+"}50%{box-shadow:0 4px 28px "+t.accentGlow+",0 0 40px "+t.accentGlow+"}}","@keyframes firePop{0%{transform:scale(1)}30%{transform:scale(1.4)}60%{transform:scale(0.9)}100%{transform:scale(1)}}","@keyframes flameFlicker{0%,100%{transform:scaleX(1) scaleY(1)}25%{transform:scaleX(0.94) scaleY(1.03)}50%{transform:scaleX(1.03) scaleY(0.97)}75%{transform:scaleX(0.97) scaleY(1.02)}}","@keyframes flameCore{0%,100%{opacity:0.8;transform:scaleY(1)}50%{opacity:0.5;transform:scaleY(0.85)}}","@keyframes loopPulse{0%,100%{opacity:1}50%{opacity:0.6}}","@keyframes coachIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}","@keyframes coachPulse{0%,100%{opacity:0.5}50%{opacity:1}}","@keyframes drillPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.7;transform:scale(0.95)}}","@keyframes drillKeyIn{0%{opacity:0;transform:scale(0.5) translateY(10px)}100%{opacity:1;transform:scale(1) translateY(0)}}","@keyframes drillDot{0%,100%{opacity:0.3;transform:scale(0.8)}50%{opacity:1;transform:scale(1.2)}}","@keyframes helpGlow{0%{box-shadow:0 0 0 0 "+t.accent+"60;transform:scale(1)}40%{box-shadow:0 0 12px 4px "+t.accent+"40;transform:scale(1.2)}70%{box-shadow:0 0 6px 2px "+t.accent+"20;transform:scale(1.05)}100%{box-shadow:0 0 0 0 transparent;transform:scale(1)}}",
-"@keyframes popupIn{from{opacity:0;transform:translate(-50%,-50%) scale(0.92)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}","@keyframes cardIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}","@keyframes pageIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}","@keyframes heartPop{0%{transform:scale(1)}40%{transform:scale(1.35)}70%{transform:scale(0.88)}100%{transform:scale(1)}}","@keyframes chordGlow{0%,100%{box-shadow:0 0 12px rgba(99,102,241,0.2)}50%{box-shadow:0 0 24px rgba(99,102,241,0.4),0 0 48px rgba(99,102,241,0.15)}}","@keyframes sheetUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}","[data-sheet-focus]{position:fixed!important;top:0!important;left:0!important;width:100vw!important;height:100vh!important;max-width:none!important;z-index:9999!important}"].join("\n");
+"@keyframes popupIn{from{opacity:0;transform:translate(-50%,-50%) scale(0.92)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}","@keyframes cardIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}","@keyframes pageIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}","@keyframes heartPop{0%{transform:scale(1)}40%{transform:scale(1.35)}70%{transform:scale(0.88)}100%{transform:scale(1)}}","@keyframes chordGlow{0%,100%{box-shadow:0 0 12px rgba(99,102,241,0.2)}50%{box-shadow:0 0 24px rgba(99,102,241,0.4),0 0 48px rgba(99,102,241,0.15)}}","@keyframes sheetUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}","@keyframes detailSlideIn{from{transform:translateY(100%)}to{transform:translateY(0)}}","@keyframes detailSlideOut{from{transform:translateY(0)}to{transform:translateY(100%)}}","@keyframes splashOut{from{opacity:1}to{opacity:0}}","@keyframes tabFadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}","[data-sheet-focus]{position:fixed!important;top:0!important;left:0!important;width:100vw!important;height:100vh!important;max-width:none!important;z-index:9999!important}"].join("\n");
 
   return React.createElement("div",{style:{minHeight:"100vh",background:t.bg,color:t.text,maxWidth:520,margin:"0 auto",position:"relative",paddingBottom:"calc(72px + env(safe-area-inset-bottom, 0px))"}},
     React.createElement("style",null,css),
@@ -9688,7 +9705,7 @@ export default function Etudy(){
           React.createElement(Filters,{instrument:inst,setInstrument:sI,category:cat,setCategory:sC,sq:sq,setSq:sQ,th:t})))),
     // Content
     React.createElement("div",{style:{padding:"12px 16px 24px"}},
-      view==="explore"&&React.createElement("div",null,
+      view==="explore"&&React.createElement("div",{style:{animation:"tabFadeIn 0.2s ease"}},
         lickSource==="community"&&!sq&&inst==="All"&&cat==="All"&&dailyLick&&React.createElement(DailyLickCard,{lick:dailyLick,onSelect:openLick,th:t,liked:likedSet.has(dailyLick.id),saved:savedSet.has(dailyLick.id),onLike:toggleLike,onSave:toggleSave,userInst:userInst,onArtistSearch:searchByArtist}),
         lickSource==="mine"&&fl.length===0&&!sq&&inst==="All"&&cat==="All"&&React.createElement("div",{style:{textAlign:"center",padding:"48px 20px",background:t.card,borderRadius:14,border:"1px solid "+t.border,marginBottom:16}},
           React.createElement("div",{style:{fontSize:32,marginBottom:12}},"\u270D"),
@@ -9711,7 +9728,7 @@ export default function Etudy(){
         lickSource==="community"&&React.createElement("div",{style:{fontSize:11,color:t.subtle,fontFamily:"'Inter',sans-serif",marginBottom:10,fontWeight:500}},fl.length+" lick"+(fl.length!==1?"s":"")),
         lickSource==="community"&&fl.map((l,i)=>React.createElement(LickCard,{key:l.id,lick:l,onSelect:openLick,th:t,liked:likedSet.has(l.id),saved:savedSet.has(l.id),onLike:toggleLike,onSave:toggleSave,userInst:userInst,onUserClick:openPublicProfile,onArtistSearch:searchByArtist,animIdx:i})),
         fl.length===0&&!(lickSource==="mine"&&!sq&&inst==="All"&&cat==="All")&&React.createElement("div",{style:{textAlign:"center",padding:"60px 20px"}},React.createElement("p",{style:{fontFamily:t.titleFont,fontSize:16,color:t.subtle,fontStyle:theme==="studio"?"normal":"italic"}},"No licks found"))),
-      view==="train"&&React.createElement("div",null,
+      view==="train"&&React.createElement("div",{style:{animation:"tabFadeIn 0.2s ease"}},
         // Train sub-tabs: Ear | Rhythm (later: Scales)
         React.createElement("div",{style:{display:"flex",gap:4,marginBottom:14,background:t.filterBg,borderRadius:10,padding:3}},
           [["rhythm","Rhythm"],["ear","Ear"],["scales","Scales"]].map(function(m){
@@ -9760,12 +9777,12 @@ export default function Etudy(){
               React.createElement(RhythmGame,{th:t,sharedInput:"tap",sharedMicSilent:true}))))),
 
       // ─── SESSIONS TAB ───
-      view==="sessions"&&React.createElement("div",{style:{padding:"8px 0"}},
+      view==="sessions"&&React.createElement("div",{style:{padding:"8px 0",animation:"tabFadeIn 0.2s ease"}},
         React.createElement(PracticePlan,{th:t,licks:allLicks,savedSet:savedSet,historyKey:historyRefresh,onStartSession:function(plan){try{Tone.start();}catch(e){}setRunningPlan(plan);}}),
         React.createElement(PracticeHistory,{th:t,historyKey:historyRefresh})),
 
       // ─── ME TAB ───
-      view==="me"&&React.createElement("div",{style:{padding:"8px 0"}},
+      view==="me"&&React.createElement("div",{style:{padding:"8px 0",animation:"tabFadeIn 0.2s ease"}},
 
         // ─── QUICK STATS ───
         React.createElement("div",{style:{display:"flex",gap:8,marginBottom:20}},
@@ -9846,10 +9863,12 @@ export default function Etudy(){
     feedShowTips&&view==="explore"&&!selectedLick&&!showEd&&React.createElement(CoachMarks,{tips:FEED_TIPS,onDone:markFeedTipped,th:t}),
     earShowTips&&view==="train"&&trainSub==="ear"&&!selectedLick&&React.createElement(CoachMarks,{tips:EAR_TIPS,onDone:markEarTipped,th:t}),
     rhythmShowTips&&view==="train"&&trainSub==="rhythm"&&React.createElement(CoachMarks,{tips:RHYTHM_TIPS,onDone:markRhythmTipped,th:t}),
-    selectedLick&&React.createElement(LickDetail,{key:selectedLick.id,lick:selectedLick,onBack:closeLick,th:t,liked:likedSet.has(selectedLick.id),saved:savedSet.has(selectedLick.id),onLike:toggleLike,onSave:toggleSave,showTips:detailShowTips,onTipsDone:markDetailTipped,onReShowTips:detailTipped?function(){setDetailShowTips(true);}:null,defaultInst:userInst,onDeletePrivate:deletePrivateLick,onReport:handleReport,onUserClick:openPublicProfile}),
+    selectedLick&&React.createElement("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:1000,animation:detailAnim==="exiting"?"detailSlideOut 0.28s ease-in forwards":"detailSlideIn 0.3s cubic-bezier(0.32,0.72,0,1) forwards"}},
+      React.createElement(LickDetail,{key:selectedLick.id,lick:selectedLick,onBack:closeLick,th:t,liked:likedSet.has(selectedLick.id),saved:savedSet.has(selectedLick.id),onLike:toggleLike,onSave:toggleSave,showTips:detailShowTips,onTipsDone:markDetailTipped,onReShowTips:detailTipped?function(){setDetailShowTips(true);}:null,defaultInst:userInst,onDeletePrivate:deletePrivateLick,onReport:handleReport,onUserClick:openPublicProfile})),
     publicProfileUser&&React.createElement(PublicProfileView,{key:publicProfileUser,username:publicProfileUser,onClose:closePublicProfile,onLickSelect:function(lick){closePublicProfile();openLick(lick);},th:t,likedSet:likedSet,savedSet:savedSet,onLike:toggleLike,onSave:toggleSave,userInst:userInst}),
     showEditProfile&&authUser&&React.createElement(EditProfileView,{authUser:authUser,authProfile:authProfile,onClose:function(){setShowEditProfile(false);},onSave:handleProfileSave,th:t}),
-    showEd&&React.createElement(Editor,{onClose:()=>sSE(false),onSubmit:addLick,onSubmitPrivate:addPrivateLick,th:t,userInst:userInst}),
+    showEd&&React.createElement("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:1000,animation:"detailSlideIn 0.3s cubic-bezier(0.32,0.72,0,1) forwards"}},
+      React.createElement(Editor,{onClose:()=>sSE(false),onSubmit:addLick,onSubmitPrivate:addPrivateLick,th:t,userInst:userInst})),
     runningPlan&&React.createElement(PlanRunner,{plan:runningPlan,onClose:function(){setRunningPlan(null);},th:t,licks:allLicks,userInst:userInst,keyProgress:keyProgress,onUpdateKeyProgress:onUpdateKeyProgress,onSessionSaved:function(){setHistoryRefresh(function(k){return k+1;});var s=getStg();if(s)s.get("practice-log").then(function(r){if(r&&r.value){try{var sess=JSON.parse(r.value);calcStreak(sess);calcHours(sess);}catch(e){}}}).catch(function(){});}}),
     // Settings sheet
     showSettings&&React.createElement("div",{onClick:function(){setShowSettings(false);},style:{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:2000,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"fadeIn 0.15s ease"}},
@@ -9886,5 +9905,11 @@ export default function Etudy(){
           React.createElement("span",{style:{fontSize:10,color:t.subtle,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1}},"\u00C9tudy \u00B7 Beta"))))
     ),
     showLogin&&React.createElement(LoginModal,{th:t,onClose:function(){setShowLogin(false);},onLogin:handleLoginSuccess}),
-    showOnboarding&&authUser&&React.createElement(Onboarding,{th:t,onComplete:handleOnboardingComplete})
+    showOnboarding&&authUser&&React.createElement(Onboarding,{th:t,onComplete:handleOnboardingComplete}),
+    // Splash screen
+    !splashDone&&React.createElement("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:9999,background:isStudio?"#08080F":"#EEEDE6",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",opacity:splashFading?0:1,transition:"opacity 0.4s ease",pointerEvents:splashFading?"none":"auto"}},
+      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10,animation:"fadeIn 0.5s ease"}},
+        React.createElement("span",{style:{fontSize:28,opacity:0.6}},"\u266A"),
+        React.createElement("span",{style:{fontSize:32,fontFamily:isStudio?"'Inter',sans-serif":"'Instrument Serif',Georgia,serif",color:isStudio?"#F2F2FA":"#1A1A1A",fontWeight:isStudio?700:400,letterSpacing:0.5}},"\u00C9tudy")),
+      React.createElement("div",{style:{marginTop:16,width:40,height:2,borderRadius:1,background:isStudio?"#22D89E":"#6366F1",animation:"playPulse 1.2s ease infinite",opacity:0.6}}))
   );}
