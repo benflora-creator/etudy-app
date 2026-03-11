@@ -3175,13 +3175,16 @@ function buildAbc(items,keySig,timeSig,tempo,chords,minBars,keyQual){const[tsN,t
     const ei=DURS[item.dur].eighths*(item.dotted?1.5:1);var effEi=item.tri?ei*(2/3):ei;
     var hasTie=!!item.tie;
 
+    // Round pos to avoid float accumulation drift (1/1200 precision covers all tuplets)
+    pos=Math.round(pos*1200)/1200;
+
     // Check if note crosses barline → split with tie
     var posInBar=pos%bE;
     if(Math.abs(posInBar)<0.01)posInBar=0;
-    var remaining=bE-posInBar;
-    if(remaining<bE&&effEi>remaining+0.01&&item.type==="note"){
+    var remaining=Math.round((bE-posInBar)*1200)/1200;
+    if(remaining<bE-0.01&&effEi>remaining+0.01&&item.type==="note"&&!(item.tri&&triCount%3!==0)){
       // Split: first part fills the bar, second part goes into next bar
-      var firstEi=remaining;var secondEi=effEi-remaining;
+      var firstEi=remaining;var secondEi=Math.round((effEi-remaining)*1200)/1200;
 
       // Emit first part
       // Beam break check
@@ -3193,7 +3196,6 @@ function buildAbc(items,keySig,timeSig,tempo,chords,minBars,keyQual){const[tsN,t
       // Barline
       abc+=" | ";barAlts={};
 
-      // Beam break for second part (start of bar = no break needed)
       // Chord on beat 1 of new bar?
       var newBarStart=pos;var beatIdx2=Math.floor(newBarStart/beatE+0.01);if(chObj[beatIdx2]&&!emittedCh[beatIdx2]){abc+='"'+chN(chObj[beatIdx2])+'"';emittedCh[beatIdx2]=true;}
       abc+=emitNote(item,secondEi,barAlts,hasTie);nc++;pos+=secondEi;
@@ -3201,19 +3203,21 @@ function buildAbc(items,keySig,timeSig,tempo,chords,minBars,keyQual){const[tsN,t
     }
 
     // Normal note (no barline crossing)
-    // Barline
     // Barline (skip if mid-triplet to avoid breaking groups)
     var midTripletBar=item.tri&&(triCount%3!==0);
-    if(pos>0&&!midTripletBar){var bN=pos/bE;if(Math.abs(bN-Math.round(bN))<0.01&&Math.round(bN)>0){abc+=" | ";barAlts={};}}
-    // Beam break
+    if(pos>0&&!midTripletBar){var bN=Math.round(pos*1200/bE)/1200;if(Math.abs(bN-Math.round(bN))<0.01&&Math.round(bN)>0){abc+=" | ";barAlts={};}}
+    // Beam break — use base duration (ei) for threshold, not triplet-adjusted effEi
     if(nc>0){
-      posInBar=pos%bE;if(Math.abs(posInBar)<0.01&&pos>0)posInBar=0;
+      posInBar=Math.round((pos%bE)*1200)/1200;if(Math.abs(posInBar)<0.01&&pos>0)posInBar=0;
       var needSpace=false;
-      // Never break beam inside a triplet group
+      // Never break beam inside a triplet group, but always between groups
       var midTriplet=item.tri&&(triCount%3!==0);
-      if(!midTriplet){
-        if(effEi>=2)needSpace=true;
-        else{var breaks=effEi<1?beamBreaks16:beamBreaks;for(var bb2=0;bb2<breaks.length;bb2++)if(Math.abs(posInBar-breaks[bb2])<0.05){needSpace=true;break;}}
+      var tripletGroupStart=item.tri&&(triCount%3===0)&&triCount>0;
+      if(tripletGroupStart){
+        needSpace=true;// always separate triplet groups
+      }else if(!midTriplet){
+        if(ei>=2)needSpace=true;
+        else{var breaks=ei<1?beamBreaks16:beamBreaks;for(var bb2=0;bb2<breaks.length;bb2++)if(Math.abs(posInBar-breaks[bb2])<0.05){needSpace=true;break;}}
       }
       if(needSpace)abc+=" ";
     }
