@@ -3228,7 +3228,14 @@ function buildAbc(items,keySig,timeSig,tempo,chords,minBars,keyQual){const[tsN,t
     // Note
     if(item.type==="rest")abc+="z"+e2s(ei);
     else abc+=emitNote(item,ei,barAlts,hasTie);
-    pos+=effEi;nc++;}
+    pos+=effEi;nc++;
+    // POST: if a triplet group just completed, check for deferred barline
+    // Use -0.01 so exact boundary (pos=8.0) is NOT treated as "past" — PRE check handles it
+    if(item.tri&&triCount%3===0){
+      pos=Math.round(pos*1200)/1200;
+      var curBar2=Math.floor((pos-0.01)/bE);
+      if(curBar2>0&&curBar2>lastBarEmitted){abc+=" | ";barAlts={};lastBarEmitted=curBar2;}
+    }}
   if(nc>0)abc+=" |";
   if(items.some(function(it){return it.tri;})){
     console.log("[etudy] Triplet ABC:",abc.split("\n").pop());
