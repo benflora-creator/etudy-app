@@ -2015,7 +2015,7 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
         try{
           var head=el.querySelector("ellipse")||el.querySelector("circle");
           var bb=head?head.getBBox():el.getBBox();
-          var cx=bb.x+bb.width/2;
+          var lx=bb.x;// left edge of notehead
           var cy=bb.y+bb.height/2;
           // Find nearest staff by center Y distance
           var staffIdx=0;var bestDist=Infinity;
@@ -2024,7 +2024,7 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
             if(d<bestDist){bestDist=d;staffIdx=si;}
           }
           positions.push({
-            cx:cx,staffIdx:staffIdx,
+            lx:lx,staffIdx:staffIdx,
             frac:idx<fracs.length?fracs[idx].frac:1,
             endFrac:idx<fracs.length?fracs[idx].endFrac:1
           });
@@ -2051,14 +2051,14 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
         var segLen=nextP.frac-prevP.frac;
         var t2=segLen>0.001?(progress-prevP.frac)/segLen:0;
         t2=Math.max(0,Math.min(1,t2));
-        return{x:prevP.cx+(nextP.cx-prevP.cx)*t2,staffIdx:prevP.staffIdx};
+        return{x:prevP.lx+(nextP.lx-prevP.lx)*t2,staffIdx:prevP.staffIdx};
       }else{
         // Line break: jump at midpoint
         var midFrac=(prevP.endFrac+nextP.frac)/2;
         if(progress>=midFrac){
-          return{x:nextP.cx,staffIdx:nextP.staffIdx};
+          return{x:nextP.lx,staffIdx:nextP.staffIdx};
         }else{
-          return{x:prevP.cx,staffIdx:prevP.staffIdx};
+          return{x:prevP.lx,staffIdx:prevP.staffIdx};
         }
       }
     };
@@ -2121,9 +2121,10 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
           if(cPos&&cPos.staffIdx<map.staves.length){
             var staff=map.staves[cPos.staffIdx];
             var ch=map.cursorH;
-            cursor.setAttribute("height",String(ch));
-            cursor.setAttribute("y",String(staff.cy-ch/2));
-            cursor.setAttribute("x",String(cPos.x-0.6));
+            var overhang=ch*0.15;// slight protrusion above and below
+            cursor.setAttribute("height",String(ch+overhang*2));
+            cursor.setAttribute("y",String(staff.cy-ch/2-overhang));
+            cursor.setAttribute("x",String(cPos.x-1.5));// just left of notehead
             _prevLineIdx=cPos.staffIdx;
             cursor.style.display="block";
           }
@@ -3434,7 +3435,7 @@ function NoteBuilder({onAbcChange,keySig,keyQual,timeSig,tempo,previewEl,playerE
 // ============================================================
 // SHEET FOCUS — fullscreen notation overlay
 // ============================================================
-function SheetFocus({abc,onClose,abRange,curNoteRef,th,playerCtrlRef,theoryMode,theoryAnalysis,soundAbc}){
+function SheetFocus({abc,onClose,abRange,curNoteRef,curProgressRef,th,playerCtrlRef,theoryMode,theoryAnalysis,soundAbc}){
   const t=th||TH.classic;const isStudio=t===TH.studio;
   const[playing,setPlaying]=useState(false);
   useEffect(()=>{document.body.style.overflow="hidden";return()=>{document.body.style.overflow="";};},[]);
@@ -3443,7 +3444,7 @@ function SheetFocus({abc,onClose,abRange,curNoteRef,th,playerCtrlRef,theoryMode,
   var onToggle=function(){if(playerCtrlRef&&playerCtrlRef.current&&playerCtrlRef.current.toggle)playerCtrlRef.current.toggle();};
   return React.createElement("div",{"data-sheet-focus":"true",style:{position:"fixed",top:0,left:0,width:"100vw",height:"100vh",maxWidth:"none",zIndex:9999,background:t.card,display:"flex",flexDirection:"column",animation:"sheetUp 0.25s cubic-bezier(0.4,0,0.2,1)"}},
     React.createElement("div",{style:{flex:1,overflow:"auto",WebkitOverflowScrolling:"touch",padding:"52px 16px 72px",paddingTop:"calc(env(safe-area-inset-top, 0px) + 52px)",minHeight:0}},
-      React.createElement(Notation,{abc,compact:false,focus:true,abRange,curNoteRef,th:t,theoryMode:theoryMode,theoryAnalysis:theoryAnalysis,soundAbc:soundAbc})),
+      React.createElement(Notation,{abc,compact:false,focus:true,abRange,curNoteRef,curProgressRef:curProgressRef,th:t,theoryMode:theoryMode,theoryAnalysis:theoryAnalysis,soundAbc:soundAbc})),
     // Bottom bar with play/stop
     React.createElement("div",{style:{position:"absolute",bottom:0,left:0,right:0,padding:"12px 16px",paddingBottom:"max(12px, env(safe-area-inset-bottom))",background:t.headerBg,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",borderTop:"1px solid "+t.border,display:"flex",alignItems:"center",justifyContent:"center",gap:16}},
       React.createElement("button",{onClick:onToggle,style:{width:48,height:48,borderRadius:24,border:"none",background:playing?(isStudio?"#EF4444":t.muted):(isStudio?t.playBg:t.accent),color:"#fff",fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:playing?"none":"0 4px 16px "+t.accentGlow,transition:"all 0.15s"}},playing?"\u25A0":"\u25B6")),
@@ -4681,7 +4682,7 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
       React.createElement(Player,{abc:soundAbc,tempo:pT,abOn:abOn,abA:abA,abB:abB,setAbOn:setAbOn,setAbA:setAbA,setAbB:setAbB,pT:pT,sPT:sPT,lickTempo:lick.tempo,trInst:null,setTrInst:null,trMan:null,setTrMan:null,onCurNote:function(n){curNoteRef.current=n;},th:t,ctrlRef:playerCtrlRef,initFeel:lick.feel,headless:true,onStateChange:setPs,progressRef:curProgressRef})),
 
     // ═══════ OVERLAYS ═══════
-    focus&&React.createElement(SheetFocus,{abc:notationAbc,onClose:function(){setFocus(false);},abRange:abOn?[abA,abB]:null,curNoteRef:curNoteRef,th:t,playerCtrlRef:playerCtrlRef,theoryMode:theoryMode,theoryAnalysis:theoryAnalysis,soundAbc:soundAbc}),
+    focus&&React.createElement(SheetFocus,{abc:notationAbc,onClose:function(){setFocus(false);},abRange:abOn?[abA,abB]:null,curNoteRef:curNoteRef,curProgressRef:curProgressRef,th:t,playerCtrlRef:playerCtrlRef,theoryMode:theoryMode,theoryAnalysis:theoryAnalysis,soundAbc:soundAbc}),
     scalePopup&&React.createElement(ScalePopup,{data:scalePopup,th:t,isStudio:isStudio,onClose:function(){setScalePopup(null);}}),
     burst&&React.createElement(FireBurst,{key:burst.k,originX:burst.x,originY:burst.y,onDone:function(){sBurst(null);}}),
     showTempoPopup&&React.createElement(TempoPopup,{bpm:pT,onBpmChange:sPT,onClose:function(){setShowTempoPopup(false);},th:t,lickTempo:lick.tempo,playerCtrlRef:playerCtrlRef,ci:ps.ci,setCi:function(v){var c=pc();if(c.setCi)c.setCi(v);}}),
