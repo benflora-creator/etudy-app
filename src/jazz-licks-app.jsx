@@ -746,6 +746,10 @@ function detectScale(noteSet,chordParsed){
   return defaultScale;
 }
 
+// Orientation lock helpers
+function lockPortrait(){try{if(screen.orientation&&screen.orientation.lock)screen.orientation.lock("portrait").catch(function(){});}catch(e){}}
+function unlockOrientation(){try{if(screen.orientation&&screen.orientation.unlock)screen.orientation.unlock();}catch(e){}}
+
 // Analyze a full ABC string: returns {noteAnalysis[], chordScales[]}
 function analyzeTheory(abcStr){
   try{
@@ -1785,7 +1789,7 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
     if(compact){opts.staffwidth=420;opts.scale=0.85;var cBars=barInfo.nBars;if(cBars>4)opts.wrap={minSpacing:1.2,maxSpacing:2.2,preferredMeasuresPerLine:4};}
     else if(editorMode&&hasContent){opts.staffwidth=460;opts.scale=1.1;opts.wrap={minSpacing:1.0,maxSpacing:2.8,preferredMeasuresPerLine:2};}
     else if(editorMode){opts.staffwidth=460;opts.scale=1.1;}
-    else if(focus){opts.staffwidth=500;opts.scale=1.5;opts.wrap={minSpacing:1.0,maxSpacing:2.0,preferredMeasuresPerLine:2};}
+    else if(focus){var isWide=ref.current&&ref.current.offsetWidth>600;opts.staffwidth=isWide?700:500;opts.scale=isWide?1.1:1.5;opts.wrap={minSpacing:1.0,maxSpacing:2.0,preferredMeasuresPerLine:isWide?4:2};}
     else{opts.staffwidth=420;opts.scale=1.0;opts.wrap={minSpacing:1.0,maxSpacing:1.8,preferredMeasuresPerLine:mpl};}
     try{window.ABCJS.renderAbc(ref.current,renderAbc,opts);}catch(e){}
     // Release height lock after paint (double-rAF ensures browser has painted)
@@ -3571,13 +3575,21 @@ function NoteBuilder({onAbcChange,keySig,keyQual,timeSig,tempo,previewEl,playerE
 function SheetFocus({abc,onClose,abRange,curNoteRef,curProgressRef,th,playerCtrlRef,theoryMode,theoryAnalysis,soundAbc}){
   const t=th||TH.classic;const isStudio=t===TH.studio;
   const[playing,setPlaying]=useState(false);
-  useEffect(()=>{document.body.style.overflow="hidden";return()=>{document.body.style.overflow="";};},[]);
+  const[isLandscape,setIsLandscape]=useState(window.innerWidth>window.innerHeight);
+  useEffect(()=>{
+    document.body.style.overflow="hidden";
+    unlockOrientation();
+    var onResize=function(){setIsLandscape(window.innerWidth>window.innerHeight);};
+    window.addEventListener("resize",onResize);
+    return()=>{document.body.style.overflow="";lockPortrait();window.removeEventListener("resize",onResize);};
+  },[]);
   // Poll playing state from playerCtrlRef
   useEffect(()=>{if(!playerCtrlRef)return;var iv=setInterval(function(){var p=playerCtrlRef.current&&playerCtrlRef.current.playing;if(p!==playing)setPlaying(!!p);},100);return function(){clearInterval(iv);};},[playing]);
   var onToggle=function(){if(playerCtrlRef&&playerCtrlRef.current&&playerCtrlRef.current.toggle)playerCtrlRef.current.toggle();};
   return React.createElement("div",{"data-sheet-focus":"true",style:{position:"fixed",top:0,left:0,width:"100vw",height:"100vh",maxWidth:"none",zIndex:9999,background:t.card,display:"flex",flexDirection:"column",animation:"sheetUp 0.25s cubic-bezier(0.4,0,0.2,1)"}},
-    React.createElement("div",{style:{flex:1,overflow:"auto",WebkitOverflowScrolling:"touch",padding:"52px 16px 72px",paddingTop:"calc(env(safe-area-inset-top, 0px) + 52px)",minHeight:0}},
-      React.createElement(Notation,{abc,compact:false,focus:true,abRange,curNoteRef,curProgressRef:curProgressRef,th:t,theoryMode:theoryMode,theoryAnalysis:theoryAnalysis,soundAbc:soundAbc})),
+    React.createElement("div",{style:{flex:1,overflow:"auto",WebkitOverflowScrolling:"touch",padding:isLandscape?"16px 24px 60px":"52px 16px 72px",paddingTop:isLandscape?"calc(env(safe-area-inset-top, 0px) + 16px)":"calc(env(safe-area-inset-top, 0px) + 52px)",paddingLeft:isLandscape?"calc(env(safe-area-inset-left, 0px) + 24px)":"16px",paddingRight:isLandscape?"calc(env(safe-area-inset-right, 0px) + 24px)":"16px",minHeight:0,display:"flex",alignItems:isLandscape?"center":"stretch"}},
+      React.createElement("div",{style:{width:"100%",maxWidth:isLandscape?900:undefined}},
+        React.createElement(Notation,{abc,compact:false,focus:true,abRange,curNoteRef,curProgressRef:curProgressRef,th:t,theoryMode:theoryMode,theoryAnalysis:theoryAnalysis,soundAbc:soundAbc}))),
     // Bottom bar with play/stop
     React.createElement("div",{style:{position:"absolute",bottom:0,left:0,right:0,padding:"12px 16px",paddingBottom:"max(12px, env(safe-area-inset-bottom))",background:t.headerBg,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",borderTop:"1px solid "+t.border,display:"flex",alignItems:"center",justifyContent:"center",gap:16}},
       React.createElement("button",{onClick:onToggle,style:{width:48,height:48,borderRadius:24,border:"none",background:playing?(isStudio?"#EF4444":t.muted):(isStudio?t.playBg:t.accent),color:"#fff",fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:playing?"none":"0 4px 16px "+t.accentGlow,transition:"all 0.15s"}},playing?"\u25A0":"\u25B6")),
@@ -9592,7 +9604,7 @@ export default function Etudy(){
     // Sync with Supabase
     if(adding){addUserLick(authUser.id,id,"save");}else{removeUserLick(authUser.id,id,"save");}
   };
-  useEffect(()=>{preloadPiano();preloadChordPiano();preloadCustomPianoChord();},[]);
+  useEffect(()=>{preloadPiano();preloadChordPiano();preloadCustomPianoChord();lockPortrait();},[]);
   const dayOfYear=Math.floor((Date.now()-new Date(new Date().getFullYear(),0,0))/86400000);
   const dailyLick=licks.length>0?licks[dayOfYear%licks.length]:null;
   const srcLicks=lickSource==="mine"?licks.filter(function(l){return savedSet.has(l.id);}).concat(myLicks):licks;
