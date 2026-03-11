@@ -1766,7 +1766,7 @@ function Notation({abc,compact,abRange,curNoteRef,curProgressRef,focus,th,onNote
       renderAbc=renderAbc.replace(/(K:[^\n]*)/,"%%barsperstaff 2\n$1");
     }
     const opts={responsive:"resize",paddingtop:editorMode?28:(focus?16:theoryMode?16:6),paddingbottom:theoryMode?34:(focus?16:6),paddingleft:0,paddingright:0,add_classes:true,
-      format:{notespacingfactor:1.4,staffsep:28}};
+      format:{notespacingfactor:1.4,staffsep:theoryMode?52:28}};
     if(compact){opts.staffwidth=420;opts.scale=0.85;var cBars=barInfo.nBars;if(cBars>4)opts.wrap={minSpacing:1.2,maxSpacing:2.2,preferredMeasuresPerLine:4};}
     else if(editorMode&&hasContent){opts.staffwidth=460;opts.scale=1.1;opts.wrap={minSpacing:1.0,maxSpacing:2.8,preferredMeasuresPerLine:2};}
     else if(editorMode){opts.staffwidth=460;opts.scale=1.1;}
@@ -4579,7 +4579,9 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
           React.createElement("span",{style:{fontSize:9,color:catC,fontWeight:600,fontFamily:"'JetBrains Mono',monospace",background:catC+"12",padding:"3px 8px",borderRadius:6,border:"1px solid "+catC+"20"}},lick.category),
           React.createElement("span",{style:{fontSize:9,color:t.muted,fontWeight:500,fontFamily:"'JetBrains Mono',monospace",background:isStudio?t.bg:t.card,padding:"3px 8px",borderRadius:6,border:"1px solid "+t.border}},keyDisplay),
           React.createElement("span",{style:{fontSize:9,color:t.muted,fontWeight:500,fontFamily:"'JetBrains Mono',monospace",background:isStudio?t.bg:t.card,padding:"3px 8px",borderRadius:6,border:"1px solid "+t.border,display:"flex",alignItems:"center",gap:3}},"\u2669 "+lick.tempo),
-          lick.user&&lick.user!=="Anonymous"&&React.createElement("button",{onClick:function(e){e.stopPropagation();if(onUserClick)onUserClick(lick.user);},style:{marginLeft:"auto",background:"none",border:"none",cursor:"pointer",padding:0,fontSize:9,color:t.subtle,fontFamily:"'Inter',sans-serif",fontWeight:500,display:"flex",alignItems:"center",gap:3}},React.createElement("span",{style:{width:14,height:14,borderRadius:7,background:isStudio?t.accent+"18":t.accentBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:7,color:t.accent,fontWeight:700}},lick.user[0].toUpperCase()),"@"+lick.user)))),
+          lick.user&&lick.user!=="Anonymous"&&React.createElement("div",{style:{flex:1}}),
+          lick.user&&lick.user!=="Anonymous"&&React.createElement("button",{onClick:function(e){e.stopPropagation();if(onUserClick)onUserClick(lick.user);},style:{background:"none",border:"none",cursor:"pointer",padding:0,display:"flex",alignItems:"center"}},
+            React.createElement("span",{style:{fontSize:9,color:isStudio?t.accent+"99":t.accent,fontFamily:"'Inter',sans-serif",fontWeight:600,background:isStudio?t.accent+"10":"transparent",padding:isStudio?"2px 6px":"0",borderRadius:5}},"\u0040"+lick.user))))),
 
     // ═══════ NOTATION AREA (fills space between header and drawer) ═══════
     React.createElement("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:drawerH,paddingTop:"calc(env(safe-area-inset-top, 0px) + 88px)",display:"flex",flexDirection:"column",overflow:"hidden"}},
