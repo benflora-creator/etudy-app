@@ -4811,25 +4811,37 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
                   React.createElement("span",{style:{width:7,height:7,borderRadius:"50%",background:getTheoryColor(pair[0],isStudio),display:"inline-block",flexShrink:0,boxShadow:"0 0 4px "+getTheoryColor(pair[0],isStudio)+"40"}}),
                   React.createElement("span",{style:{color:getTheoryColor(pair[0],isStudio),fontWeight:600,opacity:0.85}},pair[1]));})),
             theoryAnalysis.chordScales&&theoryAnalysis.chordScales.some(function(cs){return !!cs.scale;})&&React.createElement("span",{style:{width:1,height:14,background:t.border,flexShrink:0}}),
-            theoryAnalysis.chordScales&&theoryAnalysis.chordScales.map(function(cs,idx){
-              if(!cs.scale)return null;
-              // For global scales: split "C Blues" → root "C", scaleName "Blues"
-              var displayChord=cs.chord;var lookupChord=cs.chord;var lookupScale=cs.scale;
-              if(cs.isGlobal){
-                var gParts=cs.scale.split(" ");
-                lookupChord=gParts[0];// root like "C"
-                lookupScale=gParts.slice(1).join(" ");// "Blues", "Minor Pentatonic"
-                displayChord=cs.chord;// still show original chord
+            theoryAnalysis.chordScales&&(function(){
+              var cs0=theoryAnalysis.chordScales;
+              // Check if ALL chords share the same global scale
+              var allGlobal=cs0.length>0&&cs0.every(function(c){return c.isGlobal;});
+              var sameName=allGlobal&&cs0.every(function(c){return c.scale===cs0[0].scale;});
+              if(sameName&&allGlobal){
+                // Single "over all" banner
+                var gParts=cs0[0].scale.split(" ");
+                var lkC=gParts[0],lkS=gParts.slice(1).join(" ");
+                return React.createElement("span",{onClick:function(e){e.stopPropagation();var sn=getScaleNotes(lkC,lkS);if(sn){if(instOff){sn.midis=sn.midis.map(function(m){return m-instOff;});var minM=Math.min.apply(null,sn.midis);if(minM<48){var shift=Math.ceil((48-minM)/12)*12;sn.midis=sn.midis.map(function(m){return m+shift;});}}setScalePopup(sn);}},style:{display:"inline-flex",alignItems:"center",gap:5,padding:"4px 10px",borderRadius:8,fontSize:11,fontFamily:"'JetBrains Mono',monospace",background:isStudio?"#3B82F615":"rgba(59,130,246,0.08)",border:"1.5px solid "+(isStudio?"#3B82F630":"rgba(59,130,246,0.2)"),cursor:"pointer"}},
+                  React.createElement("span",{style:{fontWeight:700,color:isStudio?"#3B82F6":"#4F46E5"}},cs0[0].scale),
+                  React.createElement("span",{style:{fontWeight:400,color:t.muted,fontSize:9}},"over all"));
               }
-              // Merge: skip if same global scale as previous
-              if(cs.isGlobal&&idx>0){var prev=theoryAnalysis.chordScales[idx-1];if(prev&&prev.isGlobal&&prev.scale===cs.scale)return null;}
-              return React.createElement("span",{key:idx,onClick:function(e){e.stopPropagation();var sn=getScaleNotes(lookupChord,lookupScale);if(sn){if(instOff){sn.midis=sn.midis.map(function(m){return m-instOff;});var minM=Math.min.apply(null,sn.midis);if(minM<48){var shift=Math.ceil((48-minM)/12)*12;sn.midis=sn.midis.map(function(m){return m+shift;});}}setScalePopup(sn);}},style:{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 8px",borderRadius:6,fontSize:10,fontFamily:"'JetBrains Mono',monospace",background:cs.isGlobal?(isStudio?"#3B82F610":"rgba(59,130,246,0.06)"):(isStudio?t.accent+"10":"rgba(99,102,241,0.06)"),border:"1px solid "+(cs.isGlobal?(isStudio?"#3B82F618":"rgba(59,130,246,0.1)"):(isStudio?t.accent+"18":"rgba(99,102,241,0.1)")),cursor:"pointer",transition:"all 0.15s"}},
-                cs.isGlobal?React.createElement(React.Fragment,null,
-                  React.createElement("span",{style:{fontWeight:700,color:isStudio?"#3B82F6":"#4F46E5"}},cs.scale),
-                  React.createElement("span",{style:{fontWeight:400,color:t.muted,fontSize:9}},"over "+displayChord))
-                :React.createElement(React.Fragment,null,
+              // Mixed: show per-chord, merge adjacent globals
+              return cs0.map(function(cs,idx){
+                if(!cs.scale)return null;
+                var lkC2=cs.chord,lkS2=cs.scale;
+                if(cs.isGlobal){
+                  var gP=cs.scale.split(" ");lkC2=gP[0];lkS2=gP.slice(1).join(" ");
+                  if(idx>0&&cs0[idx-1].isGlobal&&cs0[idx-1].scale===cs.scale)return null;
+                  var span=[cs.chord];for(var k=idx+1;k<cs0.length&&cs0[k].isGlobal&&cs0[k].scale===cs.scale;k++)span.push(cs0[k].chord);
+                  var spanLabel=span.length>2?span[0]+"–"+span[span.length-1]:span.join("–");
+                  return React.createElement("span",{key:idx,onClick:function(e){e.stopPropagation();var sn=getScaleNotes(lkC2,lkS2);if(sn){if(instOff){sn.midis=sn.midis.map(function(m){return m-instOff;});var minM=Math.min.apply(null,sn.midis);if(minM<48){var shift=Math.ceil((48-minM)/12)*12;sn.midis=sn.midis.map(function(m){return m+shift;});}}setScalePopup(sn);}},style:{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 8px",borderRadius:6,fontSize:10,fontFamily:"'JetBrains Mono',monospace",background:isStudio?"#3B82F610":"rgba(59,130,246,0.06)",border:"1px solid "+(isStudio?"#3B82F618":"rgba(59,130,246,0.1)"),cursor:"pointer"}},
+                    React.createElement("span",{style:{fontWeight:700,color:isStudio?"#3B82F6":"#4F46E5"}},cs.scale),
+                    React.createElement("span",{style:{fontWeight:400,color:t.muted,fontSize:9}},"over "+spanLabel));
+                }
+                return React.createElement("span",{key:idx,onClick:function(e){e.stopPropagation();var sn=getScaleNotes(lkC2,lkS2);if(sn){if(instOff){sn.midis=sn.midis.map(function(m){return m-instOff;});var minM=Math.min.apply(null,sn.midis);if(minM<48){var shift=Math.ceil((48-minM)/12)*12;sn.midis=sn.midis.map(function(m){return m+shift;});}}setScalePopup(sn);}},style:{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 8px",borderRadius:6,fontSize:10,fontFamily:"'JetBrains Mono',monospace",background:isStudio?t.accent+"10":"rgba(99,102,241,0.06)",border:"1px solid "+(isStudio?t.accent+"18":"rgba(99,102,241,0.1)"),cursor:"pointer"}},
                   React.createElement("span",{style:{fontWeight:700,color:t.chordFill}},cs.chord),
-                  React.createElement("span",{style:{fontWeight:500,color:t.text,opacity:0.75,fontFamily:"'Inter',sans-serif",fontSize:10}},cs.scale)));}))),
+                  React.createElement("span",{style:{fontWeight:500,color:t.text,opacity:0.75,fontFamily:"'Inter',sans-serif",fontSize:10}},cs.scale));
+              });
+            }()))),
         theoryMode&&(!theoryAnalysis||!theoryAnalysis.hasChords)&&React.createElement("div",{style:{marginTop:8,padding:"10px 14px",borderRadius:10,background:isStudio?"#F59E0B15":"#FEF3C7",border:"1px solid "+(isStudio?"#F59E0B30":"#FDE68A")}},
           React.createElement("span",{style:{fontSize:12,color:isStudio?"#FBBF24":"#92400E",fontFamily:"'Inter',sans-serif"}},"No chord symbols found in this lick. Theory mode needs chord annotations (e.g. \"Dm7\") to analyze intervals.")),
         )),
