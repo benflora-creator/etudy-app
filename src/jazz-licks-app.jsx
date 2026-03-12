@@ -3148,11 +3148,12 @@ function buildAbc(items,keySig,timeSig,tempo,chords,minBars,keyQual){const[tsN,t
     }else if(!abcUsesFlats&&a===-1){
       var pn=PREV_LET[n];a=(pn==="E"||pn==="B")?0:1;if(n==="C")o--;n=pn;
     }
-    var ksA=ksMap[n]||0;var prevA=barAlts.hasOwnProperty(n)?barAlts[n]:ksA;
+    var altKey=n+o;// track accidentals per note+octave (ABC accidentals are octave-specific)
+    var ksA=ksMap[n]||0;var prevA=barAlts.hasOwnProperty(altKey)?barAlts[altKey]:ksA;
     var needsAcc=false;if(a!==prevA)needsAcc=true;
-    else if(a===ksA&&barAlts.hasOwnProperty(n)&&barAlts[n]!==ksA)needsAcc=true;
+    else if(a===ksA&&barAlts.hasOwnProperty(altKey)&&barAlts[altKey]!==ksA)needsAcc=true;
     if(needsAcc){if(a===1)s+="^";else if(a===-1)s+="_";else s+="=";}
-    barAlts[n]=a;
+    barAlts[altKey]=a;
     if(o>=5){s+=n.toLowerCase();for(var oi=6;oi<=o;oi++)s+="'";}
     else{s+=n.toUpperCase();for(var o2=3;o2>=o;o2--)s+=",";}
     s+=e2s(ei);
