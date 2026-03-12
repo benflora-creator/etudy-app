@@ -690,7 +690,7 @@ function getIntervalLabel(semi,chordParsed){
 
 // Detect scale from notes over a chord
 function detectScale(noteSet,chordParsed){
-  if(!chordParsed)return null;
+  if(!chordParsed)return{name:null,score:0};
   var DEFAULT_SCALES={
     "maj7":"Ionian","maj9":"Ionian","6":"Ionian","":"Ionian",
     "7":"Mixolydian","9":"Mixolydian","13":"Mixolydian",
@@ -702,39 +702,29 @@ function detectScale(noteSet,chordParsed){
     "mmaj7":"Melodic Minor","sus4":"Mixolydian","sus2":"Mixolydian","7sus4":"Mixolydian"
   };
   var defaultScale=DEFAULT_SCALES[chordParsed.quality]||DEFAULT_SCALES[chordParsed.quality.replace(/\d+$/,"")]||"Ionian";
-  // No notes at all → return default
-  if(!noteSet||noteSet.size===0)return defaultScale;
-  // Chord tones (reduced to 0-11)
+  if(!noteSet||noteSet.size===0)return{name:defaultScale,score:1};
   var ctArr=CHORD_TONE_MAP[chordParsed.quality]||CHORD_TONE_MAP[""]||[0,4,7];
   var ctSet=new Set(ctArr.map(function(ct){return ct%12;}));
-  // Separate played notes into chord tones vs color tones
   var colorNotes=[];var chordToneNotes=[];
   noteSet.forEach(function(n){if(ctSet.has(n))chordToneNotes.push(n);else colorNotes.push(n);});
-  // 3rd/7th character of chord
   var hasMaj3=ctSet.has(4),hasMin3=ctSet.has(3);
   var hasb7=ctSet.has(10),hasMaj7=ctSet.has(11);
   var best=null,bestScore=-1;
   for(var si=0;si<SCALE_DEFS.length;si++){
     var sd=SCALE_DEFS[si];
     var scaleSet=new Set(sd.notes);
-    // Color tones (tensions/chromatics) count DOUBLE — they reveal the scale
     var colorMatch=0,colorMiss=0;
     for(var ci2=0;ci2<colorNotes.length;ci2++){
       if(scaleSet.has(colorNotes[ci2]))colorMatch++;else colorMiss++;
     }
-    // Chord tones: normal weight (most scales contain them anyway)
     var ctMatch=0,ctMiss=0;
     for(var ti=0;ti<chordToneNotes.length;ti++){
       if(scaleSet.has(chordToneNotes[ti]))ctMatch++;else ctMiss++;
     }
-    // Weighted score: color tones 2x, chord tones 1x
     var matchScore=colorMatch*2+ctMatch;
     var missScore=colorMiss*2.5+ctMiss*1.5;
-    // Context bonus (chord quality matches scale's typical usage)
     var ctxBonus=0;
     for(var ci=0;ci<sd.ctx.length;ci++){if(sd.ctx[ci]===chordParsed.quality){ctxBonus=3;break;}}
-    // Quality conflict penalty: scale's 3rd/7th contradicts chord
-    // BUT: skip penalty if the musician actually plays the "conflicting" note
     var conflictPenalty=0;
     if(hasMaj3&&!hasMin3&&scaleSet.has(3)&&!scaleSet.has(4)&&!noteSet.has(3))conflictPenalty+=5;
     if(hasMin3&&!hasMaj3&&scaleSet.has(4)&&!scaleSet.has(3)&&!noteSet.has(4))conflictPenalty+=5;
@@ -743,9 +733,50 @@ function detectScale(noteSet,chordParsed){
     var score=matchScore-missScore+ctxBonus-conflictPenalty;
     if(score>bestScore){bestScore=score;best=sd;}
   }
-  if(best&&bestScore>0)return best.name;
-  return defaultScale;
+  if(best&&bestScore>0)return{name:best.name,score:bestScore};
+  return{name:defaultScale,score:0.5};
 }
+
+// Scales eligible for "global over changes" detection
+var GLOBAL_SCALE_CANDIDATES=["Blues","Minor Pentatonic","Major Pentatonic","Dorian","Mixolydian","Ionian","Aeolian"];
+var KEY_NAMES_S=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+var KEY_NAMES_F=["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"];
+
+// Detect a global scale across ALL notes regardless of chord changes
+// Returns {root, rootPC, name, score, scaleSet} or null
+function detectGlobalScale(allPCs,keyPC){
+  if(!allPCs||allPCs.size<3)return null;
+  var best=null,bestScore=-1;
+  for(var rootPC=0;rootPC<12;rootPC++){
+    var relative=new Set();
+    allPCs.forEach(function(pc){relative.add(((pc-rootPC)%12+12)%12);});
+    for(var si=0;si<SCALE_DEFS.length;si++){
+      var sd=SCALE_DEFS[si];
+      if(GLOBAL_SCALE_CANDIDATES.indexOf(sd.name)<0)continue;
+      var scaleSet=new Set(sd.notes);
+      var match=0,miss=0;
+      relative.forEach(function(n){if(scaleSet.has(n))match++;else miss++;});
+      // Base score
+      var score=match*2-miss*4;// misses penalized heavily for global
+      // Perfect fit bonus (no misses)
+      if(miss===0)score+=3;
+      // Key bonus
+      if(rootPC===keyPC)score+=1.5;
+      // Specificity bonus: what fraction of the scale was actually played?
+      // Higher coverage = more confident (5/5 pentatonic notes > 5/7 dorian notes)
+      var coverage=match/sd.notes.length;
+      score+=coverage*3;
+      // Reject if too many notes are outside the scale
+      if(miss>1)continue;// max 1 miss for global
+      if(score>bestScore){bestScore=score;best={rootPC:rootPC,name:sd.name,score:bestScore,notes:sd.notes};}
+    }
+  }
+  if(!best||bestScore<6)return null;
+  var useFlats=[1,3,5,6,8,10].indexOf(best.rootPC)>=0&&[1,3,6,8,10].indexOf(keyPC)>=0;
+  var names=useFlats?KEY_NAMES_F:KEY_NAMES_S;
+  return{root:names[best.rootPC],rootPC:best.rootPC,name:best.name,score:best.score,scaleNotes:new Set(best.notes)};
+}
+
 
 // Orientation lock helpers
 function lockPortrait(){try{if(screen.orientation&&screen.orientation.lock)screen.orientation.lock("portrait").catch(function(){});}catch(e){}}
@@ -763,8 +794,9 @@ function analyzeTheory(abcStr){
       var end=ci+1<chords.length?chords[ci+1].pos:Infinity;
       regions.push({chord:chords[ci].name,start:start,end:end,parsed:parseChordName(chords[ci].name)});
     }
-    // ── Pass 1: collect notes per chord region + detect scales ──
-    var chordNotes={};for(var ri=0;ri<regions.length;ri++)chordNotes[ri]=new Set();
+    // ── Pass 1: collect notes per chord region (relative) + absolute PCs ──
+    var chordNotes={};var regionAbsPCs={};var allAbsPCs=new Set();
+    for(var ri=0;ri<regions.length;ri++){chordNotes[ri]=new Set();regionAbsPCs[ri]=new Set();}
     var pos=0;
     for(var ei=0;ei<events.length;ei++){
       var ev=events[ei];
@@ -772,8 +804,16 @@ function analyzeTheory(abcStr){
         var activeIdx=-1;
         for(var ri2=regions.length-1;ri2>=0;ri2--){if(pos>=regions[ri2].start-0.001){activeIdx=ri2;break;}}
         if(activeIdx<0&&regions.length>0)activeIdx=0;
-        if(activeIdx>=0&&regions[activeIdx].parsed){
-          for(var ni=0;ni<ev.tn.length;ni++){
+        for(var ni=0;ni<ev.tn.length;ni++){
+          // Absolute PC
+          var noteName=ev.tn[ni];
+          var nLet=noteName.replace(/\d+/g,"");
+          var absPC=(N2M[nLet[0].toUpperCase()]||0)+(nLet.includes("#")?1:0)+(nLet.includes("b")?-1:0);
+          absPC=((absPC%12)+12)%12;
+          allAbsPCs.add(absPC);
+          if(activeIdx>=0)regionAbsPCs[activeIdx].add(absPC);
+          // Relative interval (for per-chord detection)
+          if(activeIdx>=0&&regions[activeIdx].parsed){
             var semi=getNoteInterval(ev.tn[ni],regions[activeIdx].parsed);
             chordNotes[activeIdx].add(semi);
           }
@@ -781,17 +821,47 @@ function analyzeTheory(abcStr){
       }
       pos+=ev.rL;
     }
+    // ── Detect global scale candidate ──
+    // Determine key PC from ABC
+    var keyPC=0;
+    try{var kMatch=abcStr.match(/K:\s*([A-G][b#]?)/);if(kMatch){var kn=kMatch[1];keyPC=(N2M[kn[0]]||0)+(kn.includes("#")?1:0)+(kn.includes("b")?-1:0);keyPC=((keyPC%12)+12)%12;}}catch(e){}
+    var globalScale=detectGlobalScale(allAbsPCs,keyPC);
+    
+    // ── Per-chord detection with global fallback ──
     var chordScales=[];var regionScaleTones={};
     for(var ri3=0;ri3<regions.length;ri3++){
       var rg=regions[ri3];
-      var scaleName=detectScale(chordNotes[ri3],rg.parsed);
-      chordScales.push({chord:rg.chord,scale:scaleName,noteCount:chordNotes[ri3].size});
-      // Build scale tone set for this region
-      var st=null;
-      if(scaleName){
-        for(var si=0;si<SCALE_DEFS.length;si++){
-          if(SCALE_DEFS[si].name===scaleName){st=new Set(SCALE_DEFS[si].notes);break;}
+      var perChord=detectScale(chordNotes[ri3],rg.parsed);
+      var usedScale=perChord.name;
+      var isGlobal=false;
+      // Try global fallback if per-chord is weak
+      if(globalScale&&regionAbsPCs[ri3].size>0){
+        // Score how well the global scale explains this region's absolute PCs
+        var gMatch=0,gMiss=0;
+        regionAbsPCs[ri3].forEach(function(pc){
+          var rel=((pc-globalScale.rootPC)%12+12)%12;
+          if(globalScale.scaleNotes.has(rel))gMatch++;else gMiss++;
+        });
+        var gScore=gMatch*2-gMiss*3;
+        // Use global if: per-chord is weak (<3) OR global explains better with no misses
+        if((perChord.score<3&&gScore>perChord.score)||(gMiss===0&&gScore>perChord.score*0.8)){
+          usedScale=globalScale.root+" "+globalScale.name;
+          isGlobal=true;
         }
+      }
+      chordScales.push({chord:rg.chord,scale:usedScale,noteCount:chordNotes[ri3].size,isGlobal:isGlobal});
+      var st=null;
+      if(!isGlobal&&perChord.name){
+        for(var si=0;si<SCALE_DEFS.length;si++){
+          if(SCALE_DEFS[si].name===perChord.name){st=new Set(SCALE_DEFS[si].notes);break;}
+        }
+      }else if(isGlobal&&globalScale){
+        // Build scale tones relative to this chord's root for note classification
+        st=new Set();
+        var chordRoot=rg.parsed?rg.parsed.root:0;
+        globalScale.scaleNotes.forEach(function(n){
+          st.add(((n+globalScale.rootPC-chordRoot)%12+12)%12);
+        });
       }
       regionScaleTones[ri3]=st;
     }
@@ -4720,9 +4790,23 @@ function LickDetail({lick,onBack,th,liked,saved,onLike,onSave,showTips,onTipsDon
             theoryAnalysis.chordScales&&theoryAnalysis.chordScales.some(function(cs){return !!cs.scale;})&&React.createElement("span",{style:{width:1,height:14,background:t.border,flexShrink:0}}),
             theoryAnalysis.chordScales&&theoryAnalysis.chordScales.map(function(cs,idx){
               if(!cs.scale)return null;
-              return React.createElement("span",{key:idx,onClick:function(e){e.stopPropagation();var sn=getScaleNotes(cs.chord,cs.scale);if(sn){if(instOff){sn.midis=sn.midis.map(function(m){return m-instOff;});var minM=Math.min.apply(null,sn.midis);if(minM<48){var shift=Math.ceil((48-minM)/12)*12;sn.midis=sn.midis.map(function(m){return m+shift;});}}setScalePopup(sn);}},style:{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 8px",borderRadius:6,fontSize:10,fontFamily:"'JetBrains Mono',monospace",background:isStudio?t.accent+"10":"rgba(99,102,241,0.06)",border:"1px solid "+(isStudio?t.accent+"18":"rgba(99,102,241,0.1)"),cursor:"pointer",transition:"all 0.15s"}},
-                React.createElement("span",{style:{fontWeight:700,color:t.chordFill}},cs.chord),
-                React.createElement("span",{style:{fontWeight:500,color:t.text,opacity:0.75,fontFamily:"'Inter',sans-serif",fontSize:10}},cs.scale));}))),
+              // For global scales: split "C Blues" → root "C", scaleName "Blues"
+              var displayChord=cs.chord;var lookupChord=cs.chord;var lookupScale=cs.scale;
+              if(cs.isGlobal){
+                var gParts=cs.scale.split(" ");
+                lookupChord=gParts[0];// root like "C"
+                lookupScale=gParts.slice(1).join(" ");// "Blues", "Minor Pentatonic"
+                displayChord=cs.chord;// still show original chord
+              }
+              // Merge: skip if same global scale as previous
+              if(cs.isGlobal&&idx>0){var prev=theoryAnalysis.chordScales[idx-1];if(prev&&prev.isGlobal&&prev.scale===cs.scale)return null;}
+              return React.createElement("span",{key:idx,onClick:function(e){e.stopPropagation();var sn=getScaleNotes(lookupChord,lookupScale);if(sn){if(instOff){sn.midis=sn.midis.map(function(m){return m-instOff;});var minM=Math.min.apply(null,sn.midis);if(minM<48){var shift=Math.ceil((48-minM)/12)*12;sn.midis=sn.midis.map(function(m){return m+shift;});}}setScalePopup(sn);}},style:{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 8px",borderRadius:6,fontSize:10,fontFamily:"'JetBrains Mono',monospace",background:cs.isGlobal?(isStudio?"#3B82F610":"rgba(59,130,246,0.06)"):(isStudio?t.accent+"10":"rgba(99,102,241,0.06)"),border:"1px solid "+(cs.isGlobal?(isStudio?"#3B82F618":"rgba(59,130,246,0.1)"):(isStudio?t.accent+"18":"rgba(99,102,241,0.1)")),cursor:"pointer",transition:"all 0.15s"}},
+                cs.isGlobal?React.createElement(React.Fragment,null,
+                  React.createElement("span",{style:{fontWeight:700,color:isStudio?"#3B82F6":"#4F46E5"}},cs.scale),
+                  React.createElement("span",{style:{fontWeight:400,color:t.muted,fontSize:9}},"over "+displayChord))
+                :React.createElement(React.Fragment,null,
+                  React.createElement("span",{style:{fontWeight:700,color:t.chordFill}},cs.chord),
+                  React.createElement("span",{style:{fontWeight:500,color:t.text,opacity:0.75,fontFamily:"'Inter',sans-serif",fontSize:10}},cs.scale)));}))),
         theoryMode&&(!theoryAnalysis||!theoryAnalysis.hasChords)&&React.createElement("div",{style:{marginTop:8,padding:"10px 14px",borderRadius:10,background:isStudio?"#F59E0B15":"#FEF3C7",border:"1px solid "+(isStudio?"#F59E0B30":"#FDE68A")}},
           React.createElement("span",{style:{fontSize:12,color:isStudio?"#FBBF24":"#92400E",fontFamily:"'Inter',sans-serif"}},"No chord symbols found in this lick. Theory mode needs chord annotations (e.g. \"Dm7\") to analyze intervals.")),
         )),
