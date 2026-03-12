@@ -734,11 +734,12 @@ function detectScale(noteSet,chordParsed){
     var ctxBonus=0;
     for(var ci=0;ci<sd.ctx.length;ci++){if(sd.ctx[ci]===chordParsed.quality){ctxBonus=3;break;}}
     // Quality conflict penalty: scale's 3rd/7th contradicts chord
+    // BUT: skip penalty if the musician actually plays the "conflicting" note
     var conflictPenalty=0;
-    if(hasMaj3&&!hasMin3&&scaleSet.has(3)&&!scaleSet.has(4))conflictPenalty+=5;
-    if(hasMin3&&!hasMaj3&&scaleSet.has(4)&&!scaleSet.has(3))conflictPenalty+=5;
-    if(hasb7&&!hasMaj7&&scaleSet.has(11)&&!scaleSet.has(10))conflictPenalty+=4;
-    if(hasMaj7&&!hasb7&&scaleSet.has(10)&&!scaleSet.has(11))conflictPenalty+=4;
+    if(hasMaj3&&!hasMin3&&scaleSet.has(3)&&!scaleSet.has(4)&&!noteSet.has(3))conflictPenalty+=5;
+    if(hasMin3&&!hasMaj3&&scaleSet.has(4)&&!scaleSet.has(3)&&!noteSet.has(4))conflictPenalty+=5;
+    if(hasb7&&!hasMaj7&&scaleSet.has(11)&&!scaleSet.has(10)&&!noteSet.has(11))conflictPenalty+=4;
+    if(hasMaj7&&!hasb7&&scaleSet.has(10)&&!scaleSet.has(11)&&!noteSet.has(10))conflictPenalty+=4;
     var score=matchScore-missScore+ctxBonus-conflictPenalty;
     if(score>bestScore){bestScore=score;best=sd;}
   }
