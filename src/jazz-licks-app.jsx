@@ -843,8 +843,13 @@ function analyzeTheory(abcStr){
           if(globalScale.scaleNotes.has(rel))gMatch++;else gMiss++;
         });
         var gScore=gMatch*2-gMiss*3;
-        // Use global if: per-chord is weak (<3) OR global explains better with no misses
-        if((perChord.score<3&&gScore>perChord.score)||(gMiss===0&&gScore>perChord.score*0.8)){
+        // Use global if:
+        // 1. Per-chord weak AND global better
+        // 2. Global fits this region perfectly AND has strong overall score (>12)
+        // 3. Global fits with 0 misses AND beats 80% of per-chord
+        if((perChord.score<3&&gScore>perChord.score)||
+           (gMiss===0&&globalScale.score>12)||
+           (gMiss===0&&gScore>perChord.score*0.8)){
           usedScale=globalScale.root+" "+globalScale.name;
           isGlobal=true;
         }
@@ -874,13 +879,31 @@ function analyzeTheory(abcStr){
         for(var ri4=regions.length-1;ri4>=0;ri4--){if(pos>=regions[ri4].start-0.001){activeRegion=regions[ri4];aIdx=ri4;break;}}
         if(!activeRegion&&regions.length>0){activeRegion=regions[0];aIdx=0;}
         var entries=[];
+        var csInfo=aIdx>=0?chordScales[aIdx]:null;
+        var useGlobalLabels=csInfo&&csInfo.isGlobal&&globalScale;
         for(var ni2=0;ni2<ev2.tn.length;ni2++){
           var tn=ev2.tn[ni2];
           if(activeRegion&&activeRegion.parsed){
-            var semi2=getNoteInterval(tn,activeRegion.parsed);
-            var label=getIntervalLabel(semi2,activeRegion.parsed);
-            var type=classifyInterval(semi2,activeRegion.parsed,regionScaleTones[aIdx]);
-            entries.push({note:tn,interval:semi2,label:label,type:type,chord:activeRegion.chord});
+            if(useGlobalLabels){
+              // Labels relative to global scale root
+              var gQual=(globalScale.name==="Blues"||globalScale.name==="Minor Pentatonic"||globalScale.name==="Dorian"||globalScale.name==="Aeolian")?"m7":"";
+              var globalParsed={root:globalScale.rootPC,quality:gQual,chordTones:new Set(gQual==="m7"?[0,3,7,10]:[0,4,7])};
+              var semi2=getNoteInterval(tn,globalParsed);
+              var label=getIntervalLabel(semi2,globalParsed);
+              // Classify: chord tone of underlying chord, else scale tone vs chromatic
+              var type="chromatic";
+              if(globalScale.scaleNotes.has(((semi2%12)+12)%12))type="tension";
+              if(activeRegion.parsed.chordTones){
+                var chordSemi=getNoteInterval(tn,activeRegion.parsed);
+                if(activeRegion.parsed.chordTones.has(((chordSemi%12)+12)%12))type="chord-tone";
+              }
+              entries.push({note:tn,interval:semi2,label:label,type:type,chord:activeRegion.chord});
+            }else{
+              var semi2=getNoteInterval(tn,activeRegion.parsed);
+              var label=getIntervalLabel(semi2,activeRegion.parsed);
+              var type=classifyInterval(semi2,activeRegion.parsed,regionScaleTones[aIdx]);
+              entries.push({note:tn,interval:semi2,label:label,type:type,chord:activeRegion.chord});
+            }
           }else{
             entries.push({note:tn,interval:null,label:"",type:"unknown",chord:""});
           }
